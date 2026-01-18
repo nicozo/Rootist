@@ -1,7 +1,6 @@
 <script lang="ts">
 	// UIコンポーネントのインポート
 	import { Button } from "$lib/components/ui/button";
-	import * as Item from "$lib/components/ui/item/index.js";
 	// アイコンのインポート
 	import { CompassIcon, SparklesIcon, NavigationIcon, HistoryIcon, ArrowRightIcon } from "@lucide/svelte";
 	// Svelteの状態管理とアニメーションのインポート
