@@ -4,6 +4,7 @@
 FROM node:25-slim AS base
 
 # pnpmのインストール
+# CorepackはNode.js25から同包されないため、手動でインストール
 RUN npm install -g pnpm@10.28.0
 
 # pnpmの設定
@@ -22,7 +23,8 @@ WORKDIR /app
 FROM base AS dependencies
 
 # 依存関係ファイルのみコピー（キャッシュ効率化）
-COPY package.json pnpm-lock.yaml ./
+# Missing Svelte config file in /app — skippingの対応でsvelte.config.js*とvite.config.ts*を追加
+COPY package.json pnpm-lock.yaml svelte.config.js* vite.config.ts* ./
 
 # 開発用も含めて一気にインストール（frozen-lockfile で整合性を担保）
 RUN pnpm install --frozen-lockfile
@@ -67,9 +69,6 @@ CMD ["pnpm", "dev", "--host"]
 # ステージ5: 本番環境（最終イメージ）
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FROM node:25-slim AS production
-
-# pnpmのインストール（本番環境でも必要な場合）
-RUN npm install -g pnpm@10.25.0
 
 # 非rootユーザーの作成（セキュリティ向上）
 RUN groupadd -r appuser && useradd -r -g appuser appuser
