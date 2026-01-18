@@ -90,7 +90,7 @@ services:
       # - --general-log=1 # SQLログを有効化
       # - --general-log-file=/var/lib/mysql/general.log # ログの出力先
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$MYSQL_ROOT_PASSWORD"]
       interval: 5s
       timeout: 3s
       retries: 10
