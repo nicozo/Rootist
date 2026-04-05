@@ -7,13 +7,8 @@
 	import { MapPin, Navigation, Trash2, Sparkles } from "@lucide/svelte";
 	import { fly, slide } from "svelte/transition";
 
-	interface NominatimResult {
-		place_id: number;
-		display_name: string;
-	}
-
 	interface Suggestion {
-		placeId: number;
+		placeId: string;
 		name: string;
 		displayAddress: string;
 	}
@@ -27,13 +22,6 @@
 	let activeIndex = $state(-1);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-	function parseSuggestion(result: NominatimResult): Suggestion {
-		const parts = result.display_name.split(", ");
-		const name = parts[0];
-		const displayAddress = parts.slice(1).join(", ");
-		return { placeId: result.place_id, name, displayAddress };
-	}
-
 	async function searchAddress(query: string) {
 		if (query.trim().length < 2) {
 			suggestions = [];
@@ -42,16 +30,13 @@
 		}
 		isLoading = true;
 		try {
-			const url = new URL("https://nominatim.openstreetmap.org/search");
-			url.searchParams.set("q", query);
-			url.searchParams.set("format", "json");
-			url.searchParams.set("addressdetails", "1");
-			url.searchParams.set("accept-language", "ja");
-			url.searchParams.set("limit", "5");
-
-			const res = await fetch(url.toString());
-			const data: NominatimResult[] = await res.json();
-			suggestions = data.map(parseSuggestion);
+			const res = await fetch("/api/places", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ query })
+			});
+			const { suggestions: data } = await res.json();
+			suggestions = data;
 			isOpen = suggestions.length > 0;
 			activeIndex = -1;
 		} catch {
