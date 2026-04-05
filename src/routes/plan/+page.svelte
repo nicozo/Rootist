@@ -129,7 +129,7 @@
 			</div>
 			<div>
 				<h1 class="text-2xl font-bold text-primary">ルート作成</h1>
-				<p class="text-xs text-muted-foreground font-medium">行きたい場所を順番に入力してください</p>
+				<p class="text-xs text-muted-foreground font-medium">行きたい場所を入力してください</p>
 			</div>
 		</header>
 
