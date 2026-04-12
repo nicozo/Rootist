@@ -10,6 +10,7 @@ export interface RouteDestination {
 }
 
 export interface RouteResult {
+	origin?: { name: string; displayAddress: string };
 	destinations: RouteDestination[];
 	summary: string;
 }

@@ -5,7 +5,7 @@
 	import { Label } from "$lib/components/ui/label";
 	import { Card } from "$lib/components/ui/card";
 	import { Badge } from "$lib/components/ui/badge";
-	import { MapPin, Navigation, Trash2, Sparkles } from "@lucide/svelte";
+	import { MapPin, Navigation, Trash2, Sparkles, Home, X } from "@lucide/svelte";
 	import { fly, slide } from "svelte/transition";
 	import { routeResult } from "$lib/stores/route";
 
@@ -14,6 +14,15 @@
 		name: string;
 		displayAddress: string;
 	}
+
+	// 出発地
+	let origin = $state<{ name: string; displayAddress: string } | null>(null);
+	let originInput = $state("");
+	let originSuggestions = $state<Suggestion[]>([]);
+	let isOriginLoading = $state(false);
+	let isOriginOpen = $state(false);
+	let originActiveIndex = $state(-1);
+	let originDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// 目的地のリスト状態管理
 	let locations = $state<{ id: string; address: string; displayAddress?: string }[]>([]);
@@ -25,6 +34,68 @@
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let isGenerating = $state(false);
 
+	async function searchPlaces(query: string): Promise<Suggestion[]> {
+		const res = await fetch("/api/places", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ query })
+		});
+		const { suggestions: data } = await res.json();
+		return data;
+	}
+
+	function handleOriginInput() {
+		if (originDebounceTimer) clearTimeout(originDebounceTimer);
+		originDebounceTimer = setTimeout(async () => {
+			if (originInput.trim().length < 2) {
+				originSuggestions = [];
+				isOriginOpen = false;
+				return;
+			}
+			isOriginLoading = true;
+			try {
+				originSuggestions = await searchPlaces(originInput);
+				isOriginOpen = originSuggestions.length > 0;
+				originActiveIndex = -1;
+			} catch {
+				originSuggestions = [];
+				isOriginOpen = false;
+			} finally {
+				isOriginLoading = false;
+			}
+		}, 350);
+	}
+
+	function selectOriginSuggestion(suggestion: Suggestion) {
+		origin = { name: suggestion.name, displayAddress: suggestion.displayAddress };
+		originInput = "";
+		originSuggestions = [];
+		isOriginOpen = false;
+		originActiveIndex = -1;
+	}
+
+	function handleOriginKeydown(e: KeyboardEvent) {
+		if (!isOriginOpen) return;
+		switch (e.key) {
+			case "ArrowDown":
+				e.preventDefault();
+				originActiveIndex = Math.min(originActiveIndex + 1, originSuggestions.length - 1);
+				break;
+			case "ArrowUp":
+				e.preventDefault();
+				originActiveIndex = Math.max(originActiveIndex - 1, -1);
+				break;
+			case "Enter":
+				e.preventDefault();
+				if (originActiveIndex >= 0) selectOriginSuggestion(originSuggestions[originActiveIndex]);
+				break;
+			case "Escape":
+				isOriginOpen = false;
+				originActiveIndex = -1;
+				break;
+		}
+	}
+
 	async function searchAddress(query: string) {
 		if (query.trim().length < 2) {
 			suggestions = [];
@@ -33,13 +104,7 @@
 		}
 		isLoading = true;
 		try {
-			const res = await fetch("/api/places", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ query })
-			});
-			const { suggestions: data } = await res.json();
-			suggestions = data;
+			suggestions = await searchPlaces(query);
 			isOpen = suggestions.length > 0;
 			activeIndex = -1;
 		} catch {
@@ -80,6 +145,7 @@
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
+					origin: origin ?? undefined,
 					locations: locations.map((l) => ({
 						name: l.address,
 						displayAddress: l.displayAddress ?? ""
@@ -128,6 +194,71 @@
 				<p class="text-xs text-muted-foreground font-medium">行きたい場所を入力してください</p>
 			</div>
 		</header>
+
+		<section class="space-y-2">
+			<Label class="text-sm font-bold text-primary ml-1">出発地（任意）</Label>
+			{#if origin}
+				<div in:fly={{ x: -10, duration: 300 }}>
+					<Card class="p-3 shadow-sm border-accent/20 bg-accent/5">
+						<div class="flex items-center justify-between gap-4">
+							<div class="flex items-center gap-3 min-w-0">
+								<div class="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-accent/20 text-accent">
+									<Home class="w-3 h-3" />
+								</div>
+								<div class="flex flex-col min-w-0">
+									<span class="text-sm font-medium break-words">{origin.name}</span>
+									<span class="text-xs text-muted-foreground break-words">{origin.displayAddress}</span>
+								</div>
+							</div>
+							<Button
+								variant="ghost"
+								size="icon"
+								onclick={() => { origin = null; }}
+								class="flex-shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+							>
+								<X class="w-4 h-4" />
+							</Button>
+						</div>
+					</Card>
+				</div>
+			{:else}
+				<div class="relative w-full">
+					<Home class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+					{#if isOriginLoading}
+						<div class="absolute right-3 top-1/2 -translate-y-1/2 z-10">
+							<div class="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin"></div>
+						</div>
+					{/if}
+					<Input
+						placeholder="例：東京駅、自宅の最寄り駅..."
+						bind:value={originInput}
+						oninput={handleOriginInput}
+						onkeydown={handleOriginKeydown}
+						onblur={() => { isOriginOpen = false; originActiveIndex = -1; }}
+						autocomplete="off"
+						class="pl-10 py-6 border-primary/10 focus-visible:ring-accent rounded-xl bg-card shadow-sm"
+					/>
+					{#if isOriginOpen && originSuggestions.length > 0}
+						<div
+							onmousedown={(e) => e.preventDefault()}
+							class="absolute top-full left-0 right-0 z-50 mt-1 rounded-xl border border-border bg-card shadow-lg overflow-hidden"
+							in:fly={{ y: -4, duration: 150 }}
+						>
+							{#each originSuggestions as suggestion, i (suggestion.placeId)}
+								<button
+									type="button"
+									onclick={() => selectOriginSuggestion(suggestion)}
+									class="w-full text-left px-4 py-3 transition-colors flex flex-col gap-0.5 {originActiveIndex === i ? 'bg-accent/50' : 'hover:bg-muted/50'}"
+								>
+									<span class="text-sm font-medium text-primary truncate">{suggestion.name}</span>
+									<span class="text-xs text-muted-foreground truncate">{suggestion.displayAddress}</span>
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</section>
 
 		<section class="space-y-4">
 			<div class="grid gap-2">

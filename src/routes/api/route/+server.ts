@@ -8,19 +8,20 @@ interface Location {
 }
 
 export const POST: RequestHandler = async ({ request }) => {
-	const { locations }: { locations: Location[] } = await request.json();
+	const { locations, origin }: { locations: Location[]; origin?: Location } = await request.json();
 
 	if (!locations || locations.length < 2) {
 		error(400, "2件以上の目的地が必要です");
 	}
 
+	const originLine = origin ? `出発地: ${origin.name}（${origin.displayAddress}）\n` : "";
 	const locationList = locations
 		.map((l, i) => `${i + 1}. ${l.name}（${l.displayAddress}）`)
 		.join("\n");
 
 	const prompt = `あなたは旅行プランナーです。以下の目的地を1日で効率よく巡る最適ルートと時刻スケジュールを生成してください。移動時間も考慮して、現実的なスケジュールを組んでください。
 
-目的地:
+${originLine}目的地:
 ${locationList}
 
 以下のJSON形式のみで回答してください:
@@ -66,5 +67,5 @@ ${locationList}
 		error(500, "ルート生成に失敗しました");
 	}
 
-	return json(routeData);
+	return json({ ...routeData, origin });
 };

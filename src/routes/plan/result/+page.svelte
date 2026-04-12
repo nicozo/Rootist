@@ -3,7 +3,7 @@
 	import { routeResult } from "$lib/stores/route";
 	import { Button } from "$lib/components/ui/button";
 	import { Card } from "$lib/components/ui/card";
-	import { MapPin, Navigation, Clock, RotateCcw, ChevronDown } from "@lucide/svelte";
+	import { MapPin, Navigation, Clock, RotateCcw, ChevronDown, Home } from "@lucide/svelte";
 	import { fly, fade } from "svelte/transition";
 	import { onMount } from "svelte";
 
@@ -34,6 +34,28 @@
 			</div>
 
 			<div class="space-y-2">
+				{#if result.origin}
+					<div in:fly={{ x: -10, duration: 400, delay: 150 }}>
+						<div class="flex gap-3 items-stretch">
+							<div class="flex flex-col items-center">
+								<div class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-accent/20 text-accent">
+									<Home class="w-4 h-4" />
+								</div>
+								<div class="w-0.5 flex-1 bg-primary/20 my-1"></div>
+								<ChevronDown class="w-4 h-4 text-primary/30" />
+							</div>
+							<Card class="flex-1 p-4 mb-3 shadow-sm border-accent/20 bg-accent/5">
+								<p class="text-xs font-medium text-accent mb-0.5">出発地</p>
+								<p class="font-semibold text-primary">{result.origin.name}</p>
+								<p class="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+									<MapPin class="w-3 h-3 flex-shrink-0" />
+									{result.origin.displayAddress}
+								</p>
+							</Card>
+						</div>
+					</div>
+				{/if}
+
 				{#each result.destinations as dest, i (dest.order)}
 					<div in:fly={{ x: -10, duration: 400, delay: 150 + i * 80 }}>
 						<div class="flex gap-3 items-stretch">
