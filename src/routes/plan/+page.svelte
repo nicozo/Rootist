@@ -15,6 +15,15 @@
 		displayAddress: string;
 	}
 
+	type TransportMode = "transit" | "car" | "walking" | "";
+	const transportOptions: { value: TransportMode; label: string }[] = [
+		{ value: "", label: "未選択" },
+		{ value: "transit", label: "電車・公共交通" },
+		{ value: "car", label: "車" },
+		{ value: "walking", label: "徒歩" }
+	];
+	let transportMode = $state<TransportMode>("");
+
 	// 出発地
 	let origin = $state<{ name: string; displayAddress: string } | null>(null);
 	let originInput = $state("");
@@ -146,6 +155,7 @@
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					origin: origin ?? undefined,
+					transportMode: transportMode || undefined,
 					locations: locations.map((l) => ({
 						name: l.address,
 						displayAddress: l.displayAddress ?? ""
@@ -258,6 +268,19 @@
 					{/if}
 				</div>
 			{/if}
+		</section>
+
+		<section class="space-y-2">
+			<Label for="transport" class="text-sm font-bold text-primary ml-1">移動手段（任意）</Label>
+			<select
+				id="transport"
+				bind:value={transportMode}
+				class="w-full h-9 rounded-xl border border-primary/10 bg-card px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-accent text-foreground"
+			>
+				{#each transportOptions as opt (opt.value)}
+					<option value={opt.value}>{opt.label}</option>
+				{/each}
+			</select>
 		</section>
 
 		<section class="space-y-4">

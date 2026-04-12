@@ -7,10 +7,12 @@ export interface RouteDestination {
 	arrivalTime: string;
 	departureTime: string;
 	description: string;
+	travelTimeFromPrevious: string | null;
 }
 
 export interface RouteResult {
 	origin?: { name: string; displayAddress: string };
+	transportMode?: string;
 	destinations: RouteDestination[];
 	summary: string;
 }

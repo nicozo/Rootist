@@ -3,7 +3,7 @@
 	import { routeResult } from "$lib/stores/route";
 	import { Button } from "$lib/components/ui/button";
 	import { Card } from "$lib/components/ui/card";
-	import { MapPin, Navigation, Clock, RotateCcw, ChevronDown, Home } from "@lucide/svelte";
+	import { MapPin, Navigation, Clock, RotateCcw, ChevronDown, Home, TrainFront, Car, Footprints } from "@lucide/svelte";
 	import { fly, fade } from "svelte/transition";
 	import { onMount } from "svelte";
 
@@ -28,7 +28,18 @@
 			</header>
 
 			<div in:fly={{ y: 10, duration: 500, delay: 100 }}>
-				<Card class="p-4 bg-accent/10 border-accent/20">
+				<Card class="p-4 bg-accent/10 border-accent/20 space-y-2">
+					{#if result.transportMode}
+						<p class="text-xs font-medium text-accent flex items-center gap-1">
+							{#if result.transportMode === "transit"}
+								<TrainFront class="w-3 h-3" /> 電車・公共交通
+							{:else if result.transportMode === "car"}
+								<Car class="w-3 h-3" /> 車
+							{:else if result.transportMode === "walking"}
+								<Footprints class="w-3 h-3" /> 徒歩
+							{/if}
+						</p>
+					{/if}
 					<p class="text-sm text-primary leading-relaxed">{result.summary}</p>
 				</Card>
 			</div>
@@ -58,6 +69,16 @@
 
 				{#each result.destinations as dest, i (dest.order)}
 					<div in:fly={{ x: -10, duration: 400, delay: 150 + i * 80 }}>
+						{#if dest.travelTimeFromPrevious}
+							<div class="flex gap-3 items-center mb-2 ml-2">
+								<div class="flex flex-col items-center w-4">
+									<div class="w-0.5 h-3 bg-primary/20"></div>
+								</div>
+								<span class="text-xs text-muted-foreground bg-muted/50 rounded-full px-3 py-1">
+									{dest.travelTimeFromPrevious}
+								</span>
+							</div>
+						{/if}
 						<div class="flex gap-3 items-stretch">
 							<div class="flex flex-col items-center">
 								<div class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary text-background text-sm font-black">
