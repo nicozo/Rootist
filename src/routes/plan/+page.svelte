@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
 	import { Label } from "$lib/components/ui/label";
@@ -6,6 +7,7 @@
 	import { Badge } from "$lib/components/ui/badge";
 	import { MapPin, Navigation, Trash2, Sparkles } from "@lucide/svelte";
 	import { fly, slide } from "svelte/transition";
+	import { routeResult } from "$lib/stores/route";
 
 	interface Suggestion {
 		placeId: string;
@@ -21,6 +23,7 @@
 	let isOpen = $state(false);
 	let activeIndex = $state(-1);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let isGenerating = $state(false);
 
 	async function searchAddress(query: string) {
 		if (query.trim().length < 2) {
@@ -66,21 +69,29 @@
 		activeIndex = -1;
 	}
 
-	function addLocation() {
-		if (currentAddress.trim()) {
-			locations.push({
-				id: crypto.randomUUID(),
-				address: currentAddress.trim()
-			});
-			currentAddress = "";
-			suggestions = [];
-			isOpen = false;
-			activeIndex = -1;
-		}
-	}
-
 	function removeLocation(id: string) {
 		locations = locations.filter(loc => loc.id !== id);
+	}
+
+	async function generateRoute() {
+		isGenerating = true;
+		try {
+			const res = await fetch("/api/route", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					locations: locations.map((l) => ({
+						name: l.address,
+						displayAddress: l.displayAddress ?? ""
+					}))
+				})
+			});
+			const data = await res.json();
+			routeResult.set(data);
+			goto("/plan/result");
+		} finally {
+			isGenerating = false;
+		}
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -212,10 +223,19 @@
 
 		{#if locations.length >= 2}
 			<div class="pt-4" in:fly={{ y: 20, duration: 600 }}>
-				<Button class="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-8 rounded-2xl text-lg font-bold shadow-xl shadow-accent/20 group">
-					<Sparkles class="w-5 h-5 mr-2 animate-pulse" />
-					最短ルートを自動生成する
-					<Navigation class="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform rotate-90" />
+				<Button
+					onclick={generateRoute}
+					disabled={isGenerating}
+					class="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-8 rounded-2xl text-lg font-bold shadow-xl shadow-accent/20 group disabled:opacity-70 disabled:cursor-not-allowed"
+				>
+					{#if isGenerating}
+						<div class="w-5 h-5 mr-2 rounded-full border-2 border-accent-foreground/30 border-t-accent-foreground animate-spin"></div>
+						生成中...
+					{:else}
+						<Sparkles class="w-5 h-5 mr-2 animate-pulse" />
+						最短ルートを自動生成する
+						<Navigation class="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform rotate-90" />
+					{/if}
 				</Button>
 			</div>
 		{/if}

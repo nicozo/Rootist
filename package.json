@@ -70,6 +70,7 @@
 		"vitest-browser-svelte": "^2.0.1"
 	},
 	"dependencies": {
+		"@google/generative-ai": "^0.24.1",
 		"@node-rs/argon2": "^2.0.2",
 		"mysql2": "^3.16.0"
 	}
