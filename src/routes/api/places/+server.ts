@@ -2,8 +2,21 @@ import { json, error } from "@sveltejs/kit";
 import { env } from "$env/dynamic/private";
 import type { RequestHandler } from "./$types";
 
+const EXCLUDED_TYPES = new Set([
+	"administrative_area_level_1",
+	"administrative_area_level_2",
+	"locality",
+	"sublocality",
+	"sublocality_level_1",
+	"country",
+	"postal_code",
+	"route",
+	"political"
+]);
+
 interface PlacePrediction {
 	placeId: string;
+	types?: string[];
 	structuredFormat: {
 		mainText: { text: string };
 		secondaryText: { text: string };
@@ -27,7 +40,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			"Content-Type": "application/json",
 			"X-Goog-Api-Key": env.GOOGLE_MAPS_API_KEY
 		},
-		body: JSON.stringify({ input: query, languageCode: "ja" })
+		body: JSON.stringify({ input: query, languageCode: "ja", includedPrimaryTypes: ["establishment"] })
 	});
 
 	if (!res.ok) {
@@ -36,11 +49,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	const data: AutocompleteResponse = await res.json();
 
-	const suggestions = (data.suggestions ?? []).map(({ placePrediction: p }) => ({
-		placeId: p.placeId,
-		name: p.structuredFormat.mainText.text,
-		displayAddress: p.structuredFormat.secondaryText.text
-	}));
+	const suggestions = (data.suggestions ?? [])
+		.filter(({ placePrediction: p }) => !p.types?.some((t) => EXCLUDED_TYPES.has(t)))
+		.map(({ placePrediction: p }) => ({
+			placeId: p.placeId,
+			name: p.structuredFormat.mainText.text,
+			displayAddress: p.structuredFormat.secondaryText.text
+		}));
 
 	return json({ suggestions });
 };
