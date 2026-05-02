@@ -240,7 +240,7 @@
 						</div>
 					{/if}
 					<Input
-						placeholder="例：東京駅、自宅の最寄り駅..."
+						placeholder="例：東京駅..."
 						bind:value={originInput}
 						oninput={handleOriginInput}
 						onkeydown={handleOriginKeydown}
