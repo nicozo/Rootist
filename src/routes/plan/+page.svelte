@@ -42,6 +42,7 @@
 	let activeIndex = $state(-1);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let isGenerating = $state(false);
+	let generateError = $state<string | null>(null);
 
 	async function searchPlaces(query: string): Promise<Suggestion[]> {
 		const res = await fetch("/api/places", {
@@ -149,6 +150,7 @@
 
 	async function generateRoute() {
 		isGenerating = true;
+		generateError = null;
 		try {
 			const res = await fetch("/api/route", {
 				method: "POST",
@@ -162,9 +164,15 @@
 					}))
 				})
 			});
+			if (!res.ok) {
+				generateError = "ルート生成に失敗しました。もう一度お試しください。";
+				return;
+			}
 			const data = await res.json();
 			routeResult.set(data);
 			goto("/plan/result");
+		} catch {
+			generateError = "通信エラーが発生しました。もう一度お試しください。";
 		} finally {
 			isGenerating = false;
 		}
@@ -392,6 +400,9 @@
 						<Navigation class="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform rotate-90" />
 					{/if}
 				</Button>
+			{#if generateError}
+				<p class="text-xs text-destructive text-center mt-2">{generateError}</p>
+			{/if}
 			</div>
 		{/if}
 	</div>
