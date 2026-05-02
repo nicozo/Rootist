@@ -40,10 +40,12 @@ export const POST: RequestHandler = async ({ request }) => {
 			"Content-Type": "application/json",
 			"X-Goog-Api-Key": env.GOOGLE_MAPS_API_KEY
 		},
-		body: JSON.stringify({ input: query, languageCode: "ja", includedPrimaryTypes: ["establishment"] })
+		body: JSON.stringify({ input: query, languageCode: "ja" })
 	});
 
 	if (!res.ok) {
+		const errBody = await res.text();
+		console.error("[Places API] error:", res.status, errBody);
 		error(502, "Places API request failed");
 	}
 

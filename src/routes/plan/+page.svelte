@@ -286,6 +286,7 @@
 		<section class="space-y-4">
 			<div class="grid gap-2">
 				<Label for="address" class="text-sm font-bold text-primary ml-1">目的地を追加</Label>
+				<p class="text-xs text-muted-foreground ml-1">同じ都道府県内のスポットを入力してください</p>
 				<div class="flex gap-2">
 					<div class="relative w-full">
 						<MapPin class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
