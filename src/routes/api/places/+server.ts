@@ -1,17 +1,17 @@
-import { json, error } from "@sveltejs/kit";
-import { env } from "$env/dynamic/private";
-import type { RequestHandler } from "./$types";
+import { json, error } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
+import type { RequestHandler } from './$types';
 
 const EXCLUDED_TYPES = new Set([
-	"administrative_area_level_1",
-	"administrative_area_level_2",
-	"locality",
-	"sublocality",
-	"sublocality_level_1",
-	"country",
-	"postal_code",
-	"route",
-	"political"
+	'administrative_area_level_1',
+	'administrative_area_level_2',
+	'locality',
+	'sublocality',
+	'sublocality_level_1',
+	'country',
+	'postal_code',
+	'route',
+	'political'
 ]);
 
 interface PlacePrediction {
@@ -34,19 +34,19 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ suggestions: [] });
 	}
 
-	const res = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
-		method: "POST",
+	const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+		method: 'POST',
 		headers: {
-			"Content-Type": "application/json",
-			"X-Goog-Api-Key": env.GOOGLE_MAPS_API_KEY
+			'Content-Type': 'application/json',
+			'X-Goog-Api-Key': env.GOOGLE_MAPS_API_KEY
 		},
-		body: JSON.stringify({ input: query, languageCode: "ja" })
+		body: JSON.stringify({ input: query, languageCode: 'ja' })
 	});
 
 	if (!res.ok) {
 		const errBody = await res.text();
-		console.error("[Places API] error:", res.status, errBody);
-		error(502, "Places API request failed");
+		console.error('[Places API] error:', res.status, errBody);
+		error(502, 'Places API request failed');
 	}
 
 	const data: AutocompleteResponse = await res.json();

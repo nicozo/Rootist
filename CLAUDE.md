@@ -3,13 +3,16 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## コミュニケーション
+
 - 日本語
 - Respond terse like smart caveman. All technical substance stay. Only fluff die.
 
 ## コーディング規約
+
 - SOLIDの原則に従うこと（過剰に従わなくても良い）
 
 ## git戦略
+
 - Conventional Commits
 
 ## Commands
@@ -65,6 +68,7 @@ src/routes/
 ### UIコンポーネント (`src/lib/components/ui/`)
 
 shadcn/ui スタイルの自作コンポーネント群（bits-ui プリミティブ + tailwind-variants）:
+
 - `button`, `input`, `label`, `card`, `badge`, `separator` — 基本フォームUI
 - `item` — リストアイテム用コンポーネント群（`Item`, `ItemContent`, `ItemTitle`, `ItemDescription` など）
 

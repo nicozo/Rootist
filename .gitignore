@@ -26,3 +26,7 @@ vite.config.ts.timestamp-*
 
 *storybook.log
 storybook-static
+
+# Claude Code local
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
