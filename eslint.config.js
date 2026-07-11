@@ -1,4 +1,5 @@
 // For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import storybook from 'eslint-plugin-storybook';
 
 import prettier from 'eslint-config-prettier';
@@ -39,6 +40,14 @@ export default defineConfig(
 				parser: ts.parser,
 				svelteConfig
 			}
+		}
+	},
+	{
+		// button.svelte is a generic UI primitive that accepts external href props —
+		// it cannot use resolve() because the caller determines the path.
+		files: ['src/lib/components/ui/button/button.svelte'],
+		rules: {
+			'svelte/no-navigation-without-resolve': 'off'
 		}
 	}
 );

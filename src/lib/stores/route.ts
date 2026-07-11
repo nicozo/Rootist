@@ -1,4 +1,4 @@
-import { writable } from "svelte/store";
+import { writable } from 'svelte/store';
 
 export interface RouteDestination {
 	order: number;
@@ -8,11 +8,14 @@ export interface RouteDestination {
 	departureTime: string;
 	description: string;
 	travelTimeFromPrevious: string | null;
+	transitRoute?: string | null;
 }
 
 export interface RouteResult {
 	origin?: { name: string; displayAddress: string };
-	transportMode?: string;
+	transportMode?: string | null;
+	startTime?: string | null;
+	endDestination?: { name: string; displayAddress: string } | null;
 	destinations: RouteDestination[];
 	summary: string;
 }
