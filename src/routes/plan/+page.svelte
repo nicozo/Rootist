@@ -224,6 +224,7 @@
 							type="single"
 							variant="outline"
 							bind:value={transportMode}
+							aria-label="移動手段"
 							class="w-full"
 						>
 							<ToggleGroup.Item
