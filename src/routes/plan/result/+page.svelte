@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { routeResult } from '$lib/stores/route';
 	import { Button } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
 	import * as Card from '$lib/components/ui/card';
 	import {
 		MapPin,
@@ -18,6 +19,13 @@
 	} from '@lucide/svelte';
 	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
+
+	const timeSlotLabels: Record<string, string> = {
+		morning: '朝',
+		noon: '昼',
+		evening: '夕方',
+		night: '夜'
+	};
 
 	let result = $state($routeResult);
 
@@ -126,10 +134,17 @@
 										{dest.displayAddress}
 									</Card.Description>
 									<Card.Action>
-										<p class="flex items-center gap-1 text-xs font-medium text-accent">
-											<Clock class="size-3" />
-											{dest.arrivalTime} - {dest.departureTime}
-										</p>
+										<div class="flex flex-col items-end gap-1">
+											<p class="flex items-center gap-1 text-xs font-medium text-accent">
+												<Clock class="size-3" />
+												{dest.arrivalTime} - {dest.departureTime}
+											</p>
+											{#if dest.timeSlot && timeSlotLabels[dest.timeSlot]}
+												<Badge variant="outline" class="border-accent/30 text-[10px] text-accent">
+													{timeSlotLabels[dest.timeSlot]}指定
+												</Badge>
+											{/if}
+										</div>
 									</Card.Action>
 								</Card.Header>
 								<Card.Content>

@@ -10,6 +10,7 @@
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import * as Alert from '$lib/components/ui/alert';
+	import * as Select from '$lib/components/ui/select';
 	import PlaceCombobox from '$lib/components/place-combobox.svelte';
 	import TimePicker from '$lib/components/time-picker.svelte';
 	import {
@@ -24,6 +25,7 @@
 		TrainFront,
 		Car,
 		Footprints,
+		Clock,
 		AlertCircleIcon
 	} from '@lucide/svelte';
 	import { fly, slide } from 'svelte/transition';
@@ -45,8 +47,20 @@
 	// 終点
 	let endDestination = $state<{ name: string; displayAddress: string } | null>(null);
 
+	// 時間帯タグ（'' = 指定なし）
+	type TimeSlot = 'morning' | 'noon' | 'evening' | 'night' | '';
+	const timeSlotLabels: Record<TimeSlot, string> = {
+		'': '指定なし',
+		morning: '朝',
+		noon: '昼',
+		evening: '夕方',
+		night: '夜'
+	};
+
 	// 目的地リスト
-	let locations = $state<{ id: string; address: string; displayAddress?: string }[]>([]);
+	let locations = $state<
+		{ id: string; address: string; displayAddress?: string; timeSlot: TimeSlot }[]
+	>([]);
 	let isGenerating = $state(false);
 	let generateError = $state<string | null>(null);
 
@@ -68,7 +82,8 @@
 					endDestination: endDestination ?? undefined,
 					locations: locations.map((l) => ({
 						name: l.address,
-						displayAddress: l.displayAddress ?? ''
+						displayAddress: l.displayAddress ?? '',
+						timeSlot: l.timeSlot || undefined
 					}))
 				})
 			});
@@ -150,7 +165,8 @@
 						locations.push({
 							id: crypto.randomUUID(),
 							address: s.name,
-							displayAddress: s.displayAddress
+							displayAddress: s.displayAddress,
+							timeSlot: ''
 						})}
 				/>
 			</Field.Field>
@@ -189,6 +205,28 @@
 									{#if loc.displayAddress}
 										<Item.ItemDescription>{loc.displayAddress}</Item.ItemDescription>
 									{/if}
+									<Select.Root type="single" bind:value={loc.timeSlot}>
+										<Select.Trigger
+											size="sm"
+											class="mt-1 w-fit gap-1.5 text-xs"
+											aria-label="訪問する時間帯"
+										>
+											<Clock class="size-3.5 text-muted-foreground" />
+											{timeSlotLabels[loc.timeSlot] ?? '指定なし'}
+										</Select.Trigger>
+										<Select.Content>
+											<Select.Group>
+												<Select.GroupHeading>訪問する時間帯</Select.GroupHeading>
+												<Select.Item value="" label="指定なし">指定なし</Select.Item>
+												<Select.Item value="morning" label="朝">朝（6時〜11時ごろ）</Select.Item>
+												<Select.Item value="noon" label="昼">昼（11時〜15時ごろ）</Select.Item>
+												<Select.Item value="evening" label="夕方"
+													>夕方（15時〜18時ごろ）</Select.Item
+												>
+												<Select.Item value="night" label="夜">夜（18時以降）</Select.Item>
+											</Select.Group>
+										</Select.Content>
+									</Select.Root>
 								</Item.ItemContent>
 								<Item.ItemActions>
 									<Button
