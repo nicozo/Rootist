@@ -2,9 +2,12 @@ import { json, error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
+type TimeSlot = 'morning' | 'noon' | 'night';
+
 interface Location {
 	name: string;
 	displayAddress: string;
+	timeSlot?: TimeSlot;
 }
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -25,6 +28,13 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (!locations || locations.length < 2) {
 		error(400, '2件以上の目的地が必要です');
 	}
+
+	// 時間帯: whitelist（4値）以外は undefined として無視（プロンプト汚染防止）
+	const validSlots = new Set<TimeSlot>(['morning', 'noon', 'night']);
+	const normalizedLocations = locations.map((l) => ({
+		...l,
+		timeSlot: l.timeSlot && validSlots.has(l.timeSlot) ? l.timeSlot : undefined
+	}));
 
 	// 出発地: 指定時のみ注入（省略方式）
 	const originLine = origin
@@ -56,13 +66,32 @@ export const POST: RequestHandler = async ({ request }) => {
 			`※ 終点は訪問スポットではなく最終到達点であること。最後の目的地から終点への移動も行程（移動時間）に含めること。終点は destinations 配列に含めないこと。\n`
 		: '';
 
-	const locationList = locations
-		.map((l, i) => `${i + 1}. ${l.name}（${l.displayAddress}）`)
+	// 時間帯: 1件以上指定がある場合のみ制約セクションを注入（省略方式）
+	const slotJa: Record<TimeSlot, string> = {
+		morning: '朝（6:00〜10:59）',
+		noon: '昼（11:00〜16:59）',
+		night: '晩（17:00以降）'
+	};
+	const hasTimeSlot = normalizedLocations.some((l) => l.timeSlot);
+	const timeSlotLine = hasTimeSlot
+		? `時間帯の希望:\n` +
+			`※ 【希望時間帯】が付いた目的地は、必ずその時間帯内に滞在（arrivalTime〜departureTime の大部分）が収まるように訪問順序とスケジュールを組むこと。距離的に遠回りになっても時間帯の希望を優先すること。\n` +
+			`※ 時間帯の定義: 朝=6:00〜10:59 / 昼=11:00〜16:59 / 晩=17:00以降。\n` +
+			`※ 希望時間帯の指定がない目的地は、移動距離・移動時間が最短になるよう自由に配置してよい。\n` +
+			`※ 開始時間の制約により希望時間帯を完全には満たせない場合（例: 開始が15:00なのに「朝」指定がある等）は、開始時間を優先しつつ可能な限り希望時間帯に近い時刻に配置し、summary でその旨に触れること。\n`
+		: '';
+
+	const locationList = normalizedLocations
+		.map(
+			(l, i) =>
+				`${i + 1}. ${l.name}（${l.displayAddress}）` +
+				(l.timeSlot ? `【希望時間帯: ${slotJa[l.timeSlot]}】` : '')
+		)
 		.join('\n');
 
 	const prompt = `あなたは旅行プランナーです。以下の目的地を1日で効率よく巡る最適ルートと時刻スケジュールを生成してください。移動時間・路線も考慮して、現実的なスケジュールを組んでください。
 
-${originLine}${transportLine}${startTimeLine}${endDestinationLine}目的地:
+${originLine}${transportLine}${startTimeLine}${endDestinationLine}${timeSlotLine}目的地:
 ${locationList}
 
 以下のJSON形式のみで回答してください:
@@ -121,6 +150,20 @@ ${locationList}
 		routeData = JSON.parse(text);
 	} catch {
 		error(500, 'ルート生成に失敗しました');
+	}
+
+	// timeSlot はモデル出力を信頼せず、ユーザー入力を name 一致で権威付与する
+	// （モデルが指定を欠落させたり無指定に捏造値を付けたりしても表示が実入力と一致する）
+	const slotByName = new Map(
+		normalizedLocations.filter((l) => l.timeSlot).map((l) => [l.name, l.timeSlot as TimeSlot])
+	);
+	if (Array.isArray(routeData?.destinations)) {
+		routeData.destinations = routeData.destinations.map(
+			(d: { name?: string; [k: string]: unknown }) => ({
+				...d,
+				timeSlot: slotByName.get(d.name ?? '') ?? null
+			})
+		);
 	}
 
 	return json({

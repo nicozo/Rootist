@@ -24,6 +24,9 @@
 		TrainFront,
 		Car,
 		Footprints,
+		Sunrise,
+		Sun,
+		Moon,
 		AlertCircleIcon
 	} from '@lucide/svelte';
 	import { fly, slide } from 'svelte/transition';
@@ -45,8 +48,18 @@
 	// 終点
 	let endDestination = $state<{ name: string; displayAddress: string } | null>(null);
 
+	// 時間帯タグ（'' = 指定なし）
+	type TimeSlot = 'morning' | 'noon' | 'night' | '';
+	const timeSlotOptions: { value: Exclude<TimeSlot, ''>; label: string; icon: typeof Sunrise }[] = [
+		{ value: 'morning', label: '朝', icon: Sunrise },
+		{ value: 'noon', label: '昼', icon: Sun },
+		{ value: 'night', label: '晩', icon: Moon }
+	];
+
 	// 目的地リスト
-	let locations = $state<{ id: string; address: string; displayAddress?: string }[]>([]);
+	let locations = $state<
+		{ id: string; address: string; displayAddress?: string; timeSlot: TimeSlot }[]
+	>([]);
 	let isGenerating = $state(false);
 	let generateError = $state<string | null>(null);
 
@@ -68,7 +81,8 @@
 					endDestination: endDestination ?? undefined,
 					locations: locations.map((l) => ({
 						name: l.address,
-						displayAddress: l.displayAddress ?? ''
+						displayAddress: l.displayAddress ?? '',
+						timeSlot: l.timeSlot || undefined
 					}))
 				})
 			});
@@ -150,7 +164,8 @@
 						locations.push({
 							id: crypto.randomUUID(),
 							address: s.name,
-							displayAddress: s.displayAddress
+							displayAddress: s.displayAddress,
+							timeSlot: ''
 						})}
 				/>
 			</Field.Field>
@@ -164,6 +179,13 @@
 					{locations.length} 箇所
 				</Badge>
 			</div>
+
+			{#if locations.length > 0}
+				<p class="ml-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+					<Sunrise class="size-3.5 shrink-0" />
+					各スポットの訪問時間帯は任意です。未指定なら最短ルートで自動配置します。
+				</p>
+			{/if}
 
 			{#if locations.length === 0}
 				<Empty.Empty class="border border-dashed">
@@ -189,6 +211,25 @@
 									{#if loc.displayAddress}
 										<Item.ItemDescription>{loc.displayAddress}</Item.ItemDescription>
 									{/if}
+									<ToggleGroup.Root
+										type="single"
+										variant="outline"
+										bind:value={loc.timeSlot}
+										aria-label="訪問する時間帯"
+										class="mt-1 w-fit"
+									>
+										{#each timeSlotOptions as opt (opt.value)}
+											<ToggleGroup.Item
+												value={opt.value}
+												aria-label={opt.label}
+												title={opt.label}
+												class="gap-1 px-2.5 text-xs data-[state=on]:border-accent data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+											>
+												<opt.icon />
+												{opt.label}
+											</ToggleGroup.Item>
+										{/each}
+									</ToggleGroup.Root>
 								</Item.ItemContent>
 								<Item.ItemActions>
 									<Button
