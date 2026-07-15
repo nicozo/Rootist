@@ -106,8 +106,7 @@ ${locationList}
       "departureTime": "10:30",
       "description": "見どころや滞在時のポイント（100文字以内）",
       "travelTimeFromPrevious": "半蔵門線で約19分（押上駅下車）",
-      "transitRoute": "半蔵門線（押上駅下車）",
-      "timeSlot": "morning"
+      "transitRoute": "半蔵門線（押上駅下車）"
     },
     {
       "order": 2,
@@ -117,16 +116,14 @@ ${locationList}
       "departureTime": "12:30",
       "description": "見どころや滞在時のポイント（100文字以内）",
       "travelTimeFromPrevious": "徒歩で約10分",
-      "transitRoute": null,
-      "timeSlot": null
+      "transitRoute": null
     }
   ],
   "summary": "全体の旅程概要（200文字以内）"
 }
 ※ travelTimeFromPrevious は全ての目的地に必ず記載してください。1番目は出発地（または旅の起点）からの移動時間、2番目以降は前の目的地からの移動時間を記載してください。
 ※ 電車・公共交通の場合は「○○線で約X分（△△駅下車）」のように路線名と降車駅を含めてください。徒歩・車の場合は「徒歩で約X分」「車で約X分」の形式で記載してください。
-※ transitRoute は電車・公共交通を利用した区間のみ路線名と降車駅を記載し（例: "半蔵門線（押上駅下車）"）、徒歩・車の場合は null にしてください。移動手段が未指定の場合はモデルが公共交通を選んだ区間にのみ付与してください。実在が不確かな路線・駅名は記載せず省略してください。
-※ timeSlot は入力で【希望時間帯】が指定された目的地にその値（"morning"/"noon"/"evening"/"night"）をそのまま記載し、指定がない目的地は null にしてください。`;
+※ transitRoute は電車・公共交通を利用した区間のみ路線名と降車駅を記載し（例: "半蔵門線（押上駅下車）"）、徒歩・車の場合は null にしてください。移動手段が未指定の場合はモデルが公共交通を選んだ区間にのみ付与してください。実在が不確かな路線・駅名は記載せず省略してください。`;
 
 	const res = await fetch(
 		`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${env.GEMINI_API_KEY}`,
@@ -154,6 +151,20 @@ ${locationList}
 		routeData = JSON.parse(text);
 	} catch {
 		error(500, 'ルート生成に失敗しました');
+	}
+
+	// timeSlot はモデル出力を信頼せず、ユーザー入力を name 一致で権威付与する
+	// （モデルが指定を欠落させたり無指定に捏造値を付けたりしても表示が実入力と一致する）
+	const slotByName = new Map(
+		normalizedLocations.filter((l) => l.timeSlot).map((l) => [l.name, l.timeSlot as TimeSlot])
+	);
+	if (Array.isArray(routeData?.destinations)) {
+		routeData.destinations = routeData.destinations.map(
+			(d: { name?: string; [k: string]: unknown }) => ({
+				...d,
+				timeSlot: slotByName.get(d.name ?? '') ?? null
+			})
+		);
 	}
 
 	return json({

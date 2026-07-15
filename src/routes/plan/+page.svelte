@@ -212,7 +212,7 @@
 											aria-label="訪問する時間帯"
 										>
 											<Clock class="size-3.5 text-muted-foreground" />
-											{timeSlotLabels[loc.timeSlot] ?? '指定なし'}
+											{timeSlotLabels[loc.timeSlot]}
 										</Select.Trigger>
 										<Select.Content>
 											<Select.Group>
