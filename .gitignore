@@ -30,3 +30,7 @@ storybook-static
 # Claude Code local
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# dev-loop（3エージェント開発ループの共有ワークスペース）
+.dev-loop/
+.playwright-mcp/
