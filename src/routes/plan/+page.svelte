@@ -27,6 +27,7 @@
 		Sunrise,
 		Sun,
 		Moon,
+		ArrowLeft,
 		AlertCircleIcon
 	} from '@lucide/svelte';
 	import { fly, slide } from 'svelte/transition';
@@ -62,6 +63,23 @@
 	>([]);
 	let isGenerating = $state(false);
 	let generateError = $state<string | null>(null);
+
+	// あと何件で生成可能か（0 なら生成可能）
+	const remainingToGenerate = $derived(Math.max(0, 2 - locations.length));
+
+	// 詳細設定の設定済みサマリ（折りたたみ中でも状態がわかる）
+	const transportShortLabels: Record<Exclude<TransportMode, ''>, string> = {
+		transit: '電車',
+		car: '車',
+		walking: '徒歩'
+	};
+	const detailSummary = $derived(
+		[
+			transportMode ? transportShortLabels[transportMode] : null,
+			startTime || null,
+			endDestination ? '終点あり' : null
+		].filter((v): v is string => v !== null)
+	);
 
 	function removeLocation(id: string) {
 		locations = locations.filter((loc) => loc.id !== id);
@@ -104,6 +122,15 @@
 <div class="min-h-screen bg-background p-4 md:p-8">
 	<div class="mx-auto flex max-w-2xl flex-col gap-8">
 		<header class="mb-8 flex items-center gap-3" in:fly={{ y: -10, duration: 600 }}>
+			<Button
+				href="/"
+				variant="ghost"
+				size="icon"
+				aria-label="トップに戻る"
+				class="text-muted-foreground hover:text-primary"
+			>
+				<ArrowLeft />
+			</Button>
 			<div class="rounded-xl bg-primary p-2 shadow-lg">
 				<Navigation class="size-6 text-accent" />
 			</div>
@@ -175,9 +202,15 @@
 		<section class="flex flex-col gap-3">
 			<div class="ml-1 flex items-center justify-between">
 				<h2 class="text-sm font-bold text-primary">目的地リスト</h2>
-				<Badge variant="outline" class="border-primary/20 text-[10px] text-primary">
-					{locations.length} 箇所
-				</Badge>
+				{#if locations.length >= 2}
+					<Badge variant="outline" class="border-accent/30 bg-accent/10 text-[10px] text-accent">
+						{locations.length} 箇所 · 生成可能
+					</Badge>
+				{:else}
+					<Badge variant="outline" class="border-primary/20 text-[10px] text-primary">
+						{locations.length} 箇所
+					</Badge>
+				{/if}
 			</div>
 
 			{#if locations.length > 0}
@@ -194,6 +227,9 @@
 							<MapPin />
 						</Empty.EmptyMedia>
 						<Empty.EmptyTitle>まだ目的地がありません</Empty.EmptyTitle>
+						<Empty.EmptyDescription>
+							上の検索から行きたい場所を追加しましょう。2件以上でルートを生成できます。
+						</Empty.EmptyDescription>
 					</Empty.EmptyHeader>
 				</Empty.Empty>
 			{:else}
@@ -255,6 +291,13 @@
 			>
 				<ChevronDown class="size-4 transition-transform duration-200" />
 				詳細設定（任意）
+				{#if !isDetailsOpen && detailSummary.length > 0}
+					<span class="ml-auto flex flex-wrap items-center justify-end gap-1">
+						{#each detailSummary as s (s)}
+							<Badge variant="secondary" class="text-[10px] font-normal">{s}</Badge>
+						{/each}
+					</span>
+				{/if}
 			</Collapsible.Trigger>
 			<Collapsible.Content>
 				<Field.FieldGroup class="pt-3">
@@ -337,32 +380,37 @@
 			</Collapsible.Content>
 		</Collapsible.Root>
 
-		{#if locations.length >= 2}
-			<div in:fly={{ y: 20, duration: 600 }}>
-				<Button
-					onclick={generateRoute}
-					disabled={isGenerating}
-					class="group w-full rounded-2xl bg-accent py-8 text-lg font-bold text-accent-foreground shadow-xl shadow-accent/20 hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-70"
-				>
-					{#if isGenerating}
-						<Spinner data-icon="inline-start" />
-						生成中...
-					{:else}
-						<Sparkles data-icon="inline-start" class="animate-pulse" />
-						最短ルートを自動生成する
-						<Navigation
-							data-icon="inline-end"
-							class="rotate-90 transition-transform group-hover:translate-x-1"
-						/>
-					{/if}
-				</Button>
-				{#if generateError}
-					<Alert.Root variant="destructive" class="mt-2">
-						<AlertCircleIcon />
-						<Alert.Description>{generateError}</Alert.Description>
-					</Alert.Root>
+		<div
+			class="sticky bottom-0 z-10 -mx-4 mt-2 border-t border-border/50 bg-background/90 px-4 pt-3 pb-4 backdrop-blur-sm md:-mx-8 md:px-8"
+		>
+			<Button
+				onclick={generateRoute}
+				disabled={isGenerating || remainingToGenerate > 0}
+				class="group w-full rounded-2xl bg-accent py-7 text-lg font-bold text-accent-foreground shadow-xl shadow-accent/20 hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+			>
+				{#if isGenerating}
+					<Spinner data-icon="inline-start" />
+					生成中...
+				{:else}
+					<Sparkles data-icon="inline-start" class="animate-pulse" />
+					最適ルートを自動生成する
+					<Navigation
+						data-icon="inline-end"
+						class="rotate-90 transition-transform group-hover:translate-x-1"
+					/>
 				{/if}
-			</div>
-		{/if}
+			</Button>
+			{#if remainingToGenerate > 0}
+				<p class="mt-2 text-center text-xs text-muted-foreground">
+					あと {remainingToGenerate} 件の目的地を追加するとルートを生成できます
+				</p>
+			{/if}
+			{#if generateError}
+				<Alert.Root variant="destructive" class="mt-2">
+					<AlertCircleIcon />
+					<Alert.Description>{generateError}</Alert.Description>
+				</Alert.Root>
+			{/if}
+		</div>
 	</div>
 </div>
