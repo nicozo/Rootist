@@ -180,6 +180,13 @@
 				</Badge>
 			</div>
 
+			{#if locations.length > 0}
+				<p class="ml-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+					<Sunrise class="size-3.5 shrink-0" />
+					各スポットの訪問時間帯は任意です。未指定なら最短ルートで自動配置します。
+				</p>
+			{/if}
+
 			{#if locations.length === 0}
 				<Empty.Empty class="border border-dashed">
 					<Empty.EmptyHeader>
