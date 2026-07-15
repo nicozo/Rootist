@@ -23,8 +23,7 @@
 	const timeSlotLabels: Record<string, string> = {
 		morning: '朝',
 		noon: '昼',
-		evening: '夕方',
-		night: '夜'
+		night: '晩'
 	};
 
 	let result = $state($routeResult);

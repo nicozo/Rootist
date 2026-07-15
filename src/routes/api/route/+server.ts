@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
-type TimeSlot = 'morning' | 'noon' | 'evening' | 'night';
+type TimeSlot = 'morning' | 'noon' | 'night';
 
 interface Location {
 	name: string;
@@ -30,7 +30,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	// 時間帯: whitelist（4値）以外は undefined として無視（プロンプト汚染防止）
-	const validSlots = new Set<TimeSlot>(['morning', 'noon', 'evening', 'night']);
+	const validSlots = new Set<TimeSlot>(['morning', 'noon', 'night']);
 	const normalizedLocations = locations.map((l) => ({
 		...l,
 		timeSlot: l.timeSlot && validSlots.has(l.timeSlot) ? l.timeSlot : undefined
@@ -69,15 +69,14 @@ export const POST: RequestHandler = async ({ request }) => {
 	// 時間帯: 1件以上指定がある場合のみ制約セクションを注入（省略方式）
 	const slotJa: Record<TimeSlot, string> = {
 		morning: '朝（6:00〜10:59）',
-		noon: '昼（11:00〜14:59）',
-		evening: '夕方（15:00〜17:59）',
-		night: '夜（18:00以降）'
+		noon: '昼（11:00〜16:59）',
+		night: '晩（17:00以降）'
 	};
 	const hasTimeSlot = normalizedLocations.some((l) => l.timeSlot);
 	const timeSlotLine = hasTimeSlot
 		? `時間帯の希望:\n` +
 			`※ 【希望時間帯】が付いた目的地は、必ずその時間帯内に滞在（arrivalTime〜departureTime の大部分）が収まるように訪問順序とスケジュールを組むこと。距離的に遠回りになっても時間帯の希望を優先すること。\n` +
-			`※ 時間帯の定義: 朝=6:00〜10:59 / 昼=11:00〜14:59 / 夕方=15:00〜17:59 / 夜=18:00以降。\n` +
+			`※ 時間帯の定義: 朝=6:00〜10:59 / 昼=11:00〜16:59 / 晩=17:00以降。\n` +
 			`※ 希望時間帯の指定がない目的地は、移動距離・移動時間が最短になるよう自由に配置してよい。\n` +
 			`※ 開始時間の制約により希望時間帯を完全には満たせない場合（例: 開始が15:00なのに「朝」指定がある等）は、開始時間を優先しつつ可能な限り希望時間帯に近い時刻に配置し、summary でその旨に触れること。\n`
 		: '';

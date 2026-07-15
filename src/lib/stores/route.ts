@@ -9,7 +9,7 @@ export interface RouteDestination {
 	description: string;
 	travelTimeFromPrevious: string | null;
 	transitRoute?: string | null;
-	timeSlot?: 'morning' | 'noon' | 'evening' | 'night' | null;
+	timeSlot?: 'morning' | 'noon' | 'night' | null;
 }
 
 export interface RouteResult {
