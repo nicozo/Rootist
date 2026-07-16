@@ -41,7 +41,7 @@
 					<Navigation class="size-6 text-accent" />
 				</div>
 				<div>
-					<h1 class="text-2xl font-bold text-primary">生成されたルート</h1>
+					<h1 class="text-2xl font-bold text-primary">あなたの1日プラン</h1>
 					<p class="text-xs font-medium text-muted-foreground">最適な訪問順序と1日のスケジュール</p>
 				</div>
 			</header>
@@ -170,7 +170,7 @@
 							</div>
 							<Card.Root class="mb-3 flex-1 border-primary/10 bg-card/80">
 								<Card.Header>
-									<Card.Description>終点</Card.Description>
+									<Card.Description>ゴール</Card.Description>
 									<Card.Title class="text-primary">{result.endDestination.name}</Card.Title>
 									<Card.Description class="flex items-center gap-1">
 										<MapPin class="size-3 shrink-0" />
