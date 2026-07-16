@@ -7,7 +7,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import * as Item from '$lib/components/ui/item';
 	import * as Empty from '$lib/components/ui/empty';
-	import * as Collapsible from '$lib/components/ui/collapsible';
+	import * as Card from '$lib/components/ui/card';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import * as Alert from '$lib/components/ui/alert';
 	import PlaceCombobox from '$lib/components/place-combobox.svelte';
@@ -19,7 +19,7 @@
 		Sparkles,
 		Home,
 		X,
-		ChevronDown,
+		Plus,
 		Flag,
 		TrainFront,
 		Car,
@@ -30,11 +30,8 @@
 		ArrowLeft,
 		AlertCircleIcon
 	} from '@lucide/svelte';
-	import { fly, slide } from 'svelte/transition';
+	import { fly, slide, fade } from 'svelte/transition';
 	import { routeResult } from '$lib/stores/route';
-
-	// 詳細設定の開閉
-	let isDetailsOpen = $state(false);
 
 	// 移動手段
 	type TransportMode = 'transit' | 'car' | 'walking' | '';
@@ -43,11 +40,13 @@
 	// 出発地
 	let origin = $state<{ name: string; displayAddress: string } | null>(null);
 
-	// 開始時間
+	// 出発時刻
 	let startTime = $state('');
 
-	// 終点
+	// ゴール（宿泊先など）
 	let endDestination = $state<{ name: string; displayAddress: string } | null>(null);
+	// ゴール入力欄の展開状態
+	let isGoalOpen = $state(false);
 
 	// 時間帯タグ（'' = 指定なし）
 	type TimeSlot = 'morning' | 'noon' | 'night' | '';
@@ -57,29 +56,15 @@
 		{ value: 'night', label: '晩', icon: Moon }
 	];
 
-	// 目的地リスト
+	// 行きたい場所リスト
 	let locations = $state<
 		{ id: string; address: string; displayAddress?: string; timeSlot: TimeSlot }[]
 	>([]);
 	let isGenerating = $state(false);
 	let generateError = $state<string | null>(null);
 
-	// あと何件で生成可能か（0 なら生成可能）
+	// あと何件でプランを作成できるか（0 なら作成可能）
 	const remainingToGenerate = $derived(Math.max(0, 2 - locations.length));
-
-	// 詳細設定の設定済みサマリ（折りたたみ中でも状態がわかる）
-	const transportShortLabels: Record<Exclude<TransportMode, ''>, string> = {
-		transit: '電車',
-		car: '車',
-		walking: '徒歩'
-	};
-	const detailSummary = $derived(
-		[
-			transportMode ? transportShortLabels[transportMode] : null,
-			startTime || null,
-			endDestination ? '終点あり' : null
-		].filter((v): v is string => v !== null)
-	);
 
 	function removeLocation(id: string) {
 		locations = locations.filter((loc) => loc.id !== id);
@@ -105,7 +90,7 @@
 				})
 			});
 			if (!res.ok) {
-				generateError = 'ルート生成に失敗しました。もう一度お試しください。';
+				generateError = 'プランの作成に失敗しました。もう一度お試しください。';
 				return;
 			}
 			const data = await res.json();
@@ -135,39 +120,46 @@
 				<Navigation class="size-6 text-accent" />
 			</div>
 			<div>
-				<h1 class="text-2xl font-bold text-primary">ルート作成</h1>
-				<p class="text-xs font-medium text-muted-foreground">行きたい場所を入力してください</p>
+				<h1 class="text-2xl font-bold text-primary">旅行プランをつくる</h1>
+				<p class="text-xs font-medium text-muted-foreground">
+					行きたい場所を入れるだけ。順番と時間はAIが決めます
+				</p>
 			</div>
 		</header>
 
-		<Field.FieldGroup>
-			<!-- 出発地（任意） -->
-			<Field.Field>
-				<Field.FieldLabel for="origin">出発地（任意）</Field.FieldLabel>
-				<Field.FieldDescription>
-					設定すると出発地からの移動を含めたプランを作成します
-				</Field.FieldDescription>
+		<!-- 出発カード（任意） -->
+		<Card.Root class="gap-3 border-primary/10 bg-card/50 py-4 shadow-none">
+			<Card.Content class="flex flex-col gap-3 px-4">
+				<div>
+					<p class="text-sm font-bold text-primary">出発（任意）</p>
+					<p class="text-xs text-muted-foreground">設定するとより正確なプランになります</p>
+				</div>
+
+				<!-- 出発地 -->
 				{#if origin}
 					<div in:fly={{ x: -10, duration: 300 }}>
-						<Item.Item variant="outline" size="sm" class="border-accent/20 bg-accent/5">
-							<Item.ItemMedia class="size-6 rounded-full bg-accent/20 text-accent">
-								<Home class="size-3" />
-							</Item.ItemMedia>
-							<Item.ItemContent>
-								<Item.ItemTitle>{origin.name}</Item.ItemTitle>
-								<Item.ItemDescription>{origin.displayAddress}</Item.ItemDescription>
-							</Item.ItemContent>
-							<Item.ItemActions>
-								<Button
-									variant="ghost"
-									size="icon"
-									onclick={() => (origin = null)}
-									class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-								>
-									<X />
-								</Button>
-							</Item.ItemActions>
-						</Item.Item>
+						<Item.ItemGroup>
+							<Item.Item variant="outline" size="sm" class="border-accent/20 bg-accent/5">
+								<Item.ItemMedia class="size-6 rounded-full bg-accent/20 text-accent">
+									<Home class="size-3" />
+								</Item.ItemMedia>
+								<Item.ItemContent>
+									<Item.ItemTitle>{origin.name}</Item.ItemTitle>
+									<Item.ItemDescription>{origin.displayAddress}</Item.ItemDescription>
+								</Item.ItemContent>
+								<Item.ItemActions>
+									<Button
+										variant="ghost"
+										size="icon"
+										aria-label="出発地の選択を解除"
+										onclick={() => (origin = null)}
+										class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+									>
+										<X />
+									</Button>
+								</Item.ItemActions>
+							</Item.Item>
+						</Item.ItemGroup>
 					</div>
 				{:else}
 					<PlaceCombobox
@@ -177,11 +169,68 @@
 						onSelect={(s) => (origin = { name: s.name, displayAddress: s.displayAddress })}
 					/>
 				{/if}
-			</Field.Field>
 
-			<!-- 目的地追加（メイン） -->
+				<!-- 出発時刻・移動手段 -->
+				<div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+					<Field.Field class="sm:w-auto">
+						<Field.FieldLabel for="startTime" class="text-xs">出発時刻</Field.FieldLabel>
+						<TimePicker id="startTime" bind:value={startTime} />
+					</Field.Field>
+
+					<Field.Field class="sm:flex-1">
+						<Field.FieldLabel class="text-xs">移動手段</Field.FieldLabel>
+						<ToggleGroup.Root
+							type="single"
+							variant="outline"
+							bind:value={transportMode}
+							aria-label="移動手段"
+							class="w-fit"
+						>
+							<ToggleGroup.Item
+								value="transit"
+								aria-label="電車・公共交通"
+								class="gap-1 px-2.5 text-xs data-[state=on]:border-accent data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+							>
+								<TrainFront />
+								電車
+							</ToggleGroup.Item>
+							<ToggleGroup.Item
+								value="car"
+								class="gap-1 px-2.5 text-xs data-[state=on]:border-accent data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+							>
+								<Car />
+								車
+							</ToggleGroup.Item>
+							<ToggleGroup.Item
+								value="walking"
+								class="gap-1 px-2.5 text-xs data-[state=on]:border-accent data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+							>
+								<Footprints />
+								徒歩
+							</ToggleGroup.Item>
+						</ToggleGroup.Root>
+					</Field.Field>
+				</div>
+			</Card.Content>
+		</Card.Root>
+
+		<!-- 行きたい場所（主役） -->
+		<section class="flex flex-col gap-3">
+			<div class="ml-1 flex items-center justify-between">
+				<h2 class="text-lg font-bold text-primary">行きたい場所</h2>
+				{#if locations.length >= 2}
+					<Badge variant="outline" class="border-accent/30 bg-accent/10 text-[10px] text-accent">
+						{locations.length} 箇所 · 作成できます
+					</Badge>
+				{:else}
+					<Badge variant="outline" class="border-primary/20 text-[10px] text-primary">
+						{locations.length} 箇所
+					</Badge>
+				{/if}
+			</div>
+
 			<Field.Field>
-				<Field.FieldLabel for="address">目的地を追加</Field.FieldLabel>
+				<Field.FieldLabel for="address">行きたい場所を追加</Field.FieldLabel>
 				<Field.FieldDescription>同じ都道府県内のスポットを入力してください</Field.FieldDescription>
 				<PlaceCombobox
 					id="address"
@@ -196,27 +245,11 @@
 						})}
 				/>
 			</Field.Field>
-		</Field.FieldGroup>
-
-		<!-- 目的地リスト -->
-		<section class="flex flex-col gap-3">
-			<div class="ml-1 flex items-center justify-between">
-				<h2 class="text-sm font-bold text-primary">目的地リスト</h2>
-				{#if locations.length >= 2}
-					<Badge variant="outline" class="border-accent/30 bg-accent/10 text-[10px] text-accent">
-						{locations.length} 箇所 · 生成可能
-					</Badge>
-				{:else}
-					<Badge variant="outline" class="border-primary/20 text-[10px] text-primary">
-						{locations.length} 箇所
-					</Badge>
-				{/if}
-			</div>
 
 			{#if locations.length > 0}
 				<p class="ml-1 flex items-center gap-1.5 text-xs text-muted-foreground">
 					<Sunrise class="size-3.5 shrink-0" />
-					各スポットの訪問時間帯は任意です。未指定なら最短ルートで自動配置します。
+					各スポットの訪問時間帯は任意です。未指定なら最適な順番で自動配置します。
 				</p>
 			{/if}
 
@@ -226,9 +259,9 @@
 						<Empty.EmptyMedia variant="icon">
 							<MapPin />
 						</Empty.EmptyMedia>
-						<Empty.EmptyTitle>まだ目的地がありません</Empty.EmptyTitle>
+						<Empty.EmptyTitle>まだ行きたい場所がありません</Empty.EmptyTitle>
 						<Empty.EmptyDescription>
-							上の検索から行きたい場所を追加しましょう。2件以上でルートを生成できます。
+							上の検索から行きたい場所を追加しましょう。2件以上でプランを作成できます。
 						</Empty.EmptyDescription>
 					</Empty.EmptyHeader>
 				</Empty.Empty>
@@ -284,101 +317,68 @@
 			{/if}
 		</section>
 
-		<!-- 詳細設定（折りたたみ） -->
-		<Collapsible.Root bind:open={isDetailsOpen}>
-			<Collapsible.Trigger
-				class="ml-1 flex w-full items-center gap-2 text-left text-sm font-bold text-primary [&[data-state=open]>svg]:rotate-180"
-			>
-				<ChevronDown class="size-4 transition-transform duration-200" />
-				詳細設定（任意）
-				{#if !isDetailsOpen && detailSummary.length > 0}
-					<span class="ml-auto flex flex-wrap items-center justify-end gap-1">
-						{#each detailSummary as s (s)}
-							<Badge variant="secondary" class="text-[10px] font-normal">{s}</Badge>
-						{/each}
-					</span>
-				{/if}
-			</Collapsible.Trigger>
-			<Collapsible.Content>
-				<Field.FieldGroup class="pt-3">
-					<!-- 移動手段 -->
-					<Field.Field>
-						<Field.FieldLabel>移動手段</Field.FieldLabel>
-						<ToggleGroup.Root
-							type="single"
-							variant="outline"
-							bind:value={transportMode}
-							aria-label="移動手段"
-							class="w-full"
+		<!-- ゴール（宿泊先など） -->
+		<section>
+			{#if endDestination}
+				<div in:fly={{ x: -10, duration: 300 }}>
+					<Item.ItemGroup>
+						<Item.Item variant="outline" size="sm" class="border-primary/10">
+							<Item.ItemMedia class="size-6 rounded-full bg-primary/10 text-primary">
+								<Flag class="size-3" />
+							</Item.ItemMedia>
+							<Item.ItemContent>
+								<Item.ItemTitle>{endDestination.name}</Item.ItemTitle>
+								<Item.ItemDescription>{endDestination.displayAddress}</Item.ItemDescription>
+							</Item.ItemContent>
+							<Item.ItemActions>
+								<Button
+									variant="ghost"
+									size="icon"
+									aria-label="ゴールの選択を解除"
+									onclick={() => (endDestination = null)}
+									class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+								>
+									<X />
+								</Button>
+							</Item.ItemActions>
+						</Item.Item>
+					</Item.ItemGroup>
+				</div>
+			{:else if isGoalOpen}
+				<div class="flex flex-col gap-2" transition:fade={{ duration: 150 }}>
+					<div class="flex items-center justify-between">
+						<Field.FieldLabel for="endDestination">ゴール（宿泊先など）</Field.FieldLabel>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="キャンセル"
+							onclick={() => (isGoalOpen = false)}
+							class="text-muted-foreground"
 						>
-							<ToggleGroup.Item
-								value="transit"
-								class="h-auto flex-1 flex-col gap-1 py-2 text-xs data-[state=on]:border-accent data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
-							>
-								<TrainFront />
-								電車・公共交通
-							</ToggleGroup.Item>
-							<ToggleGroup.Item
-								value="car"
-								class="h-auto flex-1 flex-col gap-1 py-2 text-xs data-[state=on]:border-accent data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
-							>
-								<Car />
-								車
-							</ToggleGroup.Item>
-							<ToggleGroup.Item
-								value="walking"
-								class="h-auto flex-1 flex-col gap-1 py-2 text-xs data-[state=on]:border-accent data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
-							>
-								<Footprints />
-								徒歩
-							</ToggleGroup.Item>
-						</ToggleGroup.Root>
-					</Field.Field>
-
-					<!-- 開始時間 -->
-					<Field.Field>
-						<Field.FieldLabel for="startTime">開始時間</Field.FieldLabel>
-						<TimePicker id="startTime" bind:value={startTime} />
-					</Field.Field>
-
-					<!-- 終点 -->
-					<Field.Field>
-						<Field.FieldLabel for="endDestination">終点（宿泊先など）</Field.FieldLabel>
-						{#if endDestination}
-							<div in:fly={{ x: -10, duration: 300 }}>
-								<Item.Item variant="outline" size="sm" class="border-primary/10">
-									<Item.ItemMedia class="size-6 rounded-full bg-primary/10 text-primary">
-										<Flag class="size-3" />
-									</Item.ItemMedia>
-									<Item.ItemContent>
-										<Item.ItemTitle>{endDestination.name}</Item.ItemTitle>
-										<Item.ItemDescription>{endDestination.displayAddress}</Item.ItemDescription>
-									</Item.ItemContent>
-									<Item.ItemActions>
-										<Button
-											variant="ghost"
-											size="icon"
-											onclick={() => (endDestination = null)}
-											class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-										>
-											<X />
-										</Button>
-									</Item.ItemActions>
-								</Item.Item>
-							</div>
-						{:else}
-							<PlaceCombobox
-								id="endDestination"
-								icon={Flag}
-								placeholder="例：新宿グランドホテル..."
-								onSelect={(s) =>
-									(endDestination = { name: s.name, displayAddress: s.displayAddress })}
-							/>
-						{/if}
-					</Field.Field>
-				</Field.FieldGroup>
-			</Collapsible.Content>
-		</Collapsible.Root>
+							<X />
+						</Button>
+					</div>
+					<PlaceCombobox
+						id="endDestination"
+						icon={Flag}
+						placeholder="例：新宿グランドホテル..."
+						onSelect={(s) => {
+							endDestination = { name: s.name, displayAddress: s.displayAddress };
+							isGoalOpen = false;
+						}}
+					/>
+				</div>
+			{:else}
+				<Button
+					variant="ghost"
+					onclick={() => (isGoalOpen = true)}
+					class="w-full justify-start text-muted-foreground"
+				>
+					<Plus data-icon="inline-start" />
+					最後に向かう場所を指定（宿泊先など）
+				</Button>
+			{/if}
+		</section>
 
 		<div
 			class="sticky bottom-0 z-10 -mx-4 mt-2 border-t border-border/50 bg-background/90 px-4 pt-3 pb-4 backdrop-blur-sm md:-mx-8 md:px-8"
@@ -390,10 +390,10 @@
 			>
 				{#if isGenerating}
 					<Spinner data-icon="inline-start" />
-					生成中...
+					作成中...
 				{:else}
 					<Sparkles data-icon="inline-start" class="animate-pulse" />
-					最適ルートを自動生成する
+					旅行プランを作成する
 					<Navigation
 						data-icon="inline-end"
 						class="rotate-90 transition-transform group-hover:translate-x-1"
@@ -402,7 +402,7 @@
 			</Button>
 			{#if remainingToGenerate > 0}
 				<p class="mt-2 text-center text-xs text-muted-foreground">
-					あと {remainingToGenerate} 件の目的地を追加するとルートを生成できます
+					あと {remainingToGenerate} 件追加するとプランを作成できます
 				</p>
 			{/if}
 			{#if generateError}

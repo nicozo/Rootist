@@ -61,9 +61,9 @@
 						<NavigationIcon class="size-5 text-accent" />
 					</div>
 					<div class="flex flex-col gap-0.5 text-left">
-						<span class="text-xs font-bold text-primary">最短ルートを自動生成</span>
+						<span class="text-xs font-bold text-primary">最適な順番とスケジュールを自動生成</span>
 						<p class="text-[11px] leading-tight text-muted-foreground">
-							目的地を、物理的に最も効率よく回れる順序で繋ぎます。
+							行きたい場所を、無理なく回れる順番と時間に組み立てます。
 						</p>
 					</div>
 				</Card.Content>
