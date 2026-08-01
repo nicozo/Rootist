@@ -104,6 +104,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>rootist — 旅行プランをつくる</title>
+</svelte:head>
+
 <div class="min-h-screen bg-background p-4 md:p-8">
 	<div class="mx-auto flex max-w-2xl flex-col gap-8">
 		<header class="mb-8 flex items-center gap-3" in:fly={{ y: -10, duration: 600 }}>
@@ -164,6 +168,7 @@
 				{:else}
 					<PlaceCombobox
 						id="origin"
+						label="出発地"
 						icon={Home}
 						placeholder="例：自宅最寄り駅、宿泊ホテル..."
 						onSelect={(s) => (origin = { name: s.name, displayAddress: s.displayAddress })}
@@ -234,6 +239,7 @@
 				<Field.FieldDescription>同じ都道府県内のスポットを入力してください</Field.FieldDescription>
 				<PlaceCombobox
 					id="address"
+					label="行きたい場所を追加"
 					icon={MapPin}
 					placeholder="例：東京タワー、浅草寺..."
 					onSelect={(s) =>
@@ -360,6 +366,7 @@
 					</div>
 					<PlaceCombobox
 						id="endDestination"
+						label="ゴール（宿泊先など）"
 						icon={Flag}
 						placeholder="例：新宿グランドホテル..."
 						onSelect={(s) => {

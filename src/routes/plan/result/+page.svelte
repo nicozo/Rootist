@@ -33,6 +33,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>rootist — あなたの1日プラン</title>
+</svelte:head>
+
 {#if result}
 	<div class="min-h-screen bg-background p-4 md:p-8">
 		<div class="mx-auto flex max-w-2xl flex-col gap-6">

@@ -23,6 +23,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>rootist — 行きたい場所から旅行プランを作成</title>
+</svelte:head>
+
 <div
 	class="flex h-screen flex-col items-center justify-center overflow-hidden bg-background p-8 text-center"
 >
