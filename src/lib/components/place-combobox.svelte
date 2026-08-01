@@ -12,11 +12,13 @@
 
 	let {
 		id,
+		label,
 		placeholder,
 		icon: Icon,
 		onSelect
 	}: {
 		id?: string;
+		label: string;
 		placeholder: string;
 		icon: Component;
 		onSelect: (s: Suggestion) => void;
@@ -68,6 +70,7 @@
 </script>
 
 <Command.Root
+	{label}
 	shouldFilter={false}
 	class="relative h-auto w-full overflow-visible bg-transparent p-0"
 >
