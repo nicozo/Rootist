@@ -34,6 +34,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ suggestions: [] });
 	}
 
+	if (!env.GOOGLE_MAPS_API_KEY) {
+		error(500, 'GOOGLE_MAPS_API_KEY is not set');
+	}
+
 	const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
 		method: 'POST',
 		headers: {
