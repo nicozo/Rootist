@@ -40,7 +40,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			'Content-Type': 'application/json',
 			'X-Goog-Api-Key': env.GOOGLE_MAPS_API_KEY
 		},
-		body: JSON.stringify({ input: query, languageCode: 'ja' })
+		body: JSON.stringify({ input: query, languageCode: 'ja', regionCode: 'JP' })
 	});
 
 	if (!res.ok) {
