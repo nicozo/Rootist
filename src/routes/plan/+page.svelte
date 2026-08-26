@@ -275,7 +275,7 @@
 				<Item.ItemGroup class="gap-3">
 					{#each locations as loc, i (loc.id)}
 						<div in:fly={{ x: -10, duration: 400 }} out:slide>
-							<Item.Item variant="outline" size="sm">
+							<Item.Item variant="outline" size="sm" class="bg-card shadow-sm">
 								<Item.ItemMedia
 									class="size-6 rounded-full bg-primary/10 text-[10px] font-black text-primary"
 								>
@@ -328,7 +328,7 @@
 			{#if endDestination}
 				<div in:fly={{ x: -10, duration: 300 }}>
 					<Item.ItemGroup>
-						<Item.Item variant="outline" size="sm" class="border-primary/10">
+						<Item.Item variant="outline" size="sm" class="border-primary/10 bg-card shadow-sm">
 							<Item.ItemMedia class="size-6 rounded-full bg-primary/10 text-primary">
 								<Flag class="size-3" />
 							</Item.ItemMedia>
