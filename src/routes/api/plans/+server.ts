@@ -27,7 +27,7 @@ function isNonEmptyString(v: unknown): v is string {
 function isValidDestination(d: unknown): d is RouteDestination {
 	if (!d || typeof d !== 'object') return false;
 	const rec = d as Record<string, unknown>;
-	const orderOk = typeof rec.order === 'number' || typeof rec.order === 'string';
+	const orderOk = typeof rec.order === 'number' && Number.isFinite(rec.order) && rec.order > 0;
 	return (
 		orderOk &&
 		isNonEmptyString(rec.name) &&
@@ -35,6 +35,13 @@ function isValidDestination(d: unknown): d is RouteDestination {
 		isNonEmptyString(rec.arrivalTime) &&
 		isNonEmptyString(rec.departureTime)
 	);
+}
+
+// each_key_duplicate（plan-timeline.svelte の {#each ... (dest.order)}）を防ぐため、
+// destinations 間で order が重複していないことを検証する。
+function hasUniqueOrders(destinations: unknown[]): boolean {
+	const orders = destinations.map((d) => (d as Record<string, unknown>).order);
+	return new Set(orders).size === orders.length;
 }
 
 function pickDestination(d: Record<string, unknown>): RouteDestination {
@@ -79,6 +86,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	if (!destinationsInput.every(isValidDestination)) {
 		error(400, 'destinations の形式が不正です');
+	}
+
+	if (!hasUniqueOrders(destinationsInput)) {
+		error(400, 'destinations の order が重複しています');
 	}
 
 	const destinations = destinationsInput.map((d) =>
