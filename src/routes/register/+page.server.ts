@@ -1,18 +1,14 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { APIError } from 'better-auth';
 import type { Actions, PageServerLoad } from './$types';
-import { db } from '$lib/server/db';
-import { users } from '$lib/server/db/schema';
+import { auth } from '$lib/server/auth';
 import {
 	normalizeEmail,
-	validateEmail,
-	validatePassword,
-	DUPLICATE_EMAIL_MESSAGE
-} from '$lib/server/auth/validation';
-import { hashPassword } from '$lib/server/auth/password';
-import { generateSessionToken } from '$lib/server/auth/session';
-import { createSession } from '$lib/server/auth/session-store';
-import { setSessionCookie } from '$lib/server/auth/cookies';
+	isValidEmailFormat,
+	deriveNameFromEmail,
+	mapSignUpErrorCode,
+	EMAIL_FORMAT_MESSAGE
+} from '$lib/server/auth-errors';
 
 // ログイン済みユーザーが /register にアクセスしたら /plan へリダイレクトする
 export const load: PageServerLoad = async ({ locals }) => {
@@ -22,43 +18,36 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, cookies }) => {
+	default: async ({ request }) => {
 		const formData = await request.formData();
 		const rawEmail = String(formData.get('email') ?? '');
 		const password = String(formData.get('password') ?? '');
 
 		const email = normalizeEmail(rawEmail);
 
-		const emailResult = validateEmail(email);
-		if (!emailResult.ok) {
-			return fail(400, { message: emailResult.message, email: rawEmail });
+		// Better Auth自身のzodスキーマ検証（VALIDATION_ERROR、汎用英語メッセージ）に到達する前に、
+		// 既存と同一の日本語メッセージを確実に返すための事前チェック（spec.md 2-6）
+		if (!isValidEmailFormat(email)) {
+			return fail(400, { message: EMAIL_FORMAT_MESSAGE, email: rawEmail });
 		}
 
-		const passwordResult = validatePassword(password);
-		if (!passwordResult.ok) {
-			return fail(400, { message: passwordResult.message, email: rawEmail });
-		}
+		// Better Authのsign-up APIはnameを必須とする。UIに名前入力欄は追加しない方針のため、
+		// メールのローカル部から機械的に生成する（spec.md 2-5）
+		const name = deriveNameFromEmail(email);
 
-		const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
-		if (existing.length > 0) {
-			return fail(400, { message: DUPLICATE_EMAIL_MESSAGE, email: rawEmail });
-		}
-
-		const passwordHash = await hashPassword(password);
-
-		let userId: number;
 		try {
-			const [inserted] = await db.insert(users).values({ email, passwordHash }).$returningId();
-			userId = inserted.id;
-		} catch {
-			// UNIQUE制約違反（事前SELECTと登録の間のレースコンディション）を同じエラーに変換する
-			return fail(400, { message: DUPLICATE_EMAIL_MESSAGE, email: rawEmail });
+			// autoSignIn: true（auth.ts）のため、成功時はそのままセッションCookieが発行される
+			// （sveltekit-cookiesプラグインがevent.cookiesへ自動転送する）
+			await auth.api.signUpEmail({ body: { name, email, password } });
+		} catch (err) {
+			if (err instanceof APIError) {
+				// 既知のエラーコード以外（想定外のBetter Auth内部エラー等）は汎用メッセージにする
+				const message =
+					mapSignUpErrorCode(err.body?.code) ?? '登録に失敗しました。もう一度お試しください。';
+				return fail(400, { message, email: rawEmail });
+			}
+			throw err;
 		}
-
-		// 登録成功時はそのままログイン状態にする（登録→再ログインの二度手間を課さない）
-		const token = generateSessionToken();
-		await createSession(token, userId);
-		setSessionCookie(cookies, token);
 
 		redirect(303, '/plan');
 	}
