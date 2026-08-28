@@ -46,7 +46,13 @@ export const actions: Actions = {
 					mapSignUpErrorCode(err.body?.code) ?? '登録に失敗しました。もう一度お試しください。';
 				return fail(400, { message, email: rawEmail });
 			}
-			throw err;
+			// Better AuthのAPIErrorではない想定外の例外。公開エンドポイントで未捕捉例外を
+			// そのまま500として露出させず、汎用メッセージにフォールバックする（ログには残す）。
+			console.error('register action: unexpected non-APIError exception', err);
+			return fail(400, {
+				message: '登録に失敗しました。もう一度お試しください。',
+				email: rawEmail
+			});
 		}
 
 		redirect(303, '/plan');

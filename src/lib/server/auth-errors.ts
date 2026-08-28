@@ -6,7 +6,11 @@ export const PASSWORD_LENGTH_MESSAGE = 'パスワードは8文字以上で入力
 export const DUPLICATE_EMAIL_MESSAGE = 'このメールアドレスは既に登録されています';
 export const LOGIN_FAILURE_MESSAGE = 'メールアドレスまたはパスワードが正しくありません';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// ブラウザのtype="email"ネイティブ検証（WHATWG living standard準拠）と同等の厳格度に揃える。
+// `<`や`'`等の記号を許容してしまう緩いパターン（`[^\s@]+`）だと、Better Auth内部の検証を
+// すり抜けて非APIError例外を誘発する入力（`a<b@x.com`等）を事前に弾けないため厳格化した。
+const EMAIL_PATTERN =
+	/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 const MAX_EMAIL_LENGTH = 255;
 
 /**

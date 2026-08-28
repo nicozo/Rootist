@@ -29,7 +29,10 @@ export const actions: Actions = {
 			if (err instanceof APIError) {
 				return fail(400, { message: LOGIN_FAILURE_MESSAGE, email: rawEmail });
 			}
-			throw err;
+			// Better AuthのAPIErrorではない想定外の例外。公開エンドポイントで未捕捉例外を
+			// そのまま500として露出させず、統一メッセージにフォールバックする（ログには残す）。
+			console.error('login action: unexpected non-APIError exception', err);
+			return fail(400, { message: LOGIN_FAILURE_MESSAGE, email: rawEmail });
 		}
 
 		redirect(303, '/plan');
