@@ -3,13 +3,15 @@
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { Separator } from '$lib/components/ui/separator';
 	import * as Card from '$lib/components/ui/card';
 	import * as Field from '$lib/components/ui/field';
 	import * as Alert from '$lib/components/ui/alert';
 	import { AlertCircleIcon } from '@lucide/svelte';
-	import type { ActionData } from './$types';
+	import GoogleIcon from '$lib/components/google-icon.svelte';
+	import type { ActionData, PageData } from './$types';
 
-	let { form }: { form: ActionData } = $props();
+	let { form, data }: { form: ActionData; data: PageData } = $props();
 
 	let submitting = $state(false);
 	let password = $state('');
@@ -77,6 +79,20 @@
 					{submitting ? '登録中…' : '新規登録'}
 				</Button>
 			</form>
+
+			{#if data.googleAuthEnabled}
+				<div class="relative my-4 flex items-center justify-center">
+					<Separator class="absolute inset-x-0" />
+					<span class="relative bg-card px-2 text-xs text-muted-foreground">または</span>
+				</div>
+
+				<form method="POST" action="/auth/google">
+					<Button type="submit" variant="outline" class="w-full">
+						<GoogleIcon data-icon="inline-start" />
+						Googleで登録
+					</Button>
+				</form>
+			{/if}
 		</Card.Content>
 		<Card.Footer class="justify-center text-sm text-muted-foreground">
 			すでにアカウントをお持ちの方は <a href={resolve('/login')} class="ml-1 text-accent underline"
