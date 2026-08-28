@@ -12,6 +12,7 @@
 	let { form }: { form: ActionData } = $props();
 
 	let submitting = $state(false);
+	let password = $state('');
 </script>
 
 <svelte:head>
@@ -33,6 +34,7 @@
 					submitting = true;
 					return async ({ update }) => {
 						await update();
+						password = '';
 						submitting = false;
 					};
 				}}
@@ -65,6 +67,7 @@
 						type="password"
 						autocomplete="current-password"
 						required
+						bind:value={password}
 					/>
 				</Field.Field>
 

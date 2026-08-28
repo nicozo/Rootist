@@ -14,7 +14,7 @@
 	aria-label="アカウント"
 >
 	{#if data.user}
-		<span class="truncate">{data.user.email}</span>
+		<span class="max-w-[50vw] truncate">{data.user.email}</span>
 		<form method="POST" action="/logout">
 			<button type="submit" class="text-accent underline underline-offset-2">ログアウト</button>
 		</form>

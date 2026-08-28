@@ -12,6 +12,7 @@
 	let { form }: { form: ActionData } = $props();
 
 	let submitting = $state(false);
+	let password = $state('');
 </script>
 
 <svelte:head>
@@ -33,6 +34,7 @@
 					submitting = true;
 					return async ({ update }) => {
 						await update();
+						password = '';
 						submitting = false;
 					};
 				}}
@@ -66,6 +68,7 @@
 						autocomplete="new-password"
 						minlength={8}
 						required
+						bind:value={password}
 					/>
 					<Field.FieldDescription>8文字以上で入力してください。</Field.FieldDescription>
 				</Field.Field>
