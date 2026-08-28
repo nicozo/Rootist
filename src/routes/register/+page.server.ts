@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { APIError } from 'better-auth';
 import type { Actions, PageServerLoad } from './$types';
-import { auth } from '$lib/server/auth';
+import { auth, isGoogleAuthEnabled } from '$lib/server/auth';
 import {
 	normalizeEmail,
 	isValidEmailFormat,
@@ -15,6 +15,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.user) {
 		redirect(303, '/plan');
 	}
+
+	// issue #42: Rev.2契約で追加。/loginと同様、環境変数未設定時はボタン非表示にするための
+	// フラグをサーバーでのみ判定して渡す（環境変数の値自体はクライアントへ渡さない）。
+	return { googleAuthEnabled: isGoogleAuthEnabled };
 };
 
 export const actions: Actions = {

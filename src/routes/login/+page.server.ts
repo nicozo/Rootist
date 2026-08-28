@@ -1,14 +1,27 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { APIError } from 'better-auth';
 import type { Actions, PageServerLoad } from './$types';
-import { auth } from '$lib/server/auth';
+import { auth, isGoogleAuthEnabled } from '$lib/server/auth';
 import { normalizeEmail, LOGIN_FAILURE_MESSAGE } from '$lib/server/auth-errors';
 
+// issue #42: /auth/googleのerrorCallbackURLから戻ってきたエラーを画面表示用の
+// 固定日本語メッセージに変換する。生のエラーコード（?errorの値そのもの）は画面に出さない
+// （不変条件5、spec.md 2-3(3)）。
+const GOOGLE_LOGIN_FAILURE_MESSAGE =
+	'Googleログインを完了できませんでした。もう一度お試しください。';
+
 // ログイン済みユーザーが /login にアクセスしたら /plan へリダイレクトする
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.user) {
 		redirect(303, '/plan');
 	}
+
+	const googleError = url.searchParams.has('error');
+
+	return {
+		googleAuthEnabled: isGoogleAuthEnabled,
+		googleError: googleError ? GOOGLE_LOGIN_FAILURE_MESSAGE : null
+	};
 };
 
 export const actions: Actions = {

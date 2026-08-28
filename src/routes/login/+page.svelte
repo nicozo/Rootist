@@ -3,16 +3,22 @@
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { Separator } from '$lib/components/ui/separator';
 	import * as Card from '$lib/components/ui/card';
 	import * as Field from '$lib/components/ui/field';
 	import * as Alert from '$lib/components/ui/alert';
 	import { AlertCircleIcon } from '@lucide/svelte';
-	import type { ActionData } from './$types';
+	import GoogleIcon from '$lib/components/google-icon.svelte';
+	import type { ActionData, PageData } from './$types';
 
-	let { form }: { form: ActionData } = $props();
+	let { form, data }: { form: ActionData; data: PageData } = $props();
 
 	let submitting = $state(false);
 	let password = $state('');
+
+	// issue #42: form?.message（email/passwordログイン失敗）とdata.googleError
+	// （Google側でのキャンセル・失敗）は排他表示でよい（spec.md 2-3(3)）
+	const errorMessage = $derived(form?.message ?? data.googleError ?? null);
 </script>
 
 <svelte:head>
@@ -40,10 +46,10 @@
 				}}
 				class="flex flex-col gap-4"
 			>
-				{#if form?.message}
+				{#if errorMessage}
 					<Alert.Root variant="destructive">
 						<AlertCircleIcon />
-						<Alert.Description>{form.message}</Alert.Description>
+						<Alert.Description>{errorMessage}</Alert.Description>
 					</Alert.Root>
 				{/if}
 
@@ -75,6 +81,20 @@
 					{submitting ? 'ログイン中…' : 'ログイン'}
 				</Button>
 			</form>
+
+			{#if data.googleAuthEnabled}
+				<div class="relative my-4 flex items-center justify-center">
+					<Separator class="absolute inset-x-0" />
+					<span class="relative bg-card px-2 text-xs text-muted-foreground">または</span>
+				</div>
+
+				<form method="POST" action="/auth/google">
+					<Button type="submit" variant="outline" class="w-full">
+						<GoogleIcon data-icon="inline-start" />
+						Googleでログイン
+					</Button>
+				</form>
+			{/if}
 		</Card.Content>
 		<Card.Footer class="justify-center text-sm text-muted-foreground">
 			アカウントをお持ちでない方は <a href={resolve('/register')} class="ml-1 text-accent underline"
