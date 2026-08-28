@@ -4,7 +4,8 @@ declare global {
 	namespace App {
 		// interface Error {}
 		interface Locals {
-			user: { id: number; email: string } | null;
+			// issue #49: Better Auth移行によりuser.idは文字列ID（UUID）になる
+			user: { id: string; email: string } | null;
 			session: { id: string; expiresAt: Date } | null;
 		}
 		// interface PageData {}
