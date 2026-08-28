@@ -2,6 +2,7 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { resolve } from '$app/paths';
+	import UserMenu from '$lib/components/user-menu.svelte';
 	import type { LayoutData } from './$types';
 
 	let { children, data }: { children: import('svelte').Snippet; data: LayoutData } = $props();
@@ -14,10 +15,7 @@
 	aria-label="アカウント"
 >
 	{#if data.user}
-		<span class="max-w-[50vw] truncate">{data.user.email}</span>
-		<form method="POST" action="/logout">
-			<button type="submit" class="text-accent underline underline-offset-2">ログアウト</button>
-		</form>
+		<UserMenu user={data.user} />
 	{:else}
 		<a href={resolve('/login')} class="text-accent underline underline-offset-2">ログイン</a>
 		<a href={resolve('/register')} class="text-accent underline underline-offset-2">新規登録</a>

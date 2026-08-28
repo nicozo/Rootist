@@ -5,7 +5,8 @@ declare global {
 		// interface Error {}
 		interface Locals {
 			// issue #49: Better Auth移行によりuser.idは文字列ID（UUID）になる
-			user: { id: string; email: string } | null;
+			// issue #54: アバター表示のためname/imageを追加（DBスキーマ変更なし、既存のBetter Auth標準フィールド）
+			user: { id: string; email: string; name: string; image: string | null } | null;
 			session: { id: string; expiresAt: Date } | null;
 		}
 		// interface PageData {}

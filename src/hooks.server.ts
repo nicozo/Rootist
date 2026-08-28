@@ -14,7 +14,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const session = await auth.api.getSession({ headers: event.request.headers });
 
 	if (session) {
-		event.locals.user = { id: session.user.id, email: session.user.email };
+		event.locals.user = {
+			id: session.user.id,
+			email: session.user.email,
+			// issue #54: アバター表示用。DBスキーマ変更なし（Better Auth標準のuser.name/user.image）
+			name: session.user.name,
+			image: session.user.image ?? null
+		};
 		event.locals.session = { id: session.session.id, expiresAt: session.session.expiresAt };
 	} else {
 		event.locals.user = null;
