@@ -15,6 +15,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## git戦略
 
 - Conventional Commits
+- Claude Code（オーケストレーター本体・spec-implementation-generator等のサブエージェントを問わず）が作成するコミットには、コミット履歴の透明性を保つため必ず以下のトレーラーを含めること
+
+  ```
+  Co-Authored-By: Claude <noreply@anthropic.com>
+  ```
 
 ## Commands
 
