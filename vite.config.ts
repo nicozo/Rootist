@@ -9,6 +9,17 @@ export default defineConfig({
 	test: {
 		expect: { requireAssertions: true },
 
+		coverage: {
+			provider: 'v8',
+			reporter: ['text', 'html'],
+			include: ['src/**/*.{ts,svelte}'],
+			exclude: [
+				'src/**/*.{test,spec}.{js,ts}',
+				'src/**/*.svelte.{test,spec}.{js,ts}',
+				'src/stories/**'
+			]
+		},
+
 		projects: [
 			{
 				extends: './vite.config.ts',
