@@ -2,7 +2,7 @@ import { page } from 'vitest/browser';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { get } from 'svelte/store';
-import { routeResult, type RouteResult } from '$lib/stores/route';
+import { routeResult, planDraft, type RouteResult } from '$lib/stores/route';
 
 // issue #62: プラン結果ページのテスト。
 // /api/plans はDB書き込みを伴うためfetchをモックし、遷移とクリップボードもモックする。
@@ -62,11 +62,13 @@ function shareButton() {
 
 beforeEach(() => {
 	routeResult.set(RESULT);
+	planDraft.set(null);
 	stubClipboard(() => Promise.resolve());
 });
 
 afterEach(() => {
 	routeResult.set(null);
+	planDraft.set(null);
 	vi.clearAllMocks();
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
@@ -222,5 +224,83 @@ describe('/plan/result +page.svelte', () => {
 
 		expect(fetchSpy).toHaveBeenCalledOnce();
 		release?.();
+	});
+});
+
+// issue #64: 「もう一度計画する」押下時に routeResult から planDraft を組み立てる挙動のテスト。
+describe('/plan/result +page.svelte もう一度計画する（入力復元用のdraft組み立て）', () => {
+	const FULL_RESULT: RouteResult = {
+		summary: '浅草・東京タワーを巡る1日',
+		origin: { name: '東京駅', displayAddress: '千代田区丸の内' },
+		transportMode: 'car',
+		startTime: '09:30',
+		endDestination: { name: '新宿グランドホテル', displayAddress: '新宿区西新宿' },
+		destinations: [
+			{
+				order: 2,
+				name: '東京タワー',
+				displayAddress: '港区芝公園',
+				arrivalTime: '11:00',
+				departureTime: '12:00',
+				description: '',
+				travelTimeFromPrevious: '30分',
+				timeSlot: null
+			},
+			{
+				order: 1,
+				name: '浅草寺',
+				displayAddress: '台東区浅草',
+				arrivalTime: '09:00',
+				departureTime: '10:30',
+				description: '雷門が有名',
+				travelTimeFromPrevious: null,
+				timeSlot: 'morning'
+			}
+		]
+	};
+
+	it('全項目を含むresultなら、order昇順に並べ替えたplanDraftをセットしてから/planへ遷移する', async () => {
+		routeResult.set(FULL_RESULT);
+		await renderResult();
+
+		await page.getByRole('button', { name: /もう一度計画する/ }).click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		expect(get(planDraft)).toEqual({
+			origin: { name: '東京駅', displayAddress: '千代田区丸の内' },
+			transportMode: 'car',
+			startTime: '09:30',
+			endDestination: { name: '新宿グランドホテル', displayAddress: '新宿区西新宿' },
+			locations: [
+				{ address: '浅草寺', displayAddress: '台東区浅草', timeSlot: 'morning' },
+				{ address: '東京タワー', displayAddress: '港区芝公園', timeSlot: '' }
+			]
+		});
+	});
+
+	it('未指定項目を含むresultなら、該当フィールドはnullまたは空文字になる', async () => {
+		// RESULT フィクスチャは origin/transportMode/startTime/endDestination/timeSlot を持たない
+		await renderResult();
+
+		await page.getByRole('button', { name: /もう一度計画する/ }).click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		expect(get(planDraft)).toEqual({
+			origin: null,
+			transportMode: '',
+			startTime: '',
+			endDestination: null,
+			locations: [{ address: '浅草寺', displayAddress: '台東区浅草', timeSlot: '' }]
+		});
+	});
+
+	it('未知のtransportModeは空文字に丸める', async () => {
+		routeResult.set({ ...RESULT, transportMode: 'teleport' });
+		await renderResult();
+
+		await page.getByRole('button', { name: /もう一度計画する/ }).click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		expect(get(planDraft)?.transportMode).toBe('');
 	});
 });
