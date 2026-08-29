@@ -89,6 +89,21 @@ function toggleItem(groupLabel: string, itemLabel: string) {
 	) as HTMLElement | undefined;
 }
 
+/** 滞在時間セレクトのトリガー要素をindex番目（複数の行きたい場所がある場合に区別するため）取得する。 */
+function stayMinutesTrigger(index = 0) {
+	return document.querySelectorAll('[aria-label="滞在時間"]')[index] as HTMLElement | undefined;
+}
+
+/**
+ * index番目の行きたい場所の滞在時間セレクトを開き、プリセットを選ぶ（bits-uiのSelect）。
+ * bits-uiのトリガーはpointerイベントで開くため、DOM要素への素の.click()ではなくPlaywright経由の
+ * クリック（page.getByLabelText().nth().click()）を使う必要がある。
+ */
+async function pickStayMinutes(label: string, index = 0) {
+	await page.getByLabelText('滞在時間').nth(index).click();
+	await page.getByRole('option', { name: label, exact: true }).click();
+}
+
 beforeEach(() => {
 	routeResult.set(null);
 	planDraft.set(null);
@@ -195,12 +210,23 @@ describe('/plan +page.svelte 行きたい場所の追加と削除', () => {
 		await expect.element(generateButton()).toBeEnabled();
 	});
 
-	it('1件以上あると時間帯の案内を表示する', async () => {
+	it('1件以上あると時間帯・滞在時間の案内を表示する', async () => {
 		await renderPlan();
 
 		await addLocation('東京タワー');
 
-		await expect.element(page.getByText(/各スポットの訪問時間帯は任意です/)).toBeInTheDocument();
+		await expect
+			.element(page.getByText(/各スポットの訪問時間帯・滞在時間はどちらも任意です/))
+			.toBeInTheDocument();
+	});
+
+	it('行き先を追加すると滞在時間セレクトを「指定なし」で表示する', async () => {
+		await renderPlan();
+
+		await addLocation('東京タワー');
+
+		await expect.element(page.getByLabelText('滞在時間')).toBeInTheDocument();
+		expect(stayMinutesTrigger()?.textContent?.trim()).toBe('指定なし');
 	});
 
 	it('削除ボタンでリストから取り除く', async () => {
@@ -311,6 +337,52 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		expect(JSON.parse(routeCall![1].body).locations[0].timeSlot).toBe('morning');
 	});
 
+	it('目的地の滞在時間を選ぶとリクエストに含める', async () => {
+		const fetchSpy = stubApis();
+		await renderPlan();
+		await addLocation('東京タワー');
+		await addLocation('浅草寺');
+
+		await pickStayMinutes('1時間30分');
+		await generateButton().click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
+		expect(JSON.parse(routeCall![1].body).locations[0].stayMinutes).toBe(90);
+	});
+
+	it('滞在時間を一度選んでから「指定なし」に戻すとリクエストから外れる', async () => {
+		const fetchSpy = stubApis();
+		await renderPlan();
+		await addLocation('東京タワー');
+		await addLocation('浅草寺');
+
+		await pickStayMinutes('1時間30分');
+		await pickStayMinutes('指定なし');
+		await generateButton().click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
+		expect(JSON.parse(routeCall![1].body).locations[0].stayMinutes).toBeUndefined();
+	});
+
+	it('時間帯と滞在時間を同じ行き先に両方指定するとどちらもリクエストに含める', async () => {
+		const fetchSpy = stubApis();
+		await renderPlan();
+		await addLocation('東京タワー');
+		await addLocation('浅草寺');
+
+		toggleItem('訪問する時間帯', '朝')?.click();
+		await pickStayMinutes('30分');
+		await generateButton().click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
+		const location = JSON.parse(routeCall![1].body).locations[0];
+		expect(location.timeSlot).toBe('morning');
+		expect(location.stayMinutes).toBe(30);
+	});
+
 	it('出発地を選ぶとリクエストに含める', async () => {
 		const fetchSpy = stubApis();
 		await renderPlan();
@@ -368,8 +440,13 @@ describe('/plan +page.svelte プラン作成', () => {
 		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
 		expect(routeCall).toBeDefined();
 		expect(JSON.parse(routeCall![1].body).locations).toEqual([
-			{ name: '東京タワー', displayAddress: '港区芝公園', timeSlot: undefined },
-			{ name: '浅草寺', displayAddress: '台東区浅草', timeSlot: undefined }
+			{
+				name: '東京タワー',
+				displayAddress: '港区芝公園',
+				timeSlot: undefined,
+				stayMinutes: undefined
+			},
+			{ name: '浅草寺', displayAddress: '台東区浅草', timeSlot: undefined, stayMinutes: undefined }
 		]);
 		expect(get(routeResult)).toEqual({ destinations: [], summary: '生成された概要' });
 	});
@@ -387,6 +464,8 @@ describe('/plan +page.svelte プラン作成', () => {
 		expect(body.transportMode).toBeUndefined();
 		expect(body.startTime).toBeUndefined();
 		expect(body.endDestination).toBeUndefined();
+		expect(body.locations[0].timeSlot).toBeUndefined();
+		expect(body.locations[0].stayMinutes).toBeUndefined();
 	});
 
 	it('生成APIがエラーを返したらメッセージを表示し遷移しない', async () => {
@@ -423,8 +502,8 @@ describe('/plan +page.svelte 入力の復元（もう一度計画する）', () 
 		startTime: '09:30',
 		endDestination: { name: '新宿グランドホテル', displayAddress: '新宿区西新宿' },
 		locations: [
-			{ address: '浅草寺', displayAddress: '台東区浅草', timeSlot: 'morning' },
-			{ address: '東京タワー', displayAddress: '港区芝公園', timeSlot: '' }
+			{ address: '浅草寺', displayAddress: '台東区浅草', timeSlot: 'morning', stayMinutes: 90 },
+			{ address: '東京タワー', displayAddress: '港区芝公園', timeSlot: '', stayMinutes: '' }
 		]
 	};
 
@@ -444,6 +523,8 @@ describe('/plan +page.svelte 入力の復元（もう一度計画する）', () 
 		).toBe('09');
 		expect(toggleItem('移動手段', '電車・公共交通')?.getAttribute('data-state')).toBe('on');
 		expect(toggleItem('訪問する時間帯', '朝')?.getAttribute('data-state')).toBe('on');
+		expect(stayMinutesTrigger(0)?.textContent?.trim()).toBe('1時間30分');
+		expect(stayMinutesTrigger(1)?.textContent?.trim()).toBe('指定なし');
 	});
 
 	it('復元後、行きたい場所の追加・削除ができる', async () => {
@@ -474,8 +555,13 @@ describe('/plan +page.svelte 入力の復元（もう一度計画する）', () 
 		expect(body.startTime).toBe('09:30');
 		expect(body.endDestination).toEqual(DRAFT.endDestination);
 		expect(body.locations).toEqual([
-			{ name: '浅草寺', displayAddress: '台東区浅草', timeSlot: 'morning' },
-			{ name: '東京タワー', displayAddress: '港区芝公園', timeSlot: undefined }
+			{ name: '浅草寺', displayAddress: '台東区浅草', timeSlot: 'morning', stayMinutes: 90 },
+			{
+				name: '東京タワー',
+				displayAddress: '港区芝公園',
+				timeSlot: undefined,
+				stayMinutes: undefined
+			}
 		]);
 	});
 

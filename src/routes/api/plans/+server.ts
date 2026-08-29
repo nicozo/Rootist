@@ -15,7 +15,8 @@ const DESTINATION_KEYS = [
 	'description',
 	'travelTimeFromPrevious',
 	'transitRoute',
-	'timeSlot'
+	'timeSlot',
+	'stayMinutes'
 ] as const satisfies readonly (keyof RouteDestination)[];
 
 const MAX_BODY_BYTES = 100 * 1024;

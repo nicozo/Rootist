@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
+import { isStayMinutesPreset, formatStayMinutes } from '$lib/stay-minutes';
 
 type TimeSlot = 'morning' | 'noon' | 'night';
 
@@ -8,6 +9,23 @@ interface Location {
 	name: string;
 	displayAddress: string;
 	timeSlot?: TimeSlot;
+	stayMinutes?: number;
+}
+
+/** "HH:MM" 形式の時刻文字列を0時からの分数に変換する。解釈できなければnull。 */
+function parseTimeToMinutes(time: unknown): number | null {
+	if (typeof time !== 'string') return null;
+	const match = /^(\d{1,2}):(\d{2})$/.exec(time);
+	if (!match) return null;
+	return Number(match[1]) * 60 + Number(match[2]);
+}
+
+/** モデル出力のarrivalTime〜departureTimeから実際の滞在分数を算出する。解釈できなければnull。 */
+function actualStayMinutes(arrivalTime: unknown, departureTime: unknown): number | null {
+	const arrival = parseTimeToMinutes(arrivalTime);
+	const departure = parseTimeToMinutes(departureTime);
+	if (arrival === null || departure === null) return null;
+	return departure - arrival;
 }
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -31,9 +49,11 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	// 時間帯: whitelist（4値）以外は undefined として無視（プロンプト汚染防止）
 	const validSlots = new Set<TimeSlot>(['morning', 'noon', 'night']);
+	// 滞在時間: プリセットのwhitelist以外は undefined として無視（プロンプト汚染防止）
 	const normalizedLocations = locations.map((l) => ({
 		...l,
-		timeSlot: l.timeSlot && validSlots.has(l.timeSlot) ? l.timeSlot : undefined
+		timeSlot: l.timeSlot && validSlots.has(l.timeSlot) ? l.timeSlot : undefined,
+		stayMinutes: isStayMinutesPreset(l.stayMinutes) ? l.stayMinutes : undefined
 	}));
 
 	// 出発地: 指定時のみ注入（省略方式）
@@ -81,17 +101,28 @@ export const POST: RequestHandler = async ({ request }) => {
 			`※ 開始時間の制約により希望時間帯を完全には満たせない場合（例: 開始が15:00なのに「朝」指定がある等）は、開始時間を優先しつつ可能な限り希望時間帯に近い時刻に配置し、summary でその旨に触れること。\n`
 		: '';
 
+	// 滞在時間: 1件以上指定がある場合のみ制約セクションを注入（省略方式）
+	const hasStayMinutes = normalizedLocations.some((l) => l.stayMinutes);
+	const stayMinutesLine = hasStayMinutes
+		? `滞在時間の希望:\n` +
+			`※ 【希望滞在時間】が付いた目的地は、その滞在時間（arrivalTime〜departureTimeの差）を指定された分数にできる限り正確に一致させること。\n` +
+			`※ 滞在時間の指定は、その目的地にとどまる長さのみを指定するものであり、訪問順序（何番目に訪れるか）を変える理由にはならないこと。訪問順序は引き続き移動距離・移動時間が最短になるように決定すること。\n` +
+			`※ 時間帯と滞在時間の両方が指定された目的地は、指定された時間帯の範囲内に指定された滞在時間がすべて収まるように配置すること。\n` +
+			`※ 指定された滞在時間の合計が1日のスケジュールに収まらない場合は、開始時刻を優先しつつ滞在時間を可能な範囲で調整し、その旨を summary に明記すること。\n`
+		: '';
+
 	const locationList = normalizedLocations
 		.map(
 			(l, i) =>
 				`${i + 1}. ${l.name}（${l.displayAddress}）` +
-				(l.timeSlot ? `【希望時間帯: ${slotJa[l.timeSlot]}】` : '')
+				(l.timeSlot ? `【希望時間帯: ${slotJa[l.timeSlot]}】` : '') +
+				(l.stayMinutes ? `【希望滞在時間: ${formatStayMinutes(l.stayMinutes)}】` : '')
 		)
 		.join('\n');
 
 	const prompt = `あなたは旅行プランナーです。以下の目的地を1日で効率よく巡る最適ルートと時刻スケジュールを生成してください。移動時間・路線も考慮して、現実的なスケジュールを組んでください。
 
-${originLine}${transportLine}${startTimeLine}${endDestinationLine}${timeSlotLine}目的地:
+${originLine}${transportLine}${startTimeLine}${endDestinationLine}${timeSlotLine}${stayMinutesLine}目的地:
 ${locationList}
 
 以下のJSON形式のみで回答してください:
@@ -157,12 +188,41 @@ ${locationList}
 	const slotByName = new Map(
 		normalizedLocations.filter((l) => l.timeSlot).map((l) => [l.name, l.timeSlot as TimeSlot])
 	);
+	// stayMinutes も同様にユーザー入力を name 一致で権威付与する（表示用エコーバック）。
+	// ただしtimeSlotと異なり、arrivalTime/departureTimeの実計算には関与しない（サーバー側での
+	// スケジュール再計算はスコープ外。2-6参照）。デグレ検知のため、モデル出力の実際の滞在時間との
+	// 差が15分を超える場合はconsole.errorに残す。
+	const stayByName = new Map(
+		normalizedLocations.filter((l) => l.stayMinutes).map((l) => [l.name, l.stayMinutes as number])
+	);
 	if (Array.isArray(routeData?.destinations)) {
 		routeData.destinations = routeData.destinations.map(
-			(d: { name?: string; [k: string]: unknown }) => ({
-				...d,
-				timeSlot: slotByName.get(d.name ?? '') ?? null
-			})
+			(d: {
+				name?: string;
+				arrivalTime?: string;
+				departureTime?: string;
+				[k: string]: unknown;
+			}) => {
+				const stayMinutes = stayByName.get(d.name ?? '') ?? null;
+				if (stayMinutes !== null) {
+					const actual = actualStayMinutes(d.arrivalTime, d.departureTime);
+					if (actual !== null && Math.abs(actual - stayMinutes) > 15) {
+						console.error(
+							'[Gemini API] stayMinutes mismatch:',
+							d.name,
+							'requested=',
+							stayMinutes,
+							'actual=',
+							actual
+						);
+					}
+				}
+				return {
+					...d,
+					timeSlot: slotByName.get(d.name ?? '') ?? null,
+					stayMinutes
+				};
+			}
 		);
 	}
 

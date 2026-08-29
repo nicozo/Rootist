@@ -150,6 +150,7 @@ describe('POST /api/plans 保存', () => {
 						travelTimeFromPrevious: '徒歩10分',
 						transitRoute: null,
 						timeSlot: 'morning',
+						stayMinutes: 90,
 						injected: 'x'.repeat(1000)
 					})
 				]
@@ -166,7 +167,8 @@ describe('POST /api/plans 保存', () => {
 			description: '説明',
 			travelTimeFromPrevious: '徒歩10分',
 			transitRoute: null,
-			timeSlot: 'morning'
+			timeSlot: 'morning',
+			stayMinutes: 90
 		});
 		expect(saved.destinations[0]).not.toHaveProperty('injected');
 	});

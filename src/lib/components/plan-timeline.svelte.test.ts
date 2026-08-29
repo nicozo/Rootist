@@ -184,6 +184,53 @@ describe('plan-timeline', () => {
 		expect(container.textContent).not.toContain('指定');
 	});
 
+	it.each([
+		[30, '滞在30分指定'],
+		[60, '滞在1時間指定'],
+		[90, '滞在1時間30分指定'],
+		[120, '滞在2時間指定'],
+		[180, '滞在3時間指定'],
+		[240, '滞在4時間指定'],
+		[360, '滞在6時間指定']
+	])('滞在時間 %i分 のバッジ「%s」を表示する', async (stayMinutes, label) => {
+		await renderTimeline(result({ destinations: [destination(1, { stayMinutes })] }));
+
+		await expect.element(page.getByText(label)).toBeInTheDocument();
+	});
+
+	it('滞在時間がnullならバッジを表示しない', async () => {
+		const { container } = await renderTimeline(
+			result({ destinations: [destination(1, { stayMinutes: null })] })
+		);
+
+		expect(container.textContent).not.toContain('滞在');
+	});
+
+	it('滞在時間がundefinedならバッジを表示しない', async () => {
+		const { container } = await renderTimeline(result({ destinations: [destination(1)] }));
+
+		expect(container.textContent).not.toContain('滞在');
+	});
+
+	it('whitelist外の滞在時間ならバッジを表示しない', async () => {
+		const { container } = await renderTimeline(
+			result({ destinations: [destination(1, { stayMinutes: 999 })] })
+		);
+
+		expect(container.textContent).not.toContain('滞在');
+	});
+
+	it('時間帯・滞在時間の両方が指定された目的地は両方のバッジを表示する', async () => {
+		await renderTimeline(
+			result({
+				destinations: [destination(1, { timeSlot: 'noon', stayMinutes: 60 })]
+			})
+		);
+
+		await expect.element(page.getByText('昼指定')).toBeInTheDocument();
+		await expect.element(page.getByText('滞在1時間指定')).toBeInTheDocument();
+	});
+
 	it('目的地が空でも描画できる', async () => {
 		const { container } = await renderTimeline(result({ destinations: [], summary: '目的地なし' }));
 

@@ -10,6 +10,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import * as Alert from '$lib/components/ui/alert';
+	import * as Select from '$lib/components/ui/select';
 	import PlaceCombobox from '$lib/components/place-combobox.svelte';
 	import TimePicker from '$lib/components/time-picker.svelte';
 	import {
@@ -27,12 +28,14 @@
 		Sunrise,
 		Sun,
 		Moon,
+		Clock,
 		ArrowLeft,
 		AlertCircleIcon
 	} from '@lucide/svelte';
 	import { fly, slide, fade } from 'svelte/transition';
 	import { get } from 'svelte/store';
 	import { routeResult, planDraft } from '$lib/stores/route';
+	import { STAY_MINUTES_PRESETS, formatStayMinutes } from '$lib/stay-minutes';
 
 	// issue #64: 「もう一度計画する」で戻ってきた場合のみ、直前の入力を1回だけ復元する。
 	// 読み取り後は即座にリセットする消費型ストアのため、それ以外の経路（トップからの遷移・
@@ -67,15 +70,29 @@
 		{ value: 'night', label: '晩', icon: Moon }
 	];
 
+	// 滞在時間プリセット（'' = 指定なし）
+	type StayMinutes = number | '';
+	const stayMinutesOptions = STAY_MINUTES_PRESETS.map((m) => ({
+		value: m,
+		label: formatStayMinutes(m)
+	}));
+
 	// 行きたい場所リスト（復元時はidを新規発行し直し、重複・欠落を防ぐ）
 	let locations = $state<
-		{ id: string; address: string; displayAddress?: string; timeSlot: TimeSlot }[]
+		{
+			id: string;
+			address: string;
+			displayAddress?: string;
+			timeSlot: TimeSlot;
+			stayMinutes: StayMinutes;
+		}[]
 	>(
 		(restoredDraft?.locations ?? []).map((loc) => ({
 			id: crypto.randomUUID(),
 			address: loc.address,
 			displayAddress: loc.displayAddress,
-			timeSlot: loc.timeSlot
+			timeSlot: loc.timeSlot,
+			stayMinutes: loc.stayMinutes
 		}))
 	);
 	let isGenerating = $state(false);
@@ -103,7 +120,8 @@
 					locations: locations.map((l) => ({
 						name: l.address,
 						displayAddress: l.displayAddress ?? '',
-						timeSlot: l.timeSlot || undefined
+						timeSlot: l.timeSlot || undefined,
+						stayMinutes: l.stayMinutes || undefined
 					}))
 				})
 			});
@@ -265,7 +283,8 @@
 							id: crypto.randomUUID(),
 							address: s.name,
 							displayAddress: s.displayAddress,
-							timeSlot: ''
+							timeSlot: '',
+							stayMinutes: ''
 						})}
 				/>
 			</Field.Field>
@@ -273,7 +292,7 @@
 			{#if locations.length > 0}
 				<p class="ml-1 flex items-center gap-1.5 text-xs text-muted-foreground">
 					<Sunrise class="size-3.5 shrink-0" />
-					各スポットの訪問時間帯は任意です。未指定なら最適な順番で自動配置します。
+					各スポットの訪問時間帯・滞在時間はどちらも任意です。未指定なら最適な順番・時間配分で自動的に決まります。
 				</p>
 			{/if}
 
@@ -323,6 +342,26 @@
 											</ToggleGroup.Item>
 										{/each}
 									</ToggleGroup.Root>
+									<div class="mt-1.5 flex items-center gap-1.5">
+										<Clock class="size-3.5 shrink-0 text-muted-foreground" />
+										<Select.Root
+											type="single"
+											value={loc.stayMinutes === '' ? '' : String(loc.stayMinutes)}
+											onValueChange={(v) => (loc.stayMinutes = v ? Number(v) : '')}
+										>
+											<Select.Trigger aria-label="滞在時間" size="sm" class="w-28 text-xs">
+												{loc.stayMinutes === '' ? '指定なし' : formatStayMinutes(loc.stayMinutes)}
+											</Select.Trigger>
+											<Select.Content>
+												<Select.Group>
+													<Select.Item value="">指定なし</Select.Item>
+													{#each stayMinutesOptions as opt (opt.value)}
+														<Select.Item value={String(opt.value)}>{opt.label}</Select.Item>
+													{/each}
+												</Select.Group>
+											</Select.Content>
+										</Select.Root>
+									</div>
 								</Item.ItemContent>
 								<Item.ItemActions>
 									<Button
