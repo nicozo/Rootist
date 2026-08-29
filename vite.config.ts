@@ -11,11 +11,18 @@ export default defineConfig({
 
 		coverage: {
 			provider: 'v8',
-			reporter: ['text', 'html'],
+			reporter: ['text', 'html', 'json-summary'],
 			include: ['src/**/*.{ts,svelte}'],
 			exclude: [
 				'src/**/*.{test,spec}.{js,ts}',
 				'src/**/*.svelte.{test,spec}.{js,ts}',
+				// 実行可能コードを持たない型定義
+				'src/**/*.d.ts',
+				// shadcn-svelte CLIが生成するベンダーコード。自前のロジックではなく、
+				// アプリが使っていないパーツも含まれるため計測対象から外す
+				// （利用箇所はアプリ側のコンポーネント・ページのテストで通る）
+				'src/lib/components/ui/**',
+				// Storybookの初期セットアップ用サンプル
 				'src/stories/**'
 			]
 		},
