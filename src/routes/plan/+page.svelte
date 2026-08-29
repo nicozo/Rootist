@@ -31,20 +31,31 @@
 		AlertCircleIcon
 	} from '@lucide/svelte';
 	import { fly, slide, fade } from 'svelte/transition';
-	import { routeResult } from '$lib/stores/route';
+	import { get } from 'svelte/store';
+	import { routeResult, planDraft } from '$lib/stores/route';
+
+	// issue #64: 「もう一度計画する」で戻ってきた場合のみ、直前の入力を1回だけ復元する。
+	// 読み取り後は即座にリセットする消費型ストアのため、それ以外の経路（トップからの遷移・
+	// 共有ページ経由・直接URL・リロード等）では draft は常に null で「新規」扱いになる。
+	const restoredDraft = get(planDraft);
+	if (restoredDraft) planDraft.set(null);
 
 	// 移動手段
 	type TransportMode = 'transit' | 'car' | 'walking' | '';
-	let transportMode = $state<TransportMode>('');
+	let transportMode = $state<TransportMode>(restoredDraft?.transportMode ?? '');
 
 	// 出発地
-	let origin = $state<{ name: string; displayAddress: string } | null>(null);
+	let origin = $state<{ name: string; displayAddress: string } | null>(
+		restoredDraft?.origin ?? null
+	);
 
 	// 出発時刻
-	let startTime = $state('');
+	let startTime = $state(restoredDraft?.startTime ?? '');
 
 	// ゴール（宿泊先など）
-	let endDestination = $state<{ name: string; displayAddress: string } | null>(null);
+	let endDestination = $state<{ name: string; displayAddress: string } | null>(
+		restoredDraft?.endDestination ?? null
+	);
 	// ゴール入力欄の展開状態
 	let isGoalOpen = $state(false);
 
@@ -56,10 +67,17 @@
 		{ value: 'night', label: '晩', icon: Moon }
 	];
 
-	// 行きたい場所リスト
+	// 行きたい場所リスト（復元時はidを新規発行し直し、重複・欠落を防ぐ）
 	let locations = $state<
 		{ id: string; address: string; displayAddress?: string; timeSlot: TimeSlot }[]
-	>([]);
+	>(
+		(restoredDraft?.locations ?? []).map((loc) => ({
+			id: crypto.randomUUID(),
+			address: loc.address,
+			displayAddress: loc.displayAddress,
+			timeSlot: loc.timeSlot
+		}))
+	);
 	let isGenerating = $state(false);
 	let generateError = $state<string | null>(null);
 

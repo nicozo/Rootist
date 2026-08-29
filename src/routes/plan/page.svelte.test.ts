@@ -2,7 +2,7 @@ import { page } from 'vitest/browser';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { get } from 'svelte/store';
-import { routeResult } from '$lib/stores/route';
+import { routeResult, planDraft, type PlanDraft } from '$lib/stores/route';
 
 // issue #62: プラン作成ページのテスト。
 // /api/places（Google Places）と /api/route（Gemini）は課金対象なのでfetchをモックし実接続しない。
@@ -91,11 +91,13 @@ function toggleItem(groupLabel: string, itemLabel: string) {
 
 beforeEach(() => {
 	routeResult.set(null);
+	planDraft.set(null);
 	stubApis();
 });
 
 afterEach(() => {
 	routeResult.set(null);
+	planDraft.set(null);
 	vi.clearAllMocks();
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
@@ -409,6 +411,113 @@ describe('/plan +page.svelte プラン作成', () => {
 
 		await expect
 			.element(page.getByText('通信エラーが発生しました。もう一度お試しください。'))
+			.toBeInTheDocument();
+	});
+});
+
+// issue #64: 「もう一度計画する」経由でのみ入力を復元する挙動のテスト。
+describe('/plan +page.svelte 入力の復元（もう一度計画する）', () => {
+	const DRAFT: PlanDraft = {
+		origin: { name: '東京駅', displayAddress: '千代田区丸の内' },
+		transportMode: 'transit',
+		startTime: '09:30',
+		endDestination: { name: '新宿グランドホテル', displayAddress: '新宿区西新宿' },
+		locations: [
+			{ address: '浅草寺', displayAddress: '台東区浅草', timeSlot: 'morning' },
+			{ address: '東京タワー', displayAddress: '港区芝公園', timeSlot: '' }
+		]
+	};
+
+	it('draftがあれば出発地・出発時刻・移動手段・行きたい場所・ゴールを復元表示する', async () => {
+		planDraft.set(DRAFT);
+
+		const { container } = await renderPlan();
+
+		await expect.element(page.getByText('東京駅')).toBeInTheDocument();
+		await expect.element(page.getByText('千代田区丸の内')).toBeInTheDocument();
+		await expect.element(page.getByText('新宿グランドホテル')).toBeInTheDocument();
+		await expect.element(page.getByText('浅草寺')).toBeInTheDocument();
+		await expect.element(page.getByText('東京タワー')).toBeInTheDocument();
+		expect(container.textContent).toContain('2 箇所 · 作成できます');
+		expect(
+			(page.getByLabelText('時', { exact: true }).element() as HTMLElement).textContent?.trim()
+		).toBe('09');
+		expect(toggleItem('移動手段', '電車・公共交通')?.getAttribute('data-state')).toBe('on');
+		expect(toggleItem('訪問する時間帯', '朝')?.getAttribute('data-state')).toBe('on');
+	});
+
+	it('復元後、行きたい場所の追加・削除ができる', async () => {
+		planDraft.set(DRAFT);
+		const { container } = await renderPlan();
+
+		await addLocation('浅草寺');
+		await expect.element(page.getByText(/3 箇所/)).toBeInTheDocument();
+
+		const removeButtons = container.querySelectorAll('button:has(svg.lucide-trash-2)');
+		(removeButtons[0] as HTMLElement | undefined)?.click();
+
+		await vi.waitFor(() => expect(container.textContent).toContain('2 箇所'));
+	});
+
+	it('復元後にそのまま作成すると復元された内容で/api/routeを呼ぶ', async () => {
+		const fetchSpy = stubApis();
+		planDraft.set(DRAFT);
+		await renderPlan();
+
+		await generateButton().click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
+		const body = JSON.parse(routeCall![1].body);
+		expect(body.origin).toEqual(DRAFT.origin);
+		expect(body.transportMode).toBe('transit');
+		expect(body.startTime).toBe('09:30');
+		expect(body.endDestination).toEqual(DRAFT.endDestination);
+		expect(body.locations).toEqual([
+			{ name: '浅草寺', displayAddress: '台東区浅草', timeSlot: 'morning' },
+			{ name: '東京タワー', displayAddress: '港区芝公園', timeSlot: undefined }
+		]);
+	});
+
+	it('復元された行きたい場所には一意なidが振られる（キー重複・欠落なし）', async () => {
+		planDraft.set(DRAFT);
+		const { container } = await renderPlan();
+
+		// 行きたい場所リストの ItemGroup（class="gap-3"）配下に、件数分だけ item が重複・欠落なく描画される。
+		const items = container.querySelectorAll('[data-slot="item-group"].gap-3 [data-slot="item"]');
+		expect(items.length).toBe(DRAFT.locations.length);
+		expect([...items].map((el) => el.textContent)).toEqual([
+			expect.stringContaining('浅草寺'),
+			expect.stringContaining('東京タワー')
+		]);
+	});
+
+	it('draftは1回読み取ると消費され、ストアはnullに戻る', async () => {
+		planDraft.set(DRAFT);
+
+		await renderPlan();
+
+		expect(get(planDraft)).toBeNull();
+	});
+
+	it('draftを消費した後に再度render()しても2回目は空欄で始まる', async () => {
+		planDraft.set(DRAFT);
+		await renderPlan();
+		expect(get(planDraft)).toBeNull();
+
+		const { container } = await renderPlan();
+
+		expect(container.textContent).toContain('まだ行きたい場所がありません');
+		expect(container.textContent).toContain('0 箇所');
+	});
+
+	it('draftがnullのまま開始すると従来通り空欄で始まる（デグレ確認）', async () => {
+		const { container } = await renderPlan();
+
+		expect(container.textContent).toContain('まだ行きたい場所がありません');
+		expect(container.textContent).toContain('0 箇所');
+		await expect
+			.element(page.getByPlaceholder('例：自宅最寄り駅、宿泊ホテル...'))
 			.toBeInTheDocument();
 	});
 });
