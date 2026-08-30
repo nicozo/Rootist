@@ -323,44 +323,48 @@
 									{#if loc.displayAddress}
 										<Item.ItemDescription>{loc.displayAddress}</Item.ItemDescription>
 									{/if}
-									<ToggleGroup.Root
-										type="single"
-										variant="outline"
-										bind:value={loc.timeSlot}
-										aria-label="訪問する時間帯"
-										class="mt-1 w-fit"
-									>
-										{#each timeSlotOptions as opt (opt.value)}
-											<ToggleGroup.Item
-												value={opt.value}
-												aria-label={opt.label}
-												title={opt.label}
-												class="gap-1 px-2.5 text-xs data-[state=on]:border-accent data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
-											>
-												<opt.icon />
-												{opt.label}
-											</ToggleGroup.Item>
-										{/each}
-									</ToggleGroup.Root>
-									<div class="mt-1.5 flex items-center gap-1.5">
-										<Clock class="size-3.5 shrink-0 text-muted-foreground" />
-										<Select.Root
+									<!-- 時間帯と滞在時間は同じ「いつ・どれくらい」の指定なので横に並べる。
+									     狭い幅では flex-wrap で自然に折り返す。 -->
+									<div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+										<ToggleGroup.Root
 											type="single"
-											value={loc.stayMinutes === '' ? '' : String(loc.stayMinutes)}
-											onValueChange={(v) => (loc.stayMinutes = v ? Number(v) : '')}
+											variant="outline"
+											bind:value={loc.timeSlot}
+											aria-label="訪問する時間帯"
+											class="w-fit"
 										>
-											<Select.Trigger aria-label="滞在時間" size="sm" class="w-28 text-xs">
-												{loc.stayMinutes === '' ? '指定なし' : formatStayMinutes(loc.stayMinutes)}
-											</Select.Trigger>
-											<Select.Content>
-												<Select.Group>
-													<Select.Item value="">指定なし</Select.Item>
-													{#each stayMinutesOptions as opt (opt.value)}
-														<Select.Item value={String(opt.value)}>{opt.label}</Select.Item>
-													{/each}
-												</Select.Group>
-											</Select.Content>
-										</Select.Root>
+											{#each timeSlotOptions as opt (opt.value)}
+												<ToggleGroup.Item
+													value={opt.value}
+													aria-label={opt.label}
+													title={opt.label}
+													class="gap-1 px-2.5 text-xs data-[state=on]:border-accent data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+												>
+													<opt.icon />
+													{opt.label}
+												</ToggleGroup.Item>
+											{/each}
+										</ToggleGroup.Root>
+										<div class="flex items-center gap-1.5">
+											<Clock class="size-3.5 shrink-0 text-muted-foreground" />
+											<Select.Root
+												type="single"
+												value={loc.stayMinutes === '' ? '' : String(loc.stayMinutes)}
+												onValueChange={(v) => (loc.stayMinutes = v ? Number(v) : '')}
+											>
+												<Select.Trigger aria-label="滞在時間" size="sm" class="w-28 text-xs">
+													{loc.stayMinutes === '' ? '指定なし' : formatStayMinutes(loc.stayMinutes)}
+												</Select.Trigger>
+												<Select.Content>
+													<Select.Group>
+														<Select.Item value="">指定なし</Select.Item>
+														{#each stayMinutesOptions as opt (opt.value)}
+															<Select.Item value={String(opt.value)}>{opt.label}</Select.Item>
+														{/each}
+													</Select.Group>
+												</Select.Content>
+											</Select.Root>
+										</div>
 									</div>
 								</Item.ItemContent>
 								<Item.ItemActions>
