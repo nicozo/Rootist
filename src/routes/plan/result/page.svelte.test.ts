@@ -245,7 +245,8 @@ describe('/plan/result +page.svelte もう一度計画する（入力復元用�
 				description: '',
 				travelTimeFromPrevious: '30分',
 				timeSlot: null,
-				stayMinutes: null
+				stayMinutes: null,
+				arriveAt: null
 			},
 			{
 				order: 1,
@@ -256,7 +257,8 @@ describe('/plan/result +page.svelte もう一度計画する（入力復元用�
 				description: '雷門が有名',
 				travelTimeFromPrevious: null,
 				timeSlot: 'morning',
-				stayMinutes: 90
+				stayMinutes: 90,
+				arriveAt: '09:00'
 			}
 		]
 	};
@@ -274,14 +276,26 @@ describe('/plan/result +page.svelte もう一度計画する（入力復元用�
 			startTime: '09:30',
 			endDestination: { name: '新宿グランドホテル', displayAddress: '新宿区西新宿' },
 			locations: [
-				{ address: '浅草寺', displayAddress: '台東区浅草', timeSlot: 'morning', stayMinutes: 90 },
-				{ address: '東京タワー', displayAddress: '港区芝公園', timeSlot: '', stayMinutes: '' }
+				{
+					address: '浅草寺',
+					displayAddress: '台東区浅草',
+					timeSlot: 'morning',
+					stayMinutes: 90,
+					arriveAt: '09:00'
+				},
+				{
+					address: '東京タワー',
+					displayAddress: '港区芝公園',
+					timeSlot: '',
+					stayMinutes: '',
+					arriveAt: ''
+				}
 			]
 		});
 	});
 
 	it('未指定項目を含むresultなら、該当フィールドはnullまたは空文字になる', async () => {
-		// RESULT フィクスチャは origin/transportMode/startTime/endDestination/timeSlot/stayMinutes を持たない
+		// RESULT フィクスチャは origin/transportMode/startTime/endDestination/timeSlot/stayMinutes/arriveAt を持たない
 		await renderResult();
 
 		await page.getByRole('button', { name: /もう一度計画する/ }).click();
@@ -293,7 +307,13 @@ describe('/plan/result +page.svelte もう一度計画する（入力復元用�
 			startTime: '',
 			endDestination: null,
 			locations: [
-				{ address: '浅草寺', displayAddress: '台東区浅草', timeSlot: '', stayMinutes: '' }
+				{
+					address: '浅草寺',
+					displayAddress: '台東区浅草',
+					timeSlot: '',
+					stayMinutes: '',
+					arriveAt: ''
+				}
 			]
 		});
 	});

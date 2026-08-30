@@ -14,6 +14,7 @@
 	import { fly } from 'svelte/transition';
 	import type { RouteResult } from '$lib/stores/route';
 	import { isStayMinutesPreset, formatStayMinutes } from '$lib/stay-minutes';
+	import { isVisitTime } from '$lib/visit-time';
 
 	interface Props {
 		result: RouteResult;
@@ -123,6 +124,11 @@
 								{#if dest.timeSlot && timeSlotLabels[dest.timeSlot]}
 									<Badge variant="outline" class="border-accent/30 text-[10px] text-accent">
 										{timeSlotLabels[dest.timeSlot]}指定
+									</Badge>
+								{/if}
+								{#if isVisitTime(dest.arriveAt)}
+									<Badge variant="outline" class="border-accent/30 text-[10px] text-accent">
+										{dest.arriveAt}着指定
 									</Badge>
 								{/if}
 								{#if isStayMinutesPreset(dest.stayMinutes)}

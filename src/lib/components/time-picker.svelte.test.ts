@@ -89,6 +89,52 @@ describe('time-picker', () => {
 		await expect.element(page.getByRole('option', { name: '23' })).toBeInTheDocument();
 	});
 
+	it('clearableでなければ「指定なし」の選択肢を出さない', async () => {
+		await render(TimePicker, {});
+
+		await page.getByLabelText('時').click();
+
+		await expect.element(page.getByRole('option', { name: '指定なし' })).not.toBeInTheDocument();
+	});
+
+	// issue #70: 行き先ごとの訪問時刻は任意項目なので「指定なし」に戻せる必要がある。
+	it('clearableなら時の「指定なし」で値を未指定に戻す', async () => {
+		const { container } = await render(TimePicker, { value: '09:30', clearable: true });
+
+		await page.getByLabelText('時').click();
+		await page.getByRole('option', { name: '指定なし' }).click();
+
+		expect(displayed(container)).toEqual({ hour: '--', minute: '--' });
+	});
+
+	it('clearableなら分の「指定なし」でも値を未指定に戻す', async () => {
+		const { container } = await render(TimePicker, { value: '09:30', clearable: true });
+
+		await page.getByLabelText('分').click();
+		await page.getByRole('option', { name: '指定なし' }).click();
+
+		expect(displayed(container)).toEqual({ hour: '--', minute: '--' });
+	});
+
+	it('labelPrefixを渡すと時・分のアクセシブルな名前に接頭辞を付ける', async () => {
+		await render(TimePicker, { labelPrefix: '訪問時刻' });
+
+		await expect.element(page.getByLabelText('訪問時刻の時')).toBeInTheDocument();
+		await expect.element(page.getByLabelText('訪問時刻の分')).toBeInTheDocument();
+	});
+
+	it('onValueChangeに新しい値を通知する', async () => {
+		const changes: string[] = [];
+		await render(TimePicker, { clearable: true, onValueChange: (v: string) => changes.push(v) });
+
+		await page.getByLabelText('時').click();
+		await page.getByRole('option', { name: '10' }).click();
+		await page.getByLabelText('時').click();
+		await page.getByRole('option', { name: '指定なし' }).click();
+
+		expect(changes).toEqual(['10:00', '']);
+	});
+
 	it('分は15分刻みの選択肢を持つ', async () => {
 		await render(TimePicker, {});
 

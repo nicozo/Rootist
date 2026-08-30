@@ -11,6 +11,8 @@ export interface RouteDestination {
 	transitRoute?: string | null;
 	timeSlot?: 'morning' | 'noon' | 'night' | null;
 	stayMinutes?: number | null;
+	/** ユーザーが指定した訪問時刻 "HH:MM"（未指定は null）。issue #70 */
+	arriveAt?: string | null;
 }
 
 export interface RouteResult {
@@ -39,6 +41,7 @@ export interface PlanDraft {
 		displayAddress?: string;
 		timeSlot: 'morning' | 'noon' | 'night' | '';
 		stayMinutes: number | '';
+		arriveAt: string;
 	}[];
 }
 
