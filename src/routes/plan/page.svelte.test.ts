@@ -300,7 +300,7 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
 
-		toggleItem('移動手段', '電車・公共交通')?.click();
+		toggleItem('移動手段', '公共交通機関')?.click();
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
@@ -521,7 +521,7 @@ describe('/plan +page.svelte 入力の復元（もう一度計画する）', () 
 		expect(
 			(page.getByLabelText('時', { exact: true }).element() as HTMLElement).textContent?.trim()
 		).toBe('09');
-		expect(toggleItem('移動手段', '電車・公共交通')?.getAttribute('data-state')).toBe('on');
+		expect(toggleItem('移動手段', '公共交通機関')?.getAttribute('data-state')).toBe('on');
 		expect(toggleItem('訪問する時間帯', '朝')?.getAttribute('data-state')).toBe('on');
 		expect(stayMinutesTrigger(0)?.textContent?.trim()).toBe('1時間30分');
 		expect(stayMinutesTrigger(1)?.textContent?.trim()).toBe('指定なし');

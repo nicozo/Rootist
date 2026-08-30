@@ -229,11 +229,11 @@
 						>
 							<ToggleGroup.Item
 								value="transit"
-								aria-label="電車・公共交通"
+								aria-label="公共交通機関"
 								class="gap-1 px-2.5 text-xs data-[state=on]:border-accent data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
 							>
 								<TrainFront />
-								電車
+								公共交通機関
 							</ToggleGroup.Item>
 							<ToggleGroup.Item
 								value="car"
