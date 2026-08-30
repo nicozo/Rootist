@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import { isStayMinutesPreset, formatStayMinutes } from '$lib/stay-minutes';
+import { isVisitTime, parseTimeToMinutes } from '$lib/visit-time';
 
 type TimeSlot = 'morning' | 'noon' | 'night';
 
@@ -10,14 +11,7 @@ interface Location {
 	displayAddress: string;
 	timeSlot?: TimeSlot;
 	stayMinutes?: number;
-}
-
-/** "HH:MM" 形式の時刻文字列を0時からの分数に変換する。解釈できなければnull。 */
-function parseTimeToMinutes(time: unknown): number | null {
-	if (typeof time !== 'string') return null;
-	const match = /^(\d{1,2}):(\d{2})$/.exec(time);
-	if (!match) return null;
-	return Number(match[1]) * 60 + Number(match[2]);
+	arriveAt?: string;
 }
 
 /** モデル出力のarrivalTime〜departureTimeから実際の滞在分数を算出する。解釈できなければnull。 */
@@ -50,11 +44,18 @@ export const POST: RequestHandler = async ({ request }) => {
 	// 時間帯: whitelist（4値）以外は undefined として無視（プロンプト汚染防止）
 	const validSlots = new Set<TimeSlot>(['morning', 'noon', 'night']);
 	// 滞在時間: プリセットのwhitelist以外は undefined として無視（プロンプト汚染防止）
-	const normalizedLocations = locations.map((l) => ({
-		...l,
-		timeSlot: l.timeSlot && validSlots.has(l.timeSlot) ? l.timeSlot : undefined,
-		stayMinutes: isStayMinutesPreset(l.stayMinutes) ? l.stayMinutes : undefined
-	}));
+	// 訪問時刻: 厳密な "HH:MM"（00:00〜23:59）以外は undefined として無視（プロンプト汚染防止）
+	const normalizedLocations = locations.map((l) => {
+		const arriveAt = isVisitTime(l.arriveAt) ? l.arriveAt : undefined;
+		return {
+			...l,
+			// 訪問時刻は時間帯より強い指定なので、両方来た場合は時刻を優先し時間帯は捨てる
+			// （矛盾した指示をプロンプトに同時に載せないため）
+			timeSlot: !arriveAt && l.timeSlot && validSlots.has(l.timeSlot) ? l.timeSlot : undefined,
+			stayMinutes: isStayMinutesPreset(l.stayMinutes) ? l.stayMinutes : undefined,
+			arriveAt
+		};
+	});
 
 	// 出発地: 指定時のみ注入（省略方式）
 	const originLine = origin
@@ -111,18 +112,30 @@ export const POST: RequestHandler = async ({ request }) => {
 			`※ 指定された滞在時間の合計が1日のスケジュールに収まらない場合は、開始時刻を優先しつつ滞在時間を可能な範囲で調整し、その旨を summary に明記すること。\n`
 		: '';
 
+	// 訪問時刻: 1件以上指定がある場合のみ制約セクションを注入（省略方式）
+	const hasArriveAt = normalizedLocations.some((l) => l.arriveAt);
+	const arriveAtLine = hasArriveAt
+		? `訪問時刻の希望:\n` +
+			`※ 【希望訪問時刻】が付いた目的地は、arrivalTime をその時刻に必ず一致させること。\n` +
+			`※ 訪問時刻の指定は最優先の制約であること。移動距離・移動時間の最短化よりも指定時刻を優先し、遠回りになっても指定時刻に到着できる訪問順序を組むこと。\n` +
+			`※ 訪問時刻の指定がない目的地は、指定時刻の目的地を軸にして、その前後を移動距離・移動時間が最短になるよう自由に配置してよい。\n` +
+			`※ 指定時刻までに空き時間が生じる場合は、他の目的地の滞在時間を延ばすか待ち時間として扱い、指定時刻をずらさないこと。\n` +
+			`※ 複数の指定時刻が移動時間の都合で両立しない場合や、開始時間より前の指定時刻がある場合など、指定どおりに組めないときは、可能な限り指定時刻に近い時刻に配置し、どの指定を満たせなかったかを summary に明記すること。\n`
+		: '';
+
 	const locationList = normalizedLocations
 		.map(
 			(l, i) =>
 				`${i + 1}. ${l.name}（${l.displayAddress}）` +
 				(l.timeSlot ? `【希望時間帯: ${slotJa[l.timeSlot]}】` : '') +
-				(l.stayMinutes ? `【希望滞在時間: ${formatStayMinutes(l.stayMinutes)}】` : '')
+				(l.stayMinutes ? `【希望滞在時間: ${formatStayMinutes(l.stayMinutes)}】` : '') +
+				(l.arriveAt ? `【希望訪問時刻: ${l.arriveAt}】` : '')
 		)
 		.join('\n');
 
 	const prompt = `あなたは旅行プランナーです。以下の目的地を1日で効率よく巡る最適ルートと時刻スケジュールを生成してください。移動時間・路線も考慮して、現実的なスケジュールを組んでください。
 
-${originLine}${transportLine}${startTimeLine}${endDestinationLine}${timeSlotLine}${stayMinutesLine}目的地:
+${originLine}${transportLine}${startTimeLine}${endDestinationLine}${timeSlotLine}${stayMinutesLine}${arriveAtLine}目的地:
 ${locationList}
 
 以下のJSON形式のみで回答してください:
@@ -195,6 +208,11 @@ ${locationList}
 	const stayByName = new Map(
 		normalizedLocations.filter((l) => l.stayMinutes).map((l) => [l.name, l.stayMinutes as number])
 	);
+	// arriveAt も同様にユーザー入力を name 一致で権威付与する（表示用エコーバック）。
+	// stayMinutes と同じく、モデル出力の arrivalTime との乖離が15分を超える場合はconsole.errorに残す。
+	const arriveAtByName = new Map(
+		normalizedLocations.filter((l) => l.arriveAt).map((l) => [l.name, l.arriveAt as string])
+	);
 	if (Array.isArray(routeData?.destinations)) {
 		routeData.destinations = routeData.destinations.map(
 			(d: {
@@ -217,10 +235,26 @@ ${locationList}
 						);
 					}
 				}
+				const arriveAt = arriveAtByName.get(d.name ?? '') ?? null;
+				if (arriveAt !== null) {
+					const requested = parseTimeToMinutes(arriveAt);
+					const actual = parseTimeToMinutes(d.arrivalTime);
+					if (requested !== null && actual !== null && Math.abs(actual - requested) > 15) {
+						console.error(
+							'[Gemini API] arriveAt mismatch:',
+							d.name,
+							'requested=',
+							arriveAt,
+							'actual=',
+							d.arrivalTime
+						);
+					}
+				}
 				return {
 					...d,
 					timeSlot: slotByName.get(d.name ?? '') ?? null,
-					stayMinutes
+					stayMinutes,
+					arriveAt
 				};
 			}
 		);

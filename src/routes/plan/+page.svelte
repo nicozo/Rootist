@@ -28,7 +28,6 @@
 		Sunrise,
 		Sun,
 		Moon,
-		Clock,
 		ArrowLeft,
 		AlertCircleIcon
 	} from '@lucide/svelte';
@@ -85,6 +84,7 @@
 			displayAddress?: string;
 			timeSlot: TimeSlot;
 			stayMinutes: StayMinutes;
+			arriveAt: string;
 		}[]
 	>(
 		(restoredDraft?.locations ?? []).map((loc) => ({
@@ -92,7 +92,8 @@
 			address: loc.address,
 			displayAddress: loc.displayAddress,
 			timeSlot: loc.timeSlot,
-			stayMinutes: loc.stayMinutes
+			stayMinutes: loc.stayMinutes,
+			arriveAt: loc.arriveAt ?? ''
 		}))
 	);
 	let isGenerating = $state(false);
@@ -103,6 +104,19 @@
 
 	function removeLocation(id: string) {
 		locations = locations.filter((loc) => loc.id !== id);
+	}
+
+	// 訪問時刻と時間帯（朝・昼・晩）は「いつ行くか」を指す同じ役割の指定であり、
+	// 同時に指定すると矛盾しうる（例: 「朝」と 19:00）。より具体的な指定を残すため、
+	// 片方を指定したらもう片方は解除する排他とする（issue #70）。
+	function setTimeSlot(loc: { timeSlot: TimeSlot; arriveAt: string }, value: TimeSlot) {
+		loc.timeSlot = value;
+		if (value) loc.arriveAt = '';
+	}
+
+	function setArriveAt(loc: { timeSlot: TimeSlot; arriveAt: string }, value: string) {
+		loc.arriveAt = value;
+		if (value) loc.timeSlot = '';
 	}
 
 	async function generateRoute() {
@@ -121,7 +135,8 @@
 						name: l.address,
 						displayAddress: l.displayAddress ?? '',
 						timeSlot: l.timeSlot || undefined,
-						stayMinutes: l.stayMinutes || undefined
+						stayMinutes: l.stayMinutes || undefined,
+						arriveAt: l.arriveAt || undefined
 					}))
 				})
 			});
@@ -284,7 +299,8 @@
 							address: s.name,
 							displayAddress: s.displayAddress,
 							timeSlot: '',
-							stayMinutes: ''
+							stayMinutes: '',
+							arriveAt: ''
 						})}
 				/>
 			</Field.Field>
@@ -292,7 +308,7 @@
 			{#if locations.length > 0}
 				<p class="ml-1 flex items-center gap-1.5 text-xs text-muted-foreground">
 					<Sunrise class="size-3.5 shrink-0" />
-					各スポットの訪問時間帯・滞在時間はどちらも任意です。未指定なら最適な順番・時間配分で自動的に決まります。
+					各スポットの訪問時間帯・訪問時刻・滞在時間はいずれも任意です。未指定なら最適な順番・時間配分で自動的に決まります。時刻を指定すると時間帯の指定は解除されます。
 				</p>
 			{/if}
 
@@ -329,7 +345,8 @@
 										<ToggleGroup.Root
 											type="single"
 											variant="outline"
-											bind:value={loc.timeSlot}
+											value={loc.timeSlot}
+											onValueChange={(v) => setTimeSlot(loc, v as TimeSlot)}
 											aria-label="訪問する時間帯"
 											class="w-fit"
 										>
@@ -345,8 +362,21 @@
 												</ToggleGroup.Item>
 											{/each}
 										</ToggleGroup.Root>
+										<!-- 訪問時刻（何時に着くか）と滞在時間（どれだけいるか）は隣り合うと
+										     区別しづらいため、時計アイコンではなく短いラベルで見分けさせる。 -->
 										<div class="flex items-center gap-1.5">
-											<Clock class="size-3.5 shrink-0 text-muted-foreground" />
+											<span class="shrink-0 text-xs text-muted-foreground">訪問</span>
+											<TimePicker
+												value={loc.arriveAt}
+												onValueChange={(v) => setArriveAt(loc, v)}
+												clearable
+												size="sm"
+												labelPrefix="訪問時刻"
+												showIcon={false}
+											/>
+										</div>
+										<div class="flex items-center gap-1.5">
+											<span class="shrink-0 text-xs text-muted-foreground">滞在</span>
 											<Select.Root
 												type="single"
 												value={loc.stayMinutes === '' ? '' : String(loc.stayMinutes)}

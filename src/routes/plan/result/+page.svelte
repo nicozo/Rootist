@@ -60,7 +60,8 @@
 						address: d.name,
 						displayAddress: d.displayAddress,
 						timeSlot: d.timeSlot ?? '',
-						stayMinutes: d.stayMinutes ?? ''
+						stayMinutes: d.stayMinutes ?? '',
+						arriveAt: d.arriveAt ?? ''
 					}))
 			};
 			planDraft.set(draft);
