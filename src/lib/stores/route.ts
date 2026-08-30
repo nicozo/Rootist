@@ -10,6 +10,7 @@ export interface RouteDestination {
 	travelTimeFromPrevious: string | null;
 	transitRoute?: string | null;
 	timeSlot?: 'morning' | 'noon' | 'night' | null;
+	stayMinutes?: number | null;
 }
 
 export interface RouteResult {
@@ -37,6 +38,7 @@ export interface PlanDraft {
 		address: string;
 		displayAddress?: string;
 		timeSlot: 'morning' | 'noon' | 'night' | '';
+		stayMinutes: number | '';
 	}[];
 }
 

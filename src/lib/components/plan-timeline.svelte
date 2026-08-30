@@ -13,6 +13,7 @@
 	} from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 	import type { RouteResult } from '$lib/stores/route';
+	import { isStayMinutesPreset, formatStayMinutes } from '$lib/stay-minutes';
 
 	interface Props {
 		result: RouteResult;
@@ -122,6 +123,11 @@
 								{#if dest.timeSlot && timeSlotLabels[dest.timeSlot]}
 									<Badge variant="outline" class="border-accent/30 text-[10px] text-accent">
 										{timeSlotLabels[dest.timeSlot]}指定
+									</Badge>
+								{/if}
+								{#if isStayMinutesPreset(dest.stayMinutes)}
+									<Badge variant="outline" class="border-accent/30 text-[10px] text-accent">
+										滞在{formatStayMinutes(dest.stayMinutes)}指定
 									</Badge>
 								{/if}
 							</div>

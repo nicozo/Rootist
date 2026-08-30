@@ -59,7 +59,8 @@
 					.map((d) => ({
 						address: d.name,
 						displayAddress: d.displayAddress,
-						timeSlot: d.timeSlot ?? ''
+						timeSlot: d.timeSlot ?? '',
+						stayMinutes: d.stayMinutes ?? ''
 					}))
 			};
 			planDraft.set(draft);
