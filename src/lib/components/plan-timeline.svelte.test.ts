@@ -69,7 +69,7 @@ describe('plan-timeline', () => {
 	});
 
 	it.each([
-		['transit', '電車・公共交通'],
+		['transit', '公共交通機関'],
 		['car', '車'],
 		['walking', '徒歩']
 	])('移動手段 %s を日本語で表示する', async (mode, label) => {
@@ -81,14 +81,14 @@ describe('plan-timeline', () => {
 	it('未知の移動手段はどのラベルも表示しない', async () => {
 		const { container } = await renderTimeline(result({ transportMode: 'boat' }));
 
-		expect(container.textContent).not.toContain('電車・公共交通');
+		expect(container.textContent).not.toContain('公共交通機関');
 		expect(container.textContent).not.toContain('徒歩');
 	});
 
 	it('移動手段が未指定なら移動手段の行を表示しない', async () => {
 		const { container } = await renderTimeline(result({ transportMode: null }));
 
-		expect(container.textContent).not.toContain('電車・公共交通');
+		expect(container.textContent).not.toContain('公共交通機関');
 	});
 
 	it('出発地があれば「出発地」として表示する', async () => {

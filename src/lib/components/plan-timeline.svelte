@@ -34,7 +34,7 @@
 			{#if result.transportMode}
 				<p class="flex items-center gap-1 text-xs font-medium text-accent">
 					{#if result.transportMode === 'transit'}
-						<TrainFront class="size-3" /> 電車・公共交通
+						<TrainFront class="size-3" /> 公共交通機関
 					{:else if result.transportMode === 'car'}
 						<Car class="size-3" /> 車
 					{:else if result.transportMode === 'walking'}
