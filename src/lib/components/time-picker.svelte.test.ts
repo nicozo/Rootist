@@ -1,5 +1,5 @@
 import { page } from 'vitest/browser';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import TimePicker from './time-picker.svelte';
 
@@ -87,6 +87,23 @@ describe('time-picker', () => {
 
 		await expect.element(page.getByRole('option', { name: '00' })).toBeInTheDocument();
 		await expect.element(page.getByRole('option', { name: '23' })).toBeInTheDocument();
+	});
+
+	// 24件ある時の一覧は画面高を超えるため、Select.Content に max-height（bits-ui が算出する
+	// 利用可能高）が無いとスクロールできず後半の時刻を選べなくなる。ブラウザテストには
+	// Tailwind のCSSが読み込まれず実際の高さは検証できないので、クラスの付与だけを守る。
+	it('時の一覧に画面内へ収める高さ制限クラスが付いている', async () => {
+		await render(TimePicker, {});
+
+		await page.getByLabelText('時').click();
+
+		const content = await vi.waitFor(() => {
+			const el = document.querySelector<HTMLElement>('[data-slot="select-content"]');
+			if (!el) throw new Error('select-content が開いていません');
+			return el;
+		});
+		expect(content.className).toContain('max-h-(--bits-select-content-available-height)');
+		expect(content.className).toContain('overflow-y-auto');
 	});
 
 	it('clearableでなければ「指定なし」の選択肢を出さない', async () => {
