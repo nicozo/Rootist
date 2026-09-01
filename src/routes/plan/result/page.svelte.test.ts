@@ -234,6 +234,7 @@ describe('/plan/result +page.svelte もう一度計画する（入力復元用�
 		origin: { name: '東京駅', displayAddress: '千代田区丸の内' },
 		transportMode: 'car',
 		startTime: '09:30',
+		planDate: '2026-09-05',
 		endDestination: { name: '新宿グランドホテル', displayAddress: '新宿区西新宿' },
 		destinations: [
 			{
@@ -274,6 +275,7 @@ describe('/plan/result +page.svelte もう一度計画する（入力復元用�
 			origin: { name: '東京駅', displayAddress: '千代田区丸の内' },
 			transportMode: 'car',
 			startTime: '09:30',
+			planDate: '2026-09-05',
 			endDestination: { name: '新宿グランドホテル', displayAddress: '新宿区西新宿' },
 			locations: [
 				{
@@ -305,6 +307,7 @@ describe('/plan/result +page.svelte もう一度計画する（入力復元用�
 			origin: null,
 			transportMode: '',
 			startTime: '',
+			planDate: '',
 			endDestination: null,
 			locations: [
 				{
@@ -316,6 +319,19 @@ describe('/plan/result +page.svelte もう一度計画する（入力復元用�
 				}
 			]
 		});
+	});
+
+	it.each([
+		['null', null],
+		['undefined（キー欠落）', undefined]
+	])('planDateが%sならplanDraft.planDateは空文字になる', async (_label, planDate) => {
+		routeResult.set({ ...RESULT, planDate });
+		await renderResult();
+
+		await page.getByRole('button', { name: /もう一度計画する/ }).click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		expect(get(planDraft)?.planDate).toBe('');
 	});
 
 	it('未知のtransportModeは空文字に丸める', async () => {

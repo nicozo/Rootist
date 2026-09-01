@@ -53,6 +53,7 @@
 				origin: result.origin ?? null,
 				transportMode,
 				startTime: typeof result.startTime === 'string' ? result.startTime : '',
+				planDate: typeof result.planDate === 'string' ? result.planDate : '',
 				endDestination: result.endDestination ?? null,
 				locations: [...result.destinations]
 					.sort((a, b) => a.order - b.order)

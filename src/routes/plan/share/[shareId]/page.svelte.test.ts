@@ -59,6 +59,16 @@ describe('/plan/share/[shareId] +page.svelte', () => {
 			.toBeInTheDocument();
 	});
 
+	it('planDateを持つプランでは共有ページにも同じ日付文字列を表示する', async () => {
+		await render(SharePage, {
+			data: { user: null, result: { ...RESULT, planDate: '2026-09-05' } },
+			params: { shareId: 'abc' },
+			form: null
+		});
+
+		await expect.element(page.getByText('2026年9月5日（土）')).toBeInTheDocument();
+	});
+
 	it('目的地が空のプランでも描画できる', async () => {
 		const { container } = await render(SharePage, {
 			data: { user: null, result: { summary: '目的地なし', destinations: [] } },

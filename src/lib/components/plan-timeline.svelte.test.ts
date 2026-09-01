@@ -273,6 +273,28 @@ describe('plan-timeline', () => {
 		await expect.element(page.getByText('滞在1時間指定')).toBeInTheDocument();
 	});
 
+	it('planDateがあれば曜日付きで表示する', async () => {
+		await renderTimeline(result({ planDate: '2026-09-05' }));
+
+		await expect.element(page.getByText('2026年9月5日（土）')).toBeInTheDocument();
+	});
+
+	it('planDateが無ければ日付を表示しない', async () => {
+		const { container } = await renderTimeline(result());
+
+		expect(container.textContent).not.toMatch(/\d{4}年\d{1,2}月\d{1,2}日/);
+	});
+
+	it.each([null, '', '2026-02-30', '2026/09/05'])(
+		'planDateが不正な値 %s なら日付を表示しない',
+		async (planDate) => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const { container } = await renderTimeline(result({ planDate: planDate as any }));
+
+			expect(container.textContent).not.toMatch(/\d{4}年\d{1,2}月\d{1,2}日/);
+		}
+	);
+
 	it('目的地が空でも描画できる', async () => {
 		const { container } = await renderTimeline(result({ destinations: [], summary: '目的地なし' }));
 

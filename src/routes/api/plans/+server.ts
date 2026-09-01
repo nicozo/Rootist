@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { plans } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 import type { RouteDestination, RouteResult } from '$lib/stores/route';
+import { isPlanDate } from '$lib/plan-date';
 
 // 保存時に受け入れる既知フィールドのみを対象とする（任意の巨大キー混入防止）
 const DESTINATION_KEYS = [
@@ -104,6 +105,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		origin: pickPlace(rec.origin),
 		transportMode: typeof rec.transportMode === 'string' ? rec.transportMode : null,
 		startTime: typeof rec.startTime === 'string' ? rec.startTime : null,
+		planDate: isPlanDate(rec.planDate) ? rec.planDate : null,
 		endDestination: pickPlace(rec.endDestination) ?? null
 	};
 

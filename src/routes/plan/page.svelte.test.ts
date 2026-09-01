@@ -115,6 +115,28 @@ function arriveAtTrigger(index = 0) {
 	return document.querySelectorAll('[aria-label="訪問時刻の時"]')[index] as HTMLElement | undefined;
 }
 
+/** 日付ピッカーのトリガー要素を取得する（issue #73）。 */
+function planDateTrigger() {
+	return document.querySelector('[aria-label="日付"]') as HTMLElement | undefined;
+}
+
+/**
+ * 日付ピッカーを開き、当月のn日をクリックする（issue #73）。
+ * 日セルは bits-ui の実装依存の role="button" div（data-bits-day属性）で見分ける
+ * （date-picker.svelte.test.ts の dayCell ヘルパーと同じ考え方）。
+ */
+async function pickPlanDay(n: number) {
+	await page.getByLabelText('日付').click();
+	const cell = await vi.waitFor(() => {
+		const found = [...document.querySelectorAll<HTMLElement>('[data-bits-day]')]
+			.filter((c) => !c.hasAttribute('data-outside-month'))
+			.find((c) => c.textContent?.trim() === String(n));
+		if (!found) throw new Error(`日セル${n}が見つかりません`);
+		return found;
+	});
+	cell.click();
+}
+
 beforeEach(() => {
 	routeResult.set(null);
 	planDraft.set(null);
@@ -170,6 +192,13 @@ describe('/plan +page.svelte 初期表示', () => {
 			.toBeInTheDocument();
 		await expect.element(page.getByLabelText('移動手段')).toBeInTheDocument();
 		await expect.element(page.getByText('出発時刻')).toBeInTheDocument();
+	});
+
+	it('「日付（任意）」の見出しと、テキストが「日付を指定」のトリガーを表示する', async () => {
+		await renderPlan();
+
+		await expect.element(page.getByText('日付（任意）')).toBeInTheDocument();
+		expect(planDateTrigger()?.textContent?.trim()).toBe('日付を指定');
 	});
 
 	it('ゴールは折りたたんだ状態で始まる', async () => {
@@ -520,6 +549,74 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 			displayAddress: '台東区浅草'
 		});
 	});
+
+	it('日付を指定して作成すると/api/routeのリクエストボディにplanDateが含まれる', async () => {
+		// 「今日」に依存しないため実行日によらず安定させる: planDraftで固定日付から復元した状態で
+		// 12日をクリックし、送信ボディが復元月内の別の日付になることを検証する。
+		const fetchSpy = stubApis();
+		planDraft.set({
+			origin: null,
+			transportMode: '',
+			startTime: '',
+			planDate: '2026-09-05',
+			endDestination: null,
+			locations: [
+				{
+					address: '東京タワー',
+					displayAddress: '港区芝公園',
+					timeSlot: '',
+					stayMinutes: '',
+					arriveAt: ''
+				},
+				{
+					address: '浅草寺',
+					displayAddress: '台東区浅草',
+					timeSlot: '',
+					stayMinutes: '',
+					arriveAt: ''
+				}
+			]
+		});
+		await renderPlan();
+
+		await pickPlanDay(12);
+		await generateButton().click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
+		expect(JSON.parse(routeCall![1].body).planDate).toBe('2026-09-12');
+	});
+
+	it('日付を指定せずに作成すると、送信ボディにplanDateが含まれない', async () => {
+		const fetchSpy = stubApis();
+		await renderPlan();
+		await addLocation('東京タワー');
+		await addLocation('浅草寺');
+
+		await generateButton().click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
+		expect(JSON.parse(routeCall![1].body).planDate).toBeUndefined();
+	});
+
+	it('日付を指定してから「指定なしに戻す」で解除して作成すると、送信ボディのplanDateがundefinedになる', async () => {
+		const fetchSpy = stubApis();
+		await renderPlan();
+		await addLocation('東京タワー');
+		await addLocation('浅草寺');
+
+		await pickPlanDay(12);
+		expect(planDateTrigger()?.textContent?.trim()).not.toBe('日付を指定');
+		await page.getByLabelText('日付').click();
+		await page.getByRole('button', { name: '指定なしに戻す' }).click();
+
+		await generateButton().click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
+		expect(JSON.parse(routeCall![1].body).planDate).toBeUndefined();
+	});
 });
 
 describe('/plan +page.svelte プラン作成', () => {
@@ -604,6 +701,7 @@ describe('/plan +page.svelte 入力の復元（もう一度計画する）', () 
 		origin: { name: '東京駅', displayAddress: '千代田区丸の内' },
 		transportMode: 'transit',
 		startTime: '09:30',
+		planDate: '2026-09-05',
 		endDestination: { name: '新宿グランドホテル', displayAddress: '新宿区西新宿' },
 		locations: [
 			{
@@ -643,6 +741,15 @@ describe('/plan +page.svelte 入力の復元（もう一度計画する）', () 
 		expect(stayMinutesTrigger(1)?.textContent?.trim()).toBe('指定なし');
 		expect(arriveAtTrigger(0)?.textContent?.trim()).toBe('--');
 		expect(arriveAtTrigger(1)?.textContent?.trim()).toBe('13');
+		expect(planDateTrigger()?.textContent?.trim()).toBe('2026年9月5日（土）');
+	});
+
+	it('planDateが空文字のdraftでは復元後のトリガー表示が「日付を指定」のまま', async () => {
+		planDraft.set({ ...DRAFT, planDate: '' });
+
+		await renderPlan();
+
+		expect(planDateTrigger()?.textContent?.trim()).toBe('日付を指定');
 	});
 
 	it('復元後、行きたい場所の追加・削除ができる', async () => {
@@ -671,6 +778,7 @@ describe('/plan +page.svelte 入力の復元（もう一度計画する）', () 
 		expect(body.origin).toEqual(DRAFT.origin);
 		expect(body.transportMode).toBe('transit');
 		expect(body.startTime).toBe('09:30');
+		expect(body.planDate).toBe('2026-09-05');
 		expect(body.endDestination).toEqual(DRAFT.endDestination);
 		expect(body.locations).toEqual([
 			{
