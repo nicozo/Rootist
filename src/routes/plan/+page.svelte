@@ -13,6 +13,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import PlaceCombobox from '$lib/components/place-combobox.svelte';
 	import TimePicker from '$lib/components/time-picker.svelte';
+	import DatePicker from '$lib/components/date-picker.svelte';
 	import {
 		MapPin,
 		Navigation,
@@ -53,6 +54,9 @@
 
 	// 出発時刻
 	let startTime = $state(restoredDraft?.startTime ?? '');
+
+	// プラン全体の日付（"YYYY-MM-DD"、未指定は空文字）
+	let planDate = $state(restoredDraft?.planDate ?? '');
 
 	// ゴール（宿泊先など）
 	let endDestination = $state<{ name: string; displayAddress: string } | null>(
@@ -130,6 +134,7 @@
 					origin: origin ?? undefined,
 					transportMode: transportMode || undefined,
 					startTime: startTime || undefined,
+					planDate: planDate || undefined,
 					endDestination: endDestination ?? undefined,
 					locations: locations.map((l) => ({
 						name: l.address,
@@ -181,6 +186,20 @@
 				</p>
 			</div>
 		</header>
+
+		<!-- 日付カード（任意） -->
+		<Card.Root class="gap-3 border-primary/10 bg-card/50 py-4 shadow-none">
+			<Card.Content class="flex flex-col gap-3 px-4">
+				<div>
+					<p class="text-sm font-bold text-primary">日付（任意）</p>
+					<p class="text-xs text-muted-foreground">指定すると結果画面と共有ページに表示されます</p>
+				</div>
+				<Field.Field>
+					<Field.FieldLabel for="planDate" class="sr-only">日付</Field.FieldLabel>
+					<DatePicker id="planDate" bind:value={planDate} />
+				</Field.Field>
+			</Card.Content>
+		</Card.Root>
 
 		<!-- 出発カード（任意） -->
 		<Card.Root class="gap-3 border-primary/10 bg-card/50 py-4 shadow-none">

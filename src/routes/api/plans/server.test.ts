@@ -221,6 +221,28 @@ describe('POST /api/plans 保存', () => {
 		expect(saved.startTime).toBeNull();
 	});
 
+	it('planDateを含むボディをPOSTすると保存されたdata.planDateがその値になる', async () => {
+		await POST(jsonEvent({ destinations: [destination(1)], planDate: '2026-09-05' }));
+
+		expect(insertValues.mock.calls[0][0].data.planDate).toBe('2026-09-05');
+	});
+
+	it('planDate未指定なら保存data.planDateはnull', async () => {
+		await POST(jsonEvent({ destinations: [destination(1)] }));
+
+		expect(insertValues.mock.calls[0][0].data.planDate).toBeNull();
+	});
+
+	it.each(['2026-02-30', '2026/09/05', 123, {}])(
+		'不正なplanDate %s は保存data.planDateをnullにし、保存自体は成功する（201）',
+		async (planDate) => {
+			const res = await POST(jsonEvent({ destinations: [destination(1)], planDate }));
+
+			expect(res.status).toBe(201);
+			expect(insertValues.mock.calls[0][0].data.planDate).toBeNull();
+		}
+	);
+
 	it('DB insertが失敗したら500を投げ、DBの生エラーは返さない', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		insertValues.mockRejectedValue(new Error('ER_DUP_ENTRY: secret table detail'));

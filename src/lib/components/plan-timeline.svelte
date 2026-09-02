@@ -9,12 +9,14 @@
 		TrainFront,
 		Car,
 		Footprints,
-		Flag
+		Flag,
+		CalendarDays
 	} from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 	import type { RouteResult } from '$lib/stores/route';
 	import { isStayMinutesPreset, formatStayMinutes } from '$lib/stay-minutes';
 	import { isVisitTime } from '$lib/visit-time';
+	import { isPlanDate, formatPlanDate } from '$lib/plan-date';
 
 	interface Props {
 		result: RouteResult;
@@ -32,6 +34,12 @@
 <div in:fly={{ y: 10, duration: 500, delay: 100 }}>
 	<Card.Root class="border-accent/20 bg-accent/10">
 		<Card.Content class="flex flex-col gap-2">
+			{#if isPlanDate(result.planDate)}
+				<div class="flex items-center gap-1 text-sm font-bold text-primary">
+					<CalendarDays class="size-4" />
+					<p>{formatPlanDate(result.planDate)}</p>
+				</div>
+			{/if}
 			{#if result.transportMode}
 				<p class="flex items-center gap-1 text-xs font-medium text-accent">
 					{#if result.transportMode === 'transit'}

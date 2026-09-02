@@ -20,6 +20,8 @@ export interface RouteResult {
 	transportMode?: string | null;
 	startTime?: string | null;
 	endDestination?: { name: string; displayAddress: string } | null;
+	/** プラン全体の日付 "YYYY-MM-DD"（未指定・既存データはnull/キー欠落）。issue #73 */
+	planDate?: string | null;
 	destinations: RouteDestination[];
 	summary: string;
 }
@@ -36,6 +38,8 @@ export interface PlanDraft {
 	transportMode: 'transit' | 'car' | 'walking' | '';
 	startTime: string;
 	endDestination: { name: string; displayAddress: string } | null;
+	/** プラン全体の日付 "YYYY-MM-DD"（未指定は空文字）。issue #73 */
+	planDate: string;
 	locations: {
 		address: string;
 		displayAddress?: string;

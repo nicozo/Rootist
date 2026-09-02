@@ -3,6 +3,7 @@ import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import { isStayMinutesPreset, formatStayMinutes } from '$lib/stay-minutes';
 import { isVisitTime, parseTimeToMinutes } from '$lib/visit-time';
+import { isPlanDate } from '$lib/plan-date';
 
 type TimeSlot = 'morning' | 'noon' | 'night';
 
@@ -28,18 +29,23 @@ export const POST: RequestHandler = async ({ request }) => {
 		origin,
 		transportMode,
 		startTime,
-		endDestination
+		endDestination,
+		planDate
 	}: {
 		locations: Location[];
 		origin?: Location;
 		transportMode?: string;
 		startTime?: string;
 		endDestination?: Location;
+		planDate?: string;
 	} = await request.json();
 
 	if (!locations || locations.length < 2) {
 		error(400, '2件以上の目的地が必要です');
 	}
+
+	// プラン全体の日付: 形式外・実在しない日はホワイトリスト外として無視する（プロンプトには一切注入しない）
+	const validPlanDate = isPlanDate(planDate) ? planDate : undefined;
 
 	// 時間帯: whitelist（4値）以外は undefined として無視（プロンプト汚染防止）
 	const validSlots = new Set<TimeSlot>(['morning', 'noon', 'night']);
@@ -265,6 +271,7 @@ ${locationList}
 		origin,
 		transportMode: transportMode ?? null,
 		startTime: startTime ?? null,
-		endDestination: endDestination ?? null
+		endDestination: endDestination ?? null,
+		planDate: validPlanDate ?? null
 	});
 };

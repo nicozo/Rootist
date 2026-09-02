@@ -43,7 +43,10 @@ function stubGemini(payload: unknown = { destinations: [], summary: '概要' }, 
 	vi.stubGlobal('fetch', fetchSpy);
 	return {
 		fetchSpy,
-		prompt: () => JSON.parse(fetchSpy.mock.calls[0][1].body).contents[0].parts[0].text as string
+		prompt: () => JSON.parse(fetchSpy.mock.calls[0][1].body).contents[0].parts[0].text as string,
+		// issue #73 §5.2方式B: プロンプト文字列だけでなくGeminiへの送信ボディ全文（生文字列、非パース）を取得する。
+		// systemInstruction等の第3経路を含め、planDateの有無でボディが1バイトも変わらないことを機械的に担保する。
+		requestBody: () => fetchSpy.mock.calls[0][1].body as string
 	};
 }
 
@@ -387,6 +390,89 @@ describe('POST /api/route プロンプト組み立て', () => {
 	});
 });
 
+describe('POST /api/route planDate（issue #73）', () => {
+	// 不変条件1（本issueの核）: planDate は Gemini のプロンプトに一切注入しない。
+	it('プロンプト文字列にplanDateの値・整形結果・「日付」という語のいずれも含めない', async () => {
+		const { prompt } = stubGemini();
+
+		await POST(eventWith({ locations: TWO_LOCATIONS, planDate: '2026-09-05' }));
+
+		expect(prompt()).not.toContain('2026-09-05');
+		expect(prompt()).not.toContain('2026年9月5日');
+		expect(prompt()).not.toContain('日付');
+	});
+
+	// 非回帰（§5.2方式B・N-6反映）: planDateの有無でリクエストボディが1バイトも変わらないことを、
+	// 最小構成・全部盛り構成の2形状で確認する（条件付き注入 if(origin && planDate) 等の取り逃しを防ぐ）。
+	it.each([
+		['最小構成', {}],
+		[
+			'全部盛り構成',
+			{
+				origin: { name: '東京駅', displayAddress: '千代田区' },
+				endDestination: { name: 'ホテル', displayAddress: '新宿区' },
+				transportMode: 'transit',
+				startTime: '09:00'
+			}
+		]
+	])('%s: planDateの有無でリクエストボディが完全一致する', async (_label, extra) => {
+		const withoutDate = stubGemini();
+		await POST(
+			eventWith({
+				locations: [
+					{ ...TWO_LOCATIONS[0], timeSlot: 'morning', stayMinutes: 60, arriveAt: '10:00' },
+					TWO_LOCATIONS[1]
+				],
+				...extra
+			})
+		);
+		const bodyWithoutDate = withoutDate.requestBody();
+
+		const withDate = stubGemini();
+		await POST(
+			eventWith({
+				locations: [
+					{ ...TWO_LOCATIONS[0], timeSlot: 'morning', stayMinutes: 60, arriveAt: '10:00' },
+					TWO_LOCATIONS[1]
+				],
+				...extra,
+				planDate: '2026-09-05'
+			})
+		);
+		const bodyWithDate = withDate.requestBody();
+
+		expect(bodyWithDate).toBe(bodyWithoutDate);
+	});
+
+	it('有効なplanDateを渡すとレスポンスにそのまま返す', async () => {
+		stubGemini();
+
+		const res = await POST(eventWith({ locations: TWO_LOCATIONS, planDate: '2026-09-05' }));
+
+		expect((await res.json()).planDate).toBe('2026-09-05');
+	});
+
+	it('planDate未指定ならレスポンスのplanDateはnull', async () => {
+		stubGemini();
+
+		const res = await POST(eventWith({ locations: TWO_LOCATIONS }));
+
+		expect((await res.json()).planDate).toBeNull();
+	});
+
+	it.each(['2026-02-30', '2026-9-5', '2026/09/05', '', 20260905, null, {}])(
+		'不正なplanDate %s はレスポンスでnullになり200相当のレスポンスが返る（400にしない）',
+		async (planDate) => {
+			stubGemini();
+
+			const res = await POST(eventWith({ locations: TWO_LOCATIONS, planDate }));
+
+			expect(res.status).toBe(200);
+			expect((await res.json()).planDate).toBeNull();
+		}
+	);
+});
+
 describe('POST /api/route レスポンス整形', () => {
 	it('Geminiの生成結果に入力条件を添えて返す', async () => {
 		stubGemini({ destinations: [], summary: '概要' });
@@ -407,7 +493,8 @@ describe('POST /api/route レスポンス整形', () => {
 			origin: { name: '東京駅', displayAddress: '千代田区' },
 			transportMode: 'transit',
 			startTime: '09:00',
-			endDestination: { name: 'ホテル', displayAddress: '新宿区' }
+			endDestination: { name: 'ホテル', displayAddress: '新宿区' },
+			planDate: null
 		});
 	});
 
