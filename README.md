@@ -81,3 +81,9 @@ pnpm run db:push
 # 2. データベースの確認
 pnpm run db:studio
 ```
+
+## 🤖 Docker MCP Toolkit（Claude Code 連携）
+
+Docker MCP Toolkit（gateway）を導入すると、Claude Code から Docker Hub 上のイメージ検索・リポジトリ情報取得などを自然言語で実行できるようになります。MCP サーバーはコンテナ内で隔離実行されるため、ホストへ Node.js / Python 等の個別環境を構築する必要がありません。
+
+セットアップ手順・動作確認方法・トラブルシューティングは [`docs/docker-mcp-toolkit.md`](docs/docker-mcp-toolkit.md) を参照してください。
