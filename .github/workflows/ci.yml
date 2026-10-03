@@ -32,10 +32,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-      BETTER_AUTH_SECRET: ci-dummy-secret-not-for-production-use-only
-      BETTER_AUTH_URL: http://localhost:4173
-      GOOGLE_CLIENT_ID: ci-dummy-google-client-id
-      GOOGLE_CLIENT_SECRET: ci-dummy-google-client-secret
+      # Supabaseには接続しない（到達不能なダミー）。実在のキーは書かない
+      SUPABASE_URL: http://127.0.0.1:54321
+      SUPABASE_PUBLISHABLE_KEY: ci-dummy-publishable-key
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
