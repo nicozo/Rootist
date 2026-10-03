@@ -80,8 +80,8 @@ docker run --rm postgres:17 psql "$DATABASE_URL" -tAc 'select 1'
 スキーマの正は `src/lib/server/db/schema.ts` と `drizzle/` のマイグレーションです。
 
 ```bash
-set -a; . ./.env; set +a    # DATABASE_URL を読み込む（drizzle-kit は .env を自動で読まない）
-
+# drizzle-kit は実行時にカレントディレクトリの .env を読み込むため、set -a は不要
+# （シェルで設定済みの DATABASE_URL があればそれが優先される）
 pnpm db:generate            # schema.ts の変更から drizzle/ に SQL を生成する
 # 生成された drizzle/*.sql をレビューする（RLS の有効化が含まれていること）
 pnpm db:migrate             # 開発用 DB へ適用する
