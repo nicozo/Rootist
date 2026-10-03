@@ -1,6 +1,6 @@
 # SvelteKit アプリケーション
 
-SvelteKit と MySQL を使用したフルスタック Web アプリケーション
+SvelteKit と PostgreSQL（Supabase）を使用したフルスタック Web アプリケーション
 
 ## 📚 技術スタック
 
@@ -14,7 +14,7 @@ SvelteKit と MySQL を使用したフルスタック Web アプリケーショ�
 ### バックエンド
 
 - **[Node.js](https://nodejs.org/)** v25 - JavaScript ランタイム
-- **[MySQL](https://www.mysql.com/)** 8.0 - リレーショナルデータベース
+- **[PostgreSQL](https://www.postgresql.org/)**（[Supabase](https://supabase.com/)）- リレーショナルデータベース
 
 ### 開発ツール
 
@@ -53,20 +53,17 @@ docker compose logs -f dev
 
 ### issue 単位で並行起動する（worktree 開発）
 
-従来の手順（上記）はそのまま既定ポート（アプリ 5173 / MySQL 3306）で動きます。git worktree で issue ごとに並行開発する場合は、worktree の `.env` に次の 5 キーを設定すると、`rootist-issue-<N>` という別環境（コンテナ・ボリューム・ポートが issue ごとに分離）として起動できます。
+従来の手順（上記）はそのまま既定ポート（アプリ 5173 / MySQL 3306）で動きます。git worktree で issue ごとに並行開発する場合は、worktree の `.env` に次の 4 キーを設定すると、`rootist-issue-<N>` という別環境（コンテナ・ボリューム・ポートが issue ごとに分離）として起動できます。
 
-| キー                   | 値（例: issue #112。クォートしない）            |
-| ---------------------- | ----------------------------------------------- |
-| `COMPOSE_PROJECT_NAME` | `rootist-issue-112`                             |
-| `DEV_PORT`             | `20112`（`20000 + 番号`）                       |
-| `MYSQL_PORT`           | `30112`（`30000 + 番号`）                       |
-| `DATABASE_URL`         | メインの値のホスト部を `localhost:30112` に変更 |
-| `BETTER_AUTH_URL`      | `http://localhost:20112`                        |
+| キー                   | 値（例: issue #112。クォートしない） |
+| ---------------------- | ------------------------------------ |
+| `COMPOSE_PROJECT_NAME` | `rootist-issue-112`                  |
+| `DEV_PORT`             | `20112`（`20000 + 番号`）            |
+| `MYSQL_PORT`           | `30112`（`30000 + 番号`）            |
+| `BETTER_AUTH_URL`      | `http://localhost:20112`             |
 
 ```bash
-# worktree 内で。MySQL だけ起動し、アプリはホストで動かす
-docker compose up -d mysql
-pnpm db:push                          # 初回のみ。issue 環境の MySQL は空で始まる
+# worktree 内で。DB は Supabase 開発用クラウドに直結（DATABASE_URL はメインと同じ値のまま）。アプリはホストで動かす
 pnpm dev --port 20112 --strictPort    # DEV_PORT で起動（別ポートにずれない。事前に lsof -iTCP:20112 -sTCP:LISTEN -P が空であることを確認）
 
 # ポートの確認
@@ -101,8 +98,9 @@ pnpm exec tsx seed.ts
 #### 開発環境
 
 ```bash
-# 1. スキーマの内容をデータベースに反映
-pnpm run db:push
+# 1. スキーマの変更からマイグレーションを生成し、SQL をレビューして適用（db:push は使わない）
+pnpm run db:generate
+pnpm run db:migrate
 
 # 2. データベースの確認
 pnpm run db:studio
@@ -110,7 +108,7 @@ pnpm run db:studio
 
 ## ☁️ Supabase 環境
 
-DB・認証は Supabase へ移行中です。ローカル開発は開発用クラウドプロジェクトへの直結方式で、接続情報は `.env.example` を元に設定します。方式の理由と手順は [`docs/supabase-setup.md`](docs/supabase-setup.md) を参照してください。
+DB は Supabase（Postgres）へ移行済みで、認証は移行中です。ローカル開発は開発用クラウドプロジェクトへの直結方式で、接続情報は `.env.example` を元に設定します。方式の理由と手順は [`docs/supabase-setup.md`](docs/supabase-setup.md) を参照してください。
 
 ## 🤖 Docker MCP Toolkit（Claude Code 連携）
 

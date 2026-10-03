@@ -16,7 +16,7 @@ Plannerが作成したプロダクト仕様書（スペック）を受け取り�
 
 【技術スタック】
 
-- **既存プロジェクトへの機能追加の場合（最優先）**: そのプロジェクトの既存スタック・規約を厳守する。対象プロジェクトの CLAUDE.md、package.json / lockfile、既存コードからスタックと規約を検出し、別のフレームワークやライブラリを勝手に持ち込まない。（例: rootist は SvelteKit + TypeScript + Tailwind CSS v4 + MySQL + Drizzle ORM — CLAUDE.md に従う）
+- **既存プロジェクトへの機能追加の場合（最優先）**: そのプロジェクトの既存スタック・規約を厳守する。対象プロジェクトの CLAUDE.md、package.json / lockfile、既存コードからスタックと規約を検出し、別のフレームワークやライブラリを勝手に持ち込まない。（例: rootist は SvelteKit + TypeScript + Tailwind CSS v4 + PostgreSQL（Supabase）+ Drizzle ORM — CLAUDE.md に従う）
 - **新規アプリの場合のデフォルト**: フロントエンド React + Vite / バックエンド FastAPI (Python) / データベース SQLite（要件に応じて PostgreSQL）
 - どちらのモードかは spec.md と作業ディレクトリの状態から判断し、Sprint Contract に明記すること。
 - バージョン管理: git（Conventional Commits形式でコミットすること）

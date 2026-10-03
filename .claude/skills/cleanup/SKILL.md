@@ -54,10 +54,10 @@ until s=$(gh pr view <PR番号> --json state -q .state) && [ "$s" != OPEN ]; do 
    - その worktree で `git -C <path> status --porcelain` に出力がある → 未コミットの作業が残っているので、worktree もブランチも削除せずスキップして報告する
    - **gitignore 対象のファイルは `git worktree remove` で黙って消える**（`--force` 無しでも拒否されない）。削除前に `git -C <path> status --porcelain --ignored` の `!!` 行を確認する:
      - `.dev-loop/` がある → QAレポート等の記録が失われるので削除せず、メインのワーキングツリーの `.dev-loop/` へ移すか、ユーザーに確認する
-     - `.env` がメインのワーキングツリーの `.env` と、issue 単位の Docker 環境用 5 キー（`COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT` / `DATABASE_URL` / `BETTER_AUTH_URL`）**以外**の行で異なる → 手元の設定が失われるので、ユーザーに確認する。5 キーの差分だけなら想定内なので確認不要。判定（値を表示しないため `diff` は使わない）:
+     - `.env` がメインのワーキングツリーの `.env` と、issue 単位の Docker 環境用 4 キー（`COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT` / `BETTER_AUTH_URL`）**以外**の行で異なる → 手元の設定が失われるので、ユーザーに確認する。4 キーの差分だけなら想定内なので確認不要。判定（値を表示しないため `diff` は使わない）:
 
        ```bash
-       K='^(COMPOSE_PROJECT_NAME|DEV_PORT|MYSQL_PORT|DATABASE_URL|BETTER_AUTH_URL)='
+       K='^(COMPOSE_PROJECT_NAME|DEV_PORT|MYSQL_PORT|BETTER_AUTH_URL)='
        cmp -s <(grep -vE "$K" <メインのワーキングツリー>/.env) <(grep -vE "$K" <path>/.env) && echo 想定内 || echo 要確認
        ```
 
