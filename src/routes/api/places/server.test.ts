@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 
 // issue #62: Places APIプロキシの単体テスト。
 // 実際のGoogle Places API（課金対象）は絶対に叩かず、fetchをモックする。

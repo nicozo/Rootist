@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { APIError } from 'better-auth';
 import { LOGIN_FAILURE_MESSAGE } from '$lib/server/auth-errors';
 

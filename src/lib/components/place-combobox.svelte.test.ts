@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, expect, it, vi, afterEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import MapPin from '@lucide/svelte/icons/map-pin';
 import PlaceCombobox from './place-combobox.svelte';

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { APIError } from 'better-auth';
 
 // issue #62: /logout の load / default action の単体テスト。Better Auth本体はモックする。

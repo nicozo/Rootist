@@ -35,3 +35,4 @@ storybook-static
 # dev-loop（3エージェント開発ループの共有ワークスペース）
 .dev-loop/
 .playwright-mcp/
+.vitest/

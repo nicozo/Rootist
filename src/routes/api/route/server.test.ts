@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 
 // issue #62: プラン生成APIの単体テスト。
 // 実際のGemini API（課金対象）は絶対に叩かず、fetchをモックする。

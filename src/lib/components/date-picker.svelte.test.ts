@@ -1,5 +1,5 @@
-import { page, userEvent } from 'vitest/browser';
-import { describe, expect, it, vi } from 'vitest';
+import { page, userEvent } from 'vite-plus/test/browser';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import DatePicker from './date-picker.svelte';
 
@@ -34,13 +34,13 @@ describe('date-picker', () => {
 	it('未選択時、トリガーのテキストは「日付を指定」', async () => {
 		await render(DatePicker, {});
 
-		await expect.element(trigger()).toHaveTextContent('日付を指定');
+		await expect.element(trigger()).toMatchTextContent('日付を指定');
 	});
 
 	it('valueを渡すと、トリガーのテキストが「YYYY年M月D日（曜）」になる', async () => {
 		await render(DatePicker, { value: '2026-09-05' });
 
-		await expect.element(trigger()).toHaveTextContent('2026年9月5日（土）');
+		await expect.element(trigger()).toMatchTextContent('2026年9月5日（土）');
 	});
 
 	it('トリガーを押すと2026年9月のカレンダーが開き、12日を選ぶとonValueChangeが呼ばれ表示が更新され閉じる', async () => {
@@ -53,7 +53,7 @@ describe('date-picker', () => {
 		cell?.click();
 
 		expect(changes).toEqual(['2026-09-12']);
-		await expect.element(trigger()).toHaveTextContent('2026年9月12日（土）');
+		await expect.element(trigger()).toMatchTextContent('2026年9月12日（土）');
 		await waitForPopoverClosed();
 	});
 
@@ -67,7 +67,7 @@ describe('date-picker', () => {
 		await page.getByRole('button', { name: '指定なしに戻す' }).click();
 
 		expect(changes).toEqual(['']);
-		await expect.element(trigger()).toHaveTextContent('日付を指定');
+		await expect.element(trigger()).toMatchTextContent('日付を指定');
 		await waitForPopoverClosed();
 	});
 
@@ -83,7 +83,7 @@ describe('date-picker', () => {
 		selected?.click();
 
 		expect(changes).toEqual([]);
-		await expect.element(trigger()).toHaveTextContent('2026年9月5日（土）');
+		await expect.element(trigger()).toMatchTextContent('2026年9月5日（土）');
 	});
 
 	it('値が無いときは「指定なしに戻す」ボタンが表示されない', async () => {
@@ -153,7 +153,7 @@ describe('date-picker', () => {
 			await userEvent.keyboard('{Enter}');
 
 			expect(changes).toEqual(['2026-09-06']);
-			await expect.element(trigger()).toHaveTextContent('2026年9月6日（日）');
+			await expect.element(trigger()).toMatchTextContent('2026年9月6日（日）');
 			await waitForPopoverClosed();
 		});
 
@@ -165,7 +165,7 @@ describe('date-picker', () => {
 			await userEvent.keyboard('{Escape}');
 
 			expect(changes).toEqual([]);
-			await expect.element(trigger()).toHaveTextContent('2026年9月5日（土）');
+			await expect.element(trigger()).toMatchTextContent('2026年9月5日（土）');
 			await waitForPopoverClosed();
 			await expect.element(trigger()).toHaveFocus();
 		});

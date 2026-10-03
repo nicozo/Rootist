@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { describe, expect, it, vi, afterEach } from 'vite-plus/test';
 
 // issue #62: DB接続モジュールの単体テスト。
 // 実際のMySQLへは接続せず、mysql2のプール生成とdrizzleの初期化呼び出しだけを検証する。

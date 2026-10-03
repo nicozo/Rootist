@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { load } from './+layout.server';
 
 // issue #62: 全ページ共通のユーザー情報受け渡しの単体テスト。

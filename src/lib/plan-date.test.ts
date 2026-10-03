@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from 'vitest';
+import { describe, expect, it, afterEach } from 'vite-plus/test';
 import { isPlanDate, formatPlanDate } from './plan-date';
 
 // issue #73: planDate（プラン全体の日付）の形式検証・実在日判定・表示整形の単体テスト。
