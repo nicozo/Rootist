@@ -62,9 +62,25 @@ docker mcp profile server add rootist --server catalog://mcp/docker-mcp-catalog/
 
 3-2 のコマンドで `dockerhub` は既に追加済みです。後から別の rootist 用プロファイルにサーバーを追加したい場合は `docker mcp profile server add rootist --server catalog://mcp/docker-mcp-catalog/<サーバー名>` を使います（5章参照）。
 
-### 3-4. （必要な場合のみ）シークレットを登録する
+### 3-4. （必要な場合のみ）Docker Hub のユーザー名とシークレットを設定する
 
-`dockerhub` サーバーは Docker Hub の Personal Access Token（`dockerhub.pat_token` / 環境変数名 `HUB_PAT_TOKEN`）を使うとプライベートリポジトリの操作や書き込み系操作が可能になります。未設定でも `search` や公開リポジトリの参照などは動作します。登録方法は6章を参照してください。
+`dockerhub` サーバーは Docker Hub のユーザー名と Personal Access Token（PAT）を設定すると、自分の名前空間の取得（`getPersonalNamespace`）やプライベートリポジトリの操作が可能になります。未設定でも `search` や公開リポジトリの参照などは動作します。
+
+設定は次の2つです（両方必要です）。
+
+1. **ユーザー名をプロファイルに設定する**
+
+   ```bash
+   docker mcp profile config rootist --set dockerhub.username=<Docker Hubのユーザー名>
+   ```
+
+   設定値は `docker mcp profile config rootist --get-all` で確認できます。
+
+2. **PAT をシークレットとして登録する**（6章参照）
+
+   PAT は Docker Hub の「Account settings」→「Personal access tokens」で発行します。現状の用途（イメージ検索・リポジトリ情報取得）であれば、Access permissions は **`Repo Read-only`** で十分です。
+
+設定後、`docker mcp gateway run --profile rootist --dry-run` の出力で `dockerhub` の起動引数に `-e HUB_PAT_TOKEN` と `--username=<ユーザー名>` が含まれていれば、両方が gateway に渡っています。
 
 ### 3-5. Claude Code でプロジェクトスコープの MCP サーバーを承認する
 
@@ -117,16 +133,22 @@ docker mcp catalog show mcp/docker-mcp-catalog:latest
 - 認証情報（Docker Hub のトークン、各種 MCP サーバーの API キー等）は **Docker Desktop のシークレットストア**で管理します。CLI からは以下のように登録できます。
 
   ```bash
-  echo <your-token> | docker mcp secret set HUB_PAT_TOKEN
+  # トークンをクリップボードにコピーした状態で実行する
+  pbpaste | docker mcp secret set dockerhub.pat_token
   ```
 
-  （`<your-token>` はプレースホルダです。実際のトークン値に置き換えてから実行してください。登録済みシークレットの一覧は `docker mcp secret ls`、削除は `docker mcp secret rm <name>` で行えます。）
+  - シークレット名は **`dockerhub.pat_token`** です（`docker mcp profile show rootist` の `secrets:` に記載された `name`）。コンテナ内の環境変数名 `HUB_PAT_TOKEN` で登録しても `dockerhub` サーバーには渡りません。
+  - `pbpaste` 経由にすることで、トークンの実値がシェル履歴に残らず、手入力による貼り付けミスも防げます。`echo <token> | ...` のように `<` `>` を含むプレースホルダをそのまま実行すると、zsh がリダイレクトと解釈して `parse error` になります。
+  - 登録済みシークレットの一覧は `docker mcp secret ls`、削除は `docker mcp secret rm <name>` で行えます。
+  - **既存のシークレットは `secret set` で上書きできません**（`The specified item already exists in the keychain. (-25299)` になります）。登録し直す場合は、先に `docker mcp secret rm dockerhub.pat_token` を実行してください。
 
 - **`.mcp.json`・`.env`・本手順書・`README.md` を含む、リポジトリにコミットされるいかなるファイルにも、シークレットの実値を書いてはいけません。** シークレットは Docker Desktop 側（OS のキーチェーンおよび Secrets Engine プロバイダ）で一元管理され、リポジトリには一切含まれません。
 
 ## 7. トラブルシューティング
 
 - **ツールが1つも見えない** → プロファイルが未作成、または `--profile` に渡している名前が `rootist` と一致していない可能性があります。`docker mcp profile show rootist` を実行し、`servers:` が空でないか確認してください。これは本手順で最も踏みやすい失敗です。
+- **`getPersonalNamespace` が `InvalidTokenError: Invalid token specified: missing part #2` で失敗する** → PAT のシークレットが未登録（またはシークレット名の誤り）、あるいはユーザー名が未設定です。3-4 と6章の手順で `dockerhub.username` と `dockerhub.pat_token` を設定してください。
+- **`getPersonalNamespace` が `Failed to authenticate PAT for <ユーザー名>: 401` で失敗する** → ユーザー名と PAT は gateway に渡っていますが、PAT の値が誤っています（貼り付けミス、失効、削除済みトークンなど）。`docker mcp secret rm dockerhub.pat_token` の後、6章の手順で正しいトークンを登録し直してください。
 - **`--profile` と `--servers` / `--enable-all-servers` は同時に指定できません（相互排他）**。`docker mcp gateway run --help` にも明記されています。`.mcp.json` の `args` にはこの3者のうち `--profile` のみを含めてください。
 - **CLI のサブコマンド名はバージョンによって変わります。** 迷ったら `docker mcp profile --help` のように `--help` を付けて実際のサブコマンド一覧を確認してください。参考として、本手順書執筆時点（`docker mcp version` = `v0.43.3`）の `docker mcp profile` サブコマンドは `config` / `create` / `export` / `import` / `list` / `pull` / `push` / `remove` / `server` / `show` / `tools` であり、**`use` や `select` に相当するサブコマンドは存在しません**。
 - **公式ドキュメントと実際の CLI 出力が食い違う場合は、実際の CLI 出力を優先してください。** ドキュメントの更新が CLI のリリースに追いついていない場合があります。
