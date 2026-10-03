@@ -129,6 +129,10 @@ dev・MySQL とも issue 別にする。プロジェクト名を分けるだけ�
 - Google ログインは Google Cloud Console に登録済みのリダイレクト URI（ポート 5173）以外では動かない既知の制約がある。issue 環境（`DEV_PORT` が 5173 以外）では確認できない
 - issue 環境の Compose プロジェクト（コンテナ・ネットワーク・ボリューム）は、マージ後に `cleanup` スキルが worktree 削除の前に削除する。メインの `rootist` や他 issue のプロジェクトには触れない
 
+## Supabase 環境
+
+DB・認証を Supabase（Postgres + Supabase Auth）へ移行中（親 issue #113）。ローカル開発は開発用クラウドプロジェクトへの直結で、`supabase start` は使わない。環境変数は `.env.example`、方式の理由と手順は `docs/supabase-setup.md` を参照。
+
 ## アーキテクチャ概要
 
 **サービス概要**: ユーザーが行き先を入力するだけで、最短ルートでの旅行プランを自動生成するサービス。
