@@ -54,8 +54,26 @@ until s=$(gh pr view <PR番号> --json state -q .state) && [ "$s" != OPEN ]; do 
    - その worktree で `git -C <path> status --porcelain` に出力がある → 未コミットの作業が残っているので、worktree もブランチも削除せずスキップして報告する
    - **gitignore 対象のファイルは `git worktree remove` で黙って消える**（`--force` 無しでも拒否されない）。削除前に `git -C <path> status --porcelain --ignored` の `!!` 行を確認する:
      - `.dev-loop/` がある → QAレポート等の記録が失われるので削除せず、メインのワーキングツリーの `.dev-loop/` へ移すか、ユーザーに確認する
-     - `.env` がメインのワーキングツリーの `.env` と異なる（`cmp -s` で比較）→ 手元の設定が失われるので、ユーザーに確認する
+     - `.env` がメインのワーキングツリーの `.env` と、issue 単位の Docker 環境用 5 キー（`COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT` / `DATABASE_URL` / `BETTER_AUTH_URL`）**以外**の行で異なる → 手元の設定が失われるので、ユーザーに確認する。5 キーの差分だけなら想定内なので確認不要。判定（値を表示しないため `diff` は使わない）:
+
+       ```bash
+       K='^(COMPOSE_PROJECT_NAME|DEV_PORT|MYSQL_PORT|DATABASE_URL|BETTER_AUTH_URL)='
+       cmp -s <(grep -vE "$K" <メインのワーキングツリー>/.env) <(grep -vE "$K" <path>/.env) && echo 想定内 || echo 要確認
+       ```
+
      - それ以外（`node_modules/`、`.svelte-kit/` 等の再生成できるもの）→ そのまま削除してよい
+   - **issue 環境の Docker プロジェクトの削除（worktree を削除する前に行う）**: worktree の `.env` からプロジェクト名を取り出し、`rootist-issue-<数字>` に完全一致する場合のみ、そのプロジェクトのコンテナ・ネットワーク・名前付きボリュームを削除する（dev プロファイルのコンテナも含む）。プロジェクト名は必ず `-p` で明示する（シェルの `COMPOSE_PROJECT_NAME` が `.env` より優先されて別プロジェクトを消す事故を防ぐ）:
+
+     ```bash
+     name=$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' <path>/.env | tail -n1 | tr -d "\"'")
+     printf '%s\n' "$name" | grep -qxE 'rootist-issue-[0-9]+' \
+       && docker compose -p "$name" --project-directory <path> --profile dev down --volumes --remove-orphans
+     ```
+
+     - 値の前後のクォートは除去して判定する（`COMPOSE_PROJECT_NAME="rootist-issue-112"` と書かれていても対象になる）
+     - `rootist` や `rootist-issue-`・`rootist-issue-12a` など完全一致しない値、キー無しの場合は Docker に触れない。ただし **`COMPOSE_PROJECT_NAME` キーがあるのに完全一致しない場合は、Docker に触れずスキップしたことをユーザーに報告する**（メインの `rootist` 以外の想定外の値は、コンテナ・ボリュームが残る恐れがあるため）
+     - Docker デーモンが使えない／プロジェクトが存在しない場合はスキップして報告する（worktree の削除は続行してよい）
+
    - 問題が無ければ `git worktree remove <path>` で削除する（`--force` は使わない。git が拒否したらスキップして報告する）
    - セッションの作業ディレクトリが削除対象の worktree の中にある場合は、先に ExitWorktree（`action: "keep"`）等でメインのワーキングツリーへ戻ってから削除する
    - 最後に `git worktree prune` で、ディレクトリが既に消えている worktree の登録を掃除する
@@ -73,3 +91,4 @@ until s=$(gh pr view <PR番号> --json state -q .state) && [ "$s" != OPEN ]; do 
 - リモートブランチの削除（GitHub の「マージ後にブランチを自動削除」設定に任せる）
 - マージされていないブランチ・PRが open/closed(未マージ) のブランチの削除
 - メインのワーキングツリーの `.dev-loop/` ワークスペースの削除
+- メインの `rootist` プロジェクトおよび削除対象以外の Compose プロジェクトの停止・削除

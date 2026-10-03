@@ -23,6 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 開発作業（機能追加・修正など、ファイル変更を伴う作業）を始めるときは、必ず git worktree を切って作業すること。メインのワーキングツリー（`main`）で直接ブランチを切り替えたり変更したりしない
   - 作業ブランチごとに worktree を作成し（`git worktree add -b <branch> .claude/worktrees/<name> main`）、その中で実装・コミット・push を行う
   - worktree には gitignore 対象の `.env` と `node_modules/` が無いので、作成直後にメインのワーキングツリーから `.env` をコピーし `pnpm install` する
+  - issue 番号 N の worktree では、`.env` をコピーした直後に `COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT` / `DATABASE_URL` / `BETTER_AUTH_URL` の 5 キーを設定する（値と手順は「Docker 開発環境（issue 単位の分離）」の節）
   - PRマージ後は worktree も削除して片付ける（`cleanup` スキルが worktree とブランチをまとめて削除する）
 - Claude Code（オーケストレーター本体・generator等のサブエージェントを問わず）が作成するコミットには、コミット履歴の透明性を保つため必ず以下のトレーラーを含めること
 
@@ -53,7 +54,7 @@ pnpm test:unit -- --run   # 単発実行
 pnpm test:e2e      # Playwright E2E
 pnpm test          # 全テスト一括
 
-# DB操作（要: docker compose --profile dev up -d でMySQLコンテナ起動）
+# DB操作（要: MySQLコンテナ起動。従来起動は docker compose --profile dev up -d、issue 環境は docker compose up -d mysql）
 pnpm db:push       # スキーマをDBに直接反映（開発用）
 pnpm db:generate   # マイグレーションファイル生成
 pnpm db:migrate    # マイグレーション実行
@@ -65,7 +66,68 @@ pnpm storybook     # localhost:6006 で起動
 # Docker
 docker compose --profile dev up -d    # MySQL + dev コンテナ起動
 docker compose --profile prod up -d   # MySQL + prod コンテナ起動
+
+# Docker（issue 用 worktree。.env の COMPOSE_PROJECT_NAME / ポート設定が自動で効く）
+docker compose up -d mysql            # 自 issue の MySQL だけ起動（アプリはホストの pnpm dev）
+docker compose ps                     # 自 issue のコンテナと公開ポートを確認
 ```
+
+## Docker 開発環境（issue 単位の分離）
+
+git worktree 1つ = issue 1つ = Compose プロジェクト 1つとして扱い、コンテナ名・ネットワーク・ボリューム・ホストポートを issue ごとに分離する。複数 issue を同時に起動してもポートは衝突せず、`docker ps` のコンテナ名から issue が分かる。
+
+### 命名規則
+
+| 起動のしかた                                   | Compose プロジェクト名 | コンテナ名                                              |
+| ---------------------------------------------- | ---------------------- | ------------------------------------------------------- |
+| issue 用 worktree（issue 番号 N）              | `rootist-issue-<N>`    | `rootist-issue-<N>-dev-1` / `rootist-issue-<N>-mysql-1` |
+| 従来起動（メインのワーキングツリー、番号なし） | `rootist`              | `rootist-dev-1` / `rootist-mysql-1`                     |
+
+- `<N>` は issue 番号そのまま（例: issue #112 → `rootist-issue-112-mysql-1`、ボリューム `rootist-issue-112_mysql-data`）
+- プロジェクト名は worktree の `.env` の `COMPOSE_PROJECT_NAME` で決まる（Compose 標準。`compose.yaml` に `name:` / `container_name` は書かない。固定するとメインの環境と同名になり壊すため）
+
+### ポート割当
+
+| 用途                        | 従来起動 | issue N の環境 | 例: issue #112 |
+| --------------------------- | -------- | -------------- | -------------- |
+| アプリ（dev）のホストポート | 5173     | `20000 + N`    | 20112          |
+| MySQL のホストポート        | 3306     | `30000 + N`    | 30112          |
+
+- `compose.yaml` は `DEV_PORT` / `MYSQL_PORT` があればそれを、無ければ（未定義・空文字とも）5173 / 3306 を使う。コンテナ内部のポートは変わらない
+- `DEV_PORT` は、dev コンテナで動かす場合もホストの `pnpm dev` で動かす場合も、その issue のアプリ用ポートとして共通で使う（同時には使わない）
+- issue 番号 10000 以上は対象外（到達時に方式を見直す）
+
+### worktree の `.env` に設定する 5 キー（issue N の場合）
+
+`.env` をメインからコピーした直後に設定する。既存キーは置き換え、未定義キーは追加し、各キーがちょうど 1 回だけ現れる状態にする。**値はクォートしない**（`KEY=value` 形式。メインの `DATABASE_URL="..."` のクォートも外す）。メインの `.env` は変更しない。
+
+| キー                   | 値                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------ |
+| `COMPOSE_PROJECT_NAME` | `rootist-issue-<N>`                                                                        |
+| `DEV_PORT`             | `20000+N`                                                                                  |
+| `MYSQL_PORT`           | `30000+N`                                                                                  |
+| `DATABASE_URL`         | メインの値のホスト部を `localhost:<MYSQL_PORT>` に置換（ユーザー・パスワード・DB名は同じ） |
+| `BETTER_AUTH_URL`      | `http://localhost:<DEV_PORT>`（Better Auth は baseURL とアクセス元の一致が前提）           |
+
+### MySQL は issue ごとに分離する（案B）
+
+dev・MySQL とも issue 別にする。プロジェクト名を分けるだけで MySQL・ボリュームも自然に分離され、`compose.yaml` の変更がポートの可変化だけで済む。`pnpm db:push` によるスキーマ変更やテストデータが他 issue・メインの環境に干渉せず、後始末も「その issue のプロジェクトを丸ごと消す」だけで済む（MySQL 共有案は外部ネットワーク・ボリュームの追加設定が必要で複雑になる）。
+
+- issue 環境の MySQL は空で始まる。初回起動後に `pnpm db:push` でスキーマを反映する（seed が必要なら `pnpm exec tsx seed.ts`）
+- MySQL コンテナが issue 数だけ動くのでメモリを使う。マージ後の `cleanup` で確実に削除する
+
+### ポートの確認方法
+
+- その worktree の設定値: worktree の `.env` の `COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT`
+- 起動中の実ポート（worktree 内で）: `docker compose ps`（PORTS 列に `0.0.0.0:20112->5173/tcp` のように出る）
+- 全 issue 環境の一覧: `docker compose ls`（プロジェクト名）、`docker ps --filter name=rootist-issue-`（コンテナ名・ポート）
+- dev-loop のオーケストレーターは worktree の `.env` から `DEV_PORT` を読み、QA への依頼文に `http://localhost:<DEV_PORT>` を明記する
+
+### 制約・後始末
+
+- issue 番号の無い worktree（dev-loop のテキスト入力モード等）は 5 キーを設定しない。ディレクトリ名由来のプロジェクト名＋既定ポートになり、メインの環境と同時には起動できない（起動に失敗するだけで他の環境は止まらない）
+- Google ログインは Google Cloud Console に登録済みのリダイレクト URI（ポート 5173）以外では動かない既知の制約がある。issue 環境（`DEV_PORT` が 5173 以外）では確認できない
+- issue 環境の Compose プロジェクト（コンテナ・ネットワーク・ボリューム）は、マージ後に `cleanup` スキルが worktree 削除の前に削除する。メインの `rootist` や他 issue のプロジェクトには触れない
 
 ## アーキテクチャ概要
 
