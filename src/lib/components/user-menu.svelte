@@ -29,7 +29,9 @@
 		`background-color: oklch(0.85 0.06 ${hue}); color: oklch(0.35 0.06 ${hue});`
 	);
 
-	let logoutForm: HTMLFormElement | undefined = $state();
+	function submitLogout(event: Event) {
+		(event.currentTarget as HTMLElement).closest('form')?.requestSubmit();
+	}
 </script>
 
 <DropdownMenu.Root>
@@ -51,8 +53,8 @@
 		</DropdownMenu.Group>
 		<DropdownMenu.Separator />
 		<DropdownMenu.Group>
-			<form method="POST" action="/logout" class="contents" bind:this={logoutForm}>
-				<DropdownMenu.Item variant="destructive" onSelect={() => logoutForm?.requestSubmit()}>
+			<form method="POST" action="/logout" class="contents">
+				<DropdownMenu.Item variant="destructive" onSelect={submitLogout}>
 					<LogOutIcon />
 					ログアウト
 				</DropdownMenu.Item>
