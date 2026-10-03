@@ -5,8 +5,18 @@ import { plans } from '$lib/server/db/schema';
 import type { PageServerLoad } from './$types';
 import type { RouteResult } from '$lib/stores/route';
 
+// issue #115: shareIdはPOST /api/plansがrandomUUID()で発行したUUID。形式が違う入力はDBを呼ばずに404にする。
+// Postgresのtext型はNUL文字(%00)を受け付けずエラー(500)になるため、検索前に弾く必要がある。
+// DB接続エラー等は握りつぶさず、そのまま500にする（障害を「見つからない」に見せない）。
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const load: PageServerLoad = async ({ params }) => {
-	const [record] = await db.select().from(plans).where(eq(plans.shareId, params.shareId)).limit(1);
+	if (!UUID_PATTERN.test(params.shareId)) {
+		error(404, '共有されたプランが見つかりません');
+	}
+	// 保存時は小文字のUUID。旧DB(MySQL, 大小無視の照合順序)では大文字でも一致していたため、小文字に揃えて検索する
+	const shareId = params.shareId.toLowerCase();
+	const [record] = await db.select().from(plans).where(eq(plans.shareId, shareId)).limit(1);
 
 	if (!record) {
 		error(404, '共有されたプランが見つかりません');
