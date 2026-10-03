@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## git戦略
 
 - Conventional Commits
-- Claude Code（オーケストレーター本体・spec-implementation-generator等のサブエージェントを問わず）が作成するコミットには、コミット履歴の透明性を保つため必ず以下のトレーラーを含めること
+- Claude Code（オーケストレーター本体・generator等のサブエージェントを問わず）が作成するコミットには、コミット履歴の透明性を保つため必ず以下のトレーラーを含めること
 
   ```
   Co-Authored-By: Claude <noreply@anthropic.com>
@@ -116,4 +116,4 @@ DB接続には環境変数 `DATABASE_URL`、認証には `BETTER_AUTH_SECRET` / 
 
 - **Svelte MCP**: `svelte-autofixer`（コード検証）、`get-documentation` / `list-sections`（公式ドキュメント参照）を使う。`playground-link` は使わない
 - **スキル `svelte-core-bestpractices`**: `.svelte` / `.svelte.ts` を書く前に参照する。`svelte-code-writer` はMCPと機能が重複するため使わない
-- **エージェント開発フロー**: `spec-implementation-generator` が Svelte ファイル変更後に `svelte-autofixer` を実行し、指摘ゼロにする。実行結果は `self_evaluation.md` に記録し、`strict-qa-evaluator` はその記録を証拠に判定する（QAはSvelte MCPを持たない）
+- **エージェント開発フロー**: `generator` が Svelte ファイル変更後に `svelte-autofixer` を実行し、指摘ゼロにする。実行結果は `self_evaluation.md` に記録し、`evaluator` はその記録を証拠に判定する（evaluatorはSvelte MCPを持たない）
