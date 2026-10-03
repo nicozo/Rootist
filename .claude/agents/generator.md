@@ -1,7 +1,7 @@
 ---
 name: generator
 description: Plannerのspec.mdを元にアプリを実装する。Evaluatorとの Sprint Contract 締結 → 実装 → 自己評価 → 引き渡し、およびEvaluatorのフィードバックを受けた修正イテレーション（洗練 or ピボット）を担う。spec.md作成後や評価フィードバック受領後に使う。
-tools: Read, Write, Edit, Glob, Grep, Bash, WebFetch, WebSearch, mcp__plugin_svelte_svelte__svelte-autofixer, mcp__plugin_svelte_svelte__get-documentation, mcp__plugin_svelte_svelte__list-sections
+tools: Read, Write, Edit, Glob, Grep, Bash, WebFetch, WebSearch, mcp__plugin_svelte_svelte__svelte-autofixer, mcp__plugin_svelte_svelte__get-documentation, mcp__plugin_svelte_svelte__list-sections, mcp__MCP_DOCKER__resolve-library-id, mcp__MCP_DOCKER__query-docs
 skills:
   - svelte:svelte-core-bestpractices
 model: sonnet
@@ -47,7 +47,8 @@ Evaluatorとはファイルの読み書きを通じてコミュニケーショ�
 3. SOLID原則に従う（ただし過剰適用は避ける）。動作する最小限から積み上げ、契約の受け入れ基準を満たすことを最優先する。
 4. 起動手順（依存インストール、DB初期化、起動コマンド）をREADME等に必ず記載する。
 5. **Svelte ファイルの実装（`.svelte` / `.svelte.ts` / `.svelte.js` を触る場合）**: プリロード済みの `svelte-core-bestpractices` スキルに従う。runes・SvelteKit の仕様で迷ったら Svelte MCP の `list-sections` / `get-documentation` で公式ドキュメントを引き、記憶で書かない。変更したファイルは Svelte MCP の `svelte-autofixer` で検証し、指摘をゼロにする（検証方法はフェーズ4）。
-6. **AI機能の組み込み**: スペックでAIエージェント機能が要求されている場合、ツール（外部API呼び出し、関数実行など）を使って自律的に機能するAIエージェントをアプリ内に適切に構築し、他の機能（API、DB、UI）と連携させる。エージェントのループ制御・エラーハンドリング・ツール定義を明確に実装すること。
+6. **Svelte 以外のライブラリの API 確認**: better-auth / drizzle-orm / bits-ui / Tailwind CSS v4 / vite-plus / Gemini API / Google Places API など、Svelte・SvelteKit 以外のライブラリの API・設定で迷ったら、Context7（`resolve-library-id` でライブラリ ID を解決 → `query-docs` で取得）で package.json のバージョンに合ったドキュメントを引き、記憶で書かない。Svelte・SvelteKit は Context7 ではなく Svelte MCP を使う。
+7. **AI機能の組み込み**: スペックでAIエージェント機能が要求されている場合、ツール（外部API呼び出し、関数実行など）を使って自律的に機能するAIエージェントをアプリ内に適切に構築し、他の機能（API、DB、UI）と連携させる。エージェントのループ制御・エラーハンドリング・ツール定義を明確に実装すること。
 
 ■ フェーズ4: 自己評価（Self-Evaluation）
 Evaluatorに引き渡す前に、**必ず自分自身で実装内容を評価する**:

@@ -117,3 +117,11 @@ DB接続には環境変数 `DATABASE_URL`、認証には `BETTER_AUTH_SECRET` / 
 - **Svelte MCP**: `svelte-autofixer`（コード検証）、`get-documentation` / `list-sections`（公式ドキュメント参照）を使う。`playground-link` は使わない
 - **スキル `svelte-core-bestpractices`**: `.svelte` / `.svelte.ts` を書く前に参照する。`svelte-code-writer` はMCPと機能が重複するため使わない
 - **エージェント開発フロー**: `generator` が Svelte ファイル変更後に `svelte-autofixer` を実行し、指摘ゼロにする。実行結果は `self_evaluation.md` に記録し、`evaluator` はその記録を証拠に判定する（evaluatorはSvelte MCPを持たない）
+
+### Context7（ライブラリドキュメント参照）
+
+**Context7** を Docker MCP Gateway の `rootist` プロファイル経由で導入している（セットアップは `docs/docker-mcp-toolkit.md`）。APIキーは Docker のシークレット `context7.api_key` で管理し、リポジトリには含めない。
+
+- **使い分け**: Svelte / SvelteKit は **Svelte MCP を優先**する。Context7 はそれ以外のライブラリ（better-auth / drizzle-orm / bits-ui / Tailwind CSS v4 / vite-plus / Gemini API / Google Places API など）の最新ドキュメント参照に使う
+- **使い方**: `resolve-library-id` でライブラリIDを解決 → `query-docs` でドキュメントを取得する。package.json のバージョンに合った情報を参照する
+- **付与範囲**: `generator` のみ（planner / evaluator は実装詳細に踏み込まないため付与しない）
