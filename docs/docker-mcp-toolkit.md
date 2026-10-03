@@ -169,6 +169,7 @@ docker mcp catalog show mcp/docker-mcp-catalog:latest
 - **`getPersonalNamespace` が `InvalidTokenError: Invalid token specified: missing part #2` で失敗する** → PAT のシークレットが未登録（またはシークレット名の誤り）、あるいはユーザー名が未設定です。3-4 と6章の手順で `dockerhub.username` と `dockerhub.pat_token` を設定してください。
 - **`getPersonalNamespace` が `Failed to authenticate PAT for <ユーザー名>: 401` で失敗する** → ユーザー名と PAT は gateway に渡っていますが、PAT の値が誤っています（貼り付けミス、失効、削除済みトークンなど）。`docker mcp secret rm dockerhub.pat_token` の後、6章の手順で正しいトークンを登録し直してください。
 - **Context7 のツールがレート制限エラーを返す** → API キーが未登録、またはシークレット名が誤っている可能性があります。`docker mcp secret ls` に `context7.api_key` があるか確認し、無ければ 3-5 の手順で登録してください。登録し直す場合は先に `docker mcp secret rm context7.api_key` を実行します。
+- **Context7 のツールが `Invalid API key. Please check your API key. API keys should start with 'ctx7sk' prefix.` を返す** → API キーは gateway に渡っていますが、値が誤っています（クリップボードに別の値が入っていた等）。`docker mcp secret rm context7.api_key` の後、`ctx7sk` で始まるキーをコピーした状態で 3-5 の手順で登録し直してください。
 - **`--profile` と `--servers` / `--enable-all-servers` は同時に指定できません（相互排他）**。`docker mcp gateway run --help` にも明記されています。`.mcp.json` の `args` にはこの3者のうち `--profile` のみを含めてください。
 - **CLI のサブコマンド名はバージョンによって変わります。** 迷ったら `docker mcp profile --help` のように `--help` を付けて実際のサブコマンド一覧を確認してください。参考として、本手順書執筆時点（`docker mcp version` = `v0.43.3`）の `docker mcp profile` サブコマンドは `config` / `create` / `export` / `import` / `list` / `pull` / `push` / `remove` / `server` / `show` / `tools` であり、**`use` や `select` に相当するサブコマンドは存在しません**。
 - **公式ドキュメントと実際の CLI 出力が食い違う場合は、実際の CLI 出力を優先してください。** ドキュメントの更新が CLI のリリースに追いついていない場合があります。
