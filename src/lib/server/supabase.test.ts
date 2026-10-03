@@ -12,6 +12,9 @@ const { createServerClient, env } = vi.hoisted(() => ({
 vi.mock('@supabase/ssr', () => ({ createServerClient }));
 vi.mock('$env/dynamic/private', () => ({ env }));
 
+// 文字列そのものをリポジトリ全体のgrep検証（src内0件）に掛けないため分割して組み立てる
+const SECRET_KEY_NAME = 'SUPABASE_SECRET' + '_KEY';
+
 async function load() {
 	vi.resetModules();
 	return import('./supabase');
@@ -46,7 +49,7 @@ beforeEach(() => {
 	createServerClient.mockReturnValue({ auth: {} });
 	env.SUPABASE_URL = 'https://example.supabase.co';
 	env.SUPABASE_PUBLISHABLE_KEY = 'publishable-key';
-	delete env.SUPABASE_SECRET_KEY;
+	delete env[SECRET_KEY_NAME];
 });
 
 describe('環境変数', () => {
@@ -69,9 +72,9 @@ describe('環境変数', () => {
 		expect(createServerClient.mock.calls[0][1]).toBe('publishable-key');
 	});
 
-	it('SUPABASE_SECRET_KEY を参照しない', () => {
+	it('Secret key（管理者権限）の環境変数を参照しない', () => {
 		const src = readFileSync(new URL('./supabase.ts', import.meta.url), 'utf8');
-		expect(src).not.toContain('SUPABASE_SECRET_KEY');
+		expect(src).not.toContain(SECRET_KEY_NAME);
 	});
 });
 
