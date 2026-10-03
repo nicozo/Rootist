@@ -99,7 +99,7 @@ Context7 は API キー無しでも動作しますが、レート制限が厳し
 pbpaste | docker mcp secret set context7.api_key
 ```
 
-シークレット名は **`context7.api_key`** です（`docker mcp profile show rootist` の `context7` の `secrets:` に記載された `name`）。gateway はこの値を `CONTEXT7_API_KEY` ヘッダーとして Context7 に送ります。登録後、`docker mcp secret ls` に `context7.api_key` を含む行が表示されることを確認してください。
+シークレット名は **`context7.api_key`** です（`docker mcp profile show rootist` の `context7` の `secrets:` に記載された `name`）。gateway はこの値を `CONTEXT7_API_KEY` ヘッダーとして Context7 に送ります。登録後、`docker mcp secret ls` に `context7.api_key` を含む行が表示されることを確認してください。gateway はシークレットを起動時に読み込むため、**登録・再登録した後は Claude Code を再起動**してください（再起動しないと古い値のまま `Invalid API key` が返ります）。
 
 ### 3-6. Claude Code でプロジェクトスコープの MCP サーバーを承認する
 
