@@ -49,12 +49,19 @@ Session pooler を使うのは、Direct connection が IPv4 非対応のため�
 ### 接続確認
 
 ```bash
-# DB への疎通（psql がある場合）
-psql "$SUPABASE_DB_URL" -c 'select 1'
+set -a; . ./.env; set +a
 
-# API への疎通（200 が返れば URL とキーが有効）
-curl -s -o /dev/null -w '%{http_code}\n' "$SUPABASE_URL/rest/v1/" -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
+# API への疎通（HTTP 200 と GoTrue の JSON が返れば URL とキーが有効）
+curl -s -w '\nHTTP %{http_code}\n' "$SUPABASE_URL/auth/v1/health" -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
+
+# DB への疎通（「1」が返れば成功。psql が無ければ Docker 経由）
+docker run --rm postgres:17 psql "$SUPABASE_DB_URL" -tAc 'select 1'
 ```
+
+つまずきやすい点:
+
+- `SUPABASE_URL` は `https://<project-ref>.supabase.co` までにする。Connect 画面からコピーすると末尾に `/rest/v1/` が付くことがあるので削除する（付いたままだと上記の API 確認が 404 になる）。
+- `SUPABASE_DB_URL` の `[YOUR-PASSWORD]` は、角括弧ごと DB パスワードに置き換える。パスワードに記号が含まれる場合は URL エンコードする。
 
 `.env` は `.gitignore` 済みです。`SUPABASE_SECRET_KEY` と DB パスワードをコードやコミットに含めないでください。
 
