@@ -30,10 +30,11 @@
 	// 自由に書き換わる状態のため、selectedDateにreactiveに追従させ続けると
 	// （毎レンダリングで上書きしてしまい）キーボードでの月内移動を破壊する。
 	// Popoverを開いた瞬間にだけ現在値の月へ同期し、開いている間は内部の変更に任せる。
+	// $effectでの代入ではなくonOpenChange（ユーザー操作による開閉）で同期する。
 	let placeholder = $state<DateValue | undefined>(undefined);
-	$effect(() => {
-		if (open) placeholder = selectedDate;
-	});
+	function handleOpenChange(next: boolean) {
+		if (next) placeholder = selectedDate;
+	}
 
 	function handleSelect(date: DateValue | undefined) {
 		if (!date) return;
@@ -50,7 +51,7 @@
 	}
 </script>
 
-<Popover.Root bind:open>
+<Popover.Root bind:open onOpenChange={handleOpenChange}>
 	<Popover.Trigger>
 		{#snippet child({ props })}
 			<Button
