@@ -1,15 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
-import { APIError } from 'better-auth';
-import { LOGIN_FAILURE_MESSAGE } from '$lib/server/auth-errors';
+import { LOGIN_FAILURE_MESSAGE, RATE_LIMIT_MESSAGE } from '$lib/server/auth-errors';
 
-// issue #62: /login の load / default action の単体テスト。Better Auth本体はモックする。
+// issue #116: /login の load / default action の単体テスト。Supabaseクライアントはモックする。
 
-const { signInEmail } = vi.hoisted(() => ({ signInEmail: vi.fn() }));
+const { signInWithPassword } = vi.hoisted(() => ({ signInWithPassword: vi.fn() }));
 
-vi.mock('$lib/server/auth', () => ({
-	auth: { api: { signInEmail } },
-	isGoogleAuthEnabled: true
-}));
+vi.mock('$lib/server/supabase', () => ({ isGoogleAuthEnabled: false }));
 
 const { load, actions } = await import('./+page.server');
 
@@ -23,13 +19,11 @@ function loadEvent(user: unknown, search = '') {
 function actionEvent(fields: Record<string, string>) {
 	const form = new FormData();
 	for (const [k, v] of Object.entries(fields)) form.set(k, v);
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	return { request: new Request('http://localhost/login', { method: 'POST', body: form }) } as any;
-}
-
-/** Better Authが投げるAPIErrorを模す。 */
-function apiError(code: string) {
-	return new APIError('UNAUTHORIZED', { code, message: code });
+	return {
+		request: new Request('http://localhost/login', { method: 'POST', body: form }),
+		locals: { supabase: { auth: { signInWithPassword } } }
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	} as any;
 }
 
 /** loadは成功時のみ値を返す（ログイン済みはredirectでthrow）ため、戻り値を絞り込む。 */
@@ -46,7 +40,7 @@ async function runAction(event: ReturnType<typeof actionEvent>) {
 }
 
 beforeEach(() => {
-	signInEmail.mockResolvedValue(undefined);
+	signInWithPassword.mockResolvedValue({ data: { session: {} }, error: null });
 });
 
 afterEach(() => {
@@ -62,9 +56,9 @@ describe('/login load', () => {
 		});
 	});
 
-	it('未ログインならGoogleログインの可否を返す', async () => {
+	it('未ログインならGoogleログインの可否（常にfalse）を返す', async () => {
 		await expect(load(loadEvent(null))).resolves.toEqual({
-			googleAuthEnabled: true,
+			googleAuthEnabled: false,
 			googleError: null
 		});
 	});
@@ -84,37 +78,41 @@ describe('/login load', () => {
 });
 
 describe('/login default action', () => {
-	it('成功したら/planへリダイレクトする', async () => {
+	it('成功したら/planへ303でリダイレクトする', async () => {
 		await expect(
 			actions.default(actionEvent({ email: 'a@example.com', password: 'password123' }))
 		).rejects.toMatchObject({ status: 303, location: '/plan' });
 	});
 
-	it('メールを正規化してBetter Authへ渡す', async () => {
+	it('メールを正規化してSupabaseへ渡す', async () => {
 		await expect(
 			actions.default(actionEvent({ email: '  A@Example.COM ', password: 'password123' }))
 		).rejects.toMatchObject({ status: 303 });
 
-		expect(signInEmail).toHaveBeenCalledWith({
-			body: { email: 'a@example.com', password: 'password123' }
+		expect(signInWithPassword).toHaveBeenCalledWith({
+			email: 'a@example.com',
+			password: 'password123'
 		});
 	});
 
-	it('フィールド未送信でも空文字として扱う', async () => {
-		signInEmail.mockRejectedValue(apiError('INVALID_EMAIL_OR_PASSWORD'));
+	it('フィールド未送信でも空文字として扱い、事前チェックで早期returnせずSupabaseへ送る', async () => {
+		signInWithPassword.mockResolvedValue({ data: {}, error: { code: 'validation_failed' } });
 
 		const result = await runAction(actionEvent({}));
 
 		expect(result.status).toBe(400);
-		expect(signInEmail).toHaveBeenCalledWith({ body: { email: '', password: '' } });
+		expect(signInWithPassword).toHaveBeenCalledWith({ email: '', password: '' });
 	});
 
 	it.each([
-		['メール不存在', 'USER_NOT_FOUND'],
-		['誤パスワード', 'INVALID_EMAIL_OR_PASSWORD'],
-		['形式不備', 'VALIDATION_ERROR']
-	])('%s を区別せず統一メッセージを返す', async (_label, code) => {
-		signInEmail.mockRejectedValue(apiError(code));
+		['誤パスワード', { code: 'invalid_credentials' }],
+		['メール未確認', { code: 'email_not_confirmed' }],
+		['メール不存在', { code: 'user_not_found' }],
+		['形式不備', { code: 'validation_failed' }],
+		['未知のコード', { code: 'something_new' }],
+		['コード無し', {}]
+	])('%s を区別せず同じステータス・統一メッセージを返す', async (_label, error) => {
+		signInWithPassword.mockResolvedValue({ data: {}, error });
 
 		const result = await runAction(actionEvent({ email: 'a@example.com', password: 'wrong' }));
 
@@ -122,9 +120,21 @@ describe('/login default action', () => {
 		expect(result.data).toEqual({ message: LOGIN_FAILURE_MESSAGE, email: 'a@example.com' });
 	});
 
-	it('APIError以外の想定外例外も統一メッセージへフォールバックする', async () => {
+	it.each(['over_request_rate_limit', 'over_email_send_rate_limit'])(
+		'回数制限(%s)だけ別メッセージを返す',
+		async (code) => {
+			signInWithPassword.mockResolvedValue({ data: {}, error: { code } });
+
+			const result = await runAction(actionEvent({ email: 'a@example.com', password: 'x' }));
+
+			expect(result.status).toBe(400);
+			expect(result.data.message).toBe(RATE_LIMIT_MESSAGE);
+		}
+	);
+
+	it('想定外の例外も統一メッセージへフォールバックする', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-		signInEmail.mockRejectedValue(new TypeError('unexpected internal failure'));
+		signInWithPassword.mockRejectedValue(new TypeError('unexpected internal failure'));
 
 		const result = await runAction(
 			actionEvent({ email: 'a@example.com', password: 'password123' })
@@ -137,7 +147,7 @@ describe('/login default action', () => {
 	});
 
 	it('失敗時にパスワードを返さず、入力されたメールは原文のまま返す', async () => {
-		signInEmail.mockRejectedValue(apiError('INVALID_EMAIL_OR_PASSWORD'));
+		signInWithPassword.mockResolvedValue({ data: {}, error: { code: 'invalid_credentials' } });
 
 		const result = await runAction(
 			actionEvent({ email: '  A@Example.COM ', password: 'secret-password' })

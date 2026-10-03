@@ -1,31 +1,32 @@
 import type { Handle } from '@sveltejs/kit';
-import { svelteKitHandler } from 'better-auth/svelte-kit';
-import { building } from '$app/environment';
-import { auth } from '$lib/server/auth';
+import { toAppUser } from '$lib/server/auth-user';
+import { createSupabaseClient } from '$lib/server/supabase';
 
-// issue #49: Better Auth公式のSvelteKit統合パターン。
-// 1) auth.api.getSession()で既存と同じ形の event.locals.user / event.locals.session を設定する
-//    （既存の+layout.server.ts・/login・/registerのloadがlocals.userを参照しているため契約を維持）
-// 2) svelteKitHandlerでBetter AuthのHTTPエンドポイント（/api/auth/*）をマウントする
-// ルートガードは実装しない（既存方針の維持）。hooksはlocals付与とBetter Authエンドポイントの
-// 応答のみで、既存公開エンドポイント（/api/plans・/api/route・/plan/share/[shareId]等）の
-// 認可・挙動には一切影響を与えない。
+// issue #116: Supabase Authでログイン状態を判定して event.locals.user / event.locals.supabase を設定する。
+// - 認証Cookie（sb-始まり）が無いリクエストではSupabaseへ通信しない（I-10）
+// - Cookieがある場合はSupabase Authサーバーに問い合わせてユーザーを確認する（getUser。JWTの
+//   ローカル検証だけにしない。ログアウト済みセッションのCookie再送をログイン中と扱わないため。I-4）
+// - 確認はresolveより前に行う（トークン更新で書かれる新しいCookieをレスポンスに確実に載せるため）
+// - 失敗・例外・到達不能はすべて user=null で通常どおりページを返す（500にしない。I-2）
+// ルートガードは実装しない（既存方針の維持）。
 export const handle: Handle = async ({ event, resolve }) => {
-	const session = await auth.api.getSession({ headers: event.request.headers });
+	event.locals.supabase = createSupabaseClient(event);
+	event.locals.user = null;
 
-	if (session) {
-		event.locals.user = {
-			id: session.user.id,
-			email: session.user.email,
-			// issue #54: アバター表示用。DBスキーマ変更なし（Better Auth標準のuser.name/user.image）
-			name: session.user.name,
-			image: session.user.image ?? null
-		};
-		event.locals.session = { id: session.session.id, expiresAt: session.session.expiresAt };
-	} else {
-		event.locals.user = null;
-		event.locals.session = null;
+	const hasAuthCookie = event.cookies.getAll().some((c) => c.name.startsWith('sb-'));
+	if (hasAuthCookie) {
+		try {
+			const { data, error } = await event.locals.supabase.auth.getUser();
+			if (!error) {
+				event.locals.user = toAppUser(data.user);
+			}
+		} catch (err) {
+			// Cookie・トークンの値は出さず、エラーの種別のみ記録する
+			console.error('hooks: failed to verify user with Supabase Auth', {
+				name: err instanceof Error ? err.name : typeof err
+			});
+		}
 	}
 
-	return svelteKitHandler({ event, resolve, auth, building });
+	return resolve(event);
 };

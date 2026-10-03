@@ -1,12 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { APIError } from 'better-auth';
 import type { Actions, PageServerLoad } from './$types';
-import { auth, isGoogleAuthEnabled } from '$lib/server/auth';
-import { normalizeEmail, LOGIN_FAILURE_MESSAGE } from '$lib/server/auth-errors';
+import { isGoogleAuthEnabled } from '$lib/server/supabase';
+import { normalizeEmail, mapSignInErrorCode, LOGIN_FAILURE_MESSAGE } from '$lib/server/auth-errors';
 
-// issue #42: /auth/googleのerrorCallbackURLから戻ってきたエラーを画面表示用の
-// 固定日本語メッセージに変換する。生のエラーコード（?errorの値そのもの）は画面に出さない
-// （不変条件5、spec.md 2-3(3)）。
+// Googleログイン失敗時に戻ってきたエラーを画面表示用の固定日本語メッセージに変換する。
+// 生のエラーコード（?errorの値そのもの）は画面に出さない。#117で再利用する。
 const GOOGLE_LOGIN_FAILURE_MESSAGE =
 	'Googleログインを完了できませんでした。もう一度お試しください。';
 
@@ -19,32 +17,32 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const googleError = url.searchParams.has('error');
 
 	return {
+		// issue #116: #117までは常にfalse
 		googleAuthEnabled: isGoogleAuthEnabled,
 		googleError: googleError ? GOOGLE_LOGIN_FAILURE_MESSAGE : null
 	};
 };
 
 export const actions: Actions = {
-	default: async ({ request }) => {
+	default: async ({ request, locals }) => {
 		const formData = await request.formData();
 		const rawEmail = String(formData.get('email') ?? '');
 		const password = String(formData.get('password') ?? '');
 
 		const email = normalizeEmail(rawEmail);
 
-		// メール不存在・誤パスワード・形式不備のいずれも区別せず、Better Authが投げるエラーを
-		// すべて同一の統一メッセージに変換する（不変条件3: アカウント存在推測の抑制）。
-		// タイミング攻撃緩和（ダミーhash verify）はBetter Authの内部実装に委ねる（spec.md 2-8）ため、
-		// ここで早期returnによるショートカットは行わない。
+		// メール不存在・誤パスワード・形式不備・メール未確認・想定外例外のいずれも区別せず
+		// 同一の統一メッセージにする（アカウント存在推測の抑制）。回数制限だけは
+		// アカウントの有無と無関係なので別メッセージにしてよい。
+		// 形式・長さチェックでの早期returnは行わない（何を入れても失敗時は同じ応答）。
 		try {
-			await auth.api.signInEmail({ body: { email, password } });
-		} catch (err) {
-			if (err instanceof APIError) {
-				return fail(400, { message: LOGIN_FAILURE_MESSAGE, email: rawEmail });
+			const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
+			if (error) {
+				return fail(400, { message: mapSignInErrorCode(error.code), email: rawEmail });
 			}
-			// Better AuthのAPIErrorではない想定外の例外。公開エンドポイントで未捕捉例外を
-			// そのまま500として露出させず、統一メッセージにフォールバックする（ログには残す）。
-			console.error('login action: unexpected non-APIError exception', err);
+		} catch (err) {
+			// 想定外の例外を500として露出させず、統一メッセージにフォールバックする（ログには残す）
+			console.error('login action: unexpected exception', err);
 			return fail(400, { message: LOGIN_FAILURE_MESSAGE, email: rawEmail });
 		}
 

@@ -1,7 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { APIError } from 'better-auth';
 import type { Actions, PageServerLoad } from './$types';
-import { auth } from '$lib/server/auth';
 
 // GETアクセス（load）は / へリダイレクトする（ログアウトはPOST専用）
 export const load: PageServerLoad = async () => {
@@ -9,15 +7,21 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
-	default: async ({ request }) => {
+	default: async ({ locals, cookies }) => {
 		try {
-			// headersにCookieを含めて渡すことで、Better Authが対象セッションを特定し
-			// DB側の無効化＋Cookie破棄（Set-Cookie: Max-Age=0）を行う
-			// （sveltekit-cookiesプラグインがevent.cookiesへ自動転送する）
-			await auth.api.signOut({ headers: request.headers });
+			// この端末のセッションのみ無効化する（他端末のセッションは切らない）
+			const { error } = await locals.supabase.auth.signOut({ scope: 'local' });
+			if (error) console.error('logout action: signOut returned an error', { code: error.code });
 		} catch (err) {
-			// 未ログイン状態でのログアウト等、セッションが無くてもエラーにはしない
-			if (!(err instanceof APIError)) throw err;
+			// 未ログイン・Supabase到達不能でも500にしない（ログには残す）
+			console.error('logout action: unexpected exception', err);
+		} finally {
+			// Supabase側の無効化に失敗しても、少なくともこのブラウザはログアウト状態にする。
+			// チャンク(.0/.1)も含め sb- 始まりの認証Cookieをすべて消す（sb-以外は消さない）。
+			// getAll()は同一リクエスト内でsetされたCookieも含む。
+			for (const { name } of cookies.getAll()) {
+				if (name.startsWith('sb-')) cookies.delete(name, { path: '/' });
+			}
 		}
 		redirect(303, '/');
 	}
