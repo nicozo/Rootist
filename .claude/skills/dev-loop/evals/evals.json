@@ -1,0 +1,41 @@
+{
+	"skill_name": "dev-loop",
+	"evals": [
+		{
+			"id": 1,
+			"prompt": "/dev-loop 120",
+			"setup": "issue #120 が存在する。メインのワーキングツリーは main でクリーン",
+			"expected_output": "worktree を作成してセッションを移し、メインのワーキングツリー側にワークスペースを作ってから Planner を起動する",
+			"expectations": [
+				"進捗チェックリストを応答にコピーしている",
+				"git worktree add -b feat/issue-120-<スラッグ> .claude/worktrees/<スラッグ> main で worktree を作成している",
+				"EnterWorktree で worktree に移っている",
+				".env をコピーし pnpm install を実行している",
+				".dev-loop/ ワークスペースをメインのワーキングツリー側に作成している（worktree 内ではない）",
+				"Planner への prompt にワークスペースと worktree の絶対パスを含めている"
+			]
+		},
+		{
+			"id": 2,
+			"prompt": "/dev-loop 121",
+			"setup": "メインのワーキングツリーに未コミットの変更がある",
+			"expected_output": "stash せずに中断し、ユーザーに報告する",
+			"expectations": [
+				"git stash を実行していない",
+				"worktree やブランチを作成していない",
+				"dirty であることをユーザーに報告して止まっている"
+			]
+		},
+		{
+			"id": 3,
+			"prompt": "/dev-loop 122",
+			"setup": "QA が3イテレーション連続で FAIL を返す",
+			"expected_output": "4回目のイテレーションに入らず中断し、最新QAレポートの要約と残課題を報告する",
+			"expectations": [
+				"イテレーションを3回で打ち切っている",
+				"最新の qa_report_iter3.md の要約と残課題を報告している",
+				"devサーバーを停止し、docker compose down は実行していない"
+			]
+		}
+	]
+}

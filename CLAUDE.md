@@ -15,6 +15,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## git戦略
 
 - Conventional Commits
+- 開発作業（機能追加・修正など、ファイル変更を伴う作業）を始めるときは、必ず git worktree を切って作業すること。メインのワーキングツリー（`main`）で直接ブランチを切り替えたり変更したりしない
+  - 作業ブランチごとに worktree を作成し（`git worktree add -b <branch> .claude/worktrees/<name> main`）、その中で実装・コミット・push を行う
+  - worktree には gitignore 対象の `.env` と `node_modules/` が無いので、作成直後にメインのワーキングツリーから `.env` をコピーし `pnpm install` する
+  - PRマージ後は worktree も削除して片付ける（`cleanup` スキルが worktree とブランチをまとめて削除する）
 - Claude Code（オーケストレーター本体・generator等のサブエージェントを問わず）が作成するコミットには、コミット履歴の透明性を保つため必ず以下のトレーラーを含めること
 
   ```
@@ -32,8 +36,8 @@ pnpm check
 pnpm check:watch   # ウォッチモード
 
 # Lint / フォーマット
-pnpm lint          # prettier + eslint チェック
-pnpm format        # prettier 自動修正
+pnpm lint          # vp fmt --check（フォーマット）+ eslint チェック
+pnpm format        # vp fmt で自動整形（prettier ではない）
 
 # テスト
 pnpm test:unit     # Vitest（ウォッチモード）

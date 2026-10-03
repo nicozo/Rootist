@@ -30,16 +30,35 @@ GitHub issueの要望を元に、Planner → Generator → QA の3エージェ�
 
 ## ワークフロー
 
-### Step 0: 前提確認
+以下のチェックリストを応答にコピーし、進捗に合わせてチェックする:
 
-1. `git status` — 作業ツリーがdirtyなら中断してユーザーに報告（自動stash禁止）
+```
+dev-loop 進捗:
+- [ ] Step 0: 前提確認・worktree作成
+- [ ] Step 1: Planner — spec.md
+- [ ] Step 2: Sprint Contract 合意
+- [ ] Step 3: Generator — 実装・裏取り
+- [ ] Step 4: QA評価（イテレーションN）
+- [ ] Step 5: 判定（PASSまで Step 3〜4 を反復）
+- [ ] Step 6: レビュー・コミット・PR・マージ監視
+```
+
+用語: **メインのワーキングツリー** はリポジトリ本体のチェックアウト、**worktree** は開発用に `.claude/worktrees/<スラッグ>` へ作る作業ディレクトリを指す（CLAUDE.md の方針により、実装は必ず worktree で行う）。
+
+### Step 0: 前提確認・worktree作成
+
+1. メインのワーキングツリーで `git status` — dirtyなら中断してユーザーに報告（自動stash禁止）
 2. issue番号指定の場合: `gh issue view <n> --json number,title,body,labels` で内容取得。取得失敗なら中断
-3. ワークスペース作成: `.dev-loop/<YYYYMMDD>-<機能スラッグ>/`（スラッグはissueタイトルから英語kebab-caseで生成）。issue内容を `issue.md` に保存（番号・タイトル・本文・URL）
-4. ブランチ作成: `main` から `feat/issue-<n>-<スラッグ>`（テキスト入力の場合は `feat/<スラッグ>`）
+3. ワークスペース作成: `<メインのワーキングツリー>/.dev-loop/<YYYYMMDD>-<機能スラッグ>/`（スラッグはissueタイトルから英語kebab-caseで生成）。issue内容を `issue.md` に保存（番号・タイトル・本文・URL）。**worktree 内には置かない** — マージ後の cleanup で worktree ごと消えるため
+4. worktree作成:
+   1. `git -C <メインのワーキングツリー> pull --ff-only` で main を最新化
+   2. `git worktree add -b <ブランチ> .claude/worktrees/<スラッグ> main`（ブランチ名は `feat/issue-<n>-<スラッグ>`、テキスト入力の場合は `feat/<スラッグ>`）
+   3. EnterWorktree（`path` 指定）でセッションを worktree に移す
+   4. `cp <メインのワーキングツリー>/.env .env` と `pnpm install` — gitignore 対象の `.env` と `node_modules/` は worktree に無いため
 
 ### Step 1: Planner — 仕様策定
 
-`planner` を起動。promptに含めるもの:
+Planner（`planner`）を起動。promptに含めるもの:
 
 - `issue.md` のパスと要点（issue本文をそのまま貼る）
 - ワークスペースのパス（spec.mdの出力先）
@@ -49,8 +68,8 @@ GitHub issueの要望を元に、Planner → Generator → QA の3エージェ�
 
 ### Step 2: Sprint Contract 交渉（Generator ⇄ QA）
 
-1. `generator` を起動。promptで指示: 「spec.mdを読み、`sprint_contract.md` を作成した時点で一旦停止して報告せよ。実装はまだ始めるな」
-2. `evaluator` を起動。promptで指示: 「`sprint_contract.md` を審査し、結果を `contract_review.md` に書け（承認 or 差し戻し＋修正案）」
+1. Generator（`generator`）を起動。promptで指示: 「spec.mdを読み、`sprint_contract.md` を作成した時点で一旦停止して報告せよ。実装はまだ始めるな」
+2. QA（`evaluator`）を起動。promptで指示: 「`sprint_contract.md` を審査し、結果を `contract_review.md` に書け（承認 or 差し戻し＋修正案）」
 3. 差し戻しの場合: Generatorに **SendMessage** で `contract_review.md` を読んで契約を修正するよう依頼 → QAに **SendMessage** で再審査依頼
 4. 交渉は最大3往復。合意に至らなければ中断し、争点をユーザーに報告して判断を仰ぐ
 
@@ -92,7 +111,7 @@ GitHub issueの要望を元に、Planner → Generator → QA の3エージェ�
 
 ## ファイル連携規約（全エージェント共通）
 
-ワークスペース `.dev-loop/<YYYYMMDD>-<スラッグ>/` に集約:
+ワークスペース `<メインのワーキングツリー>/.dev-loop/<YYYYMMDD>-<スラッグ>/` に集約:
 
 ```
 issue.md              # オーケストレーターが作成（発端のissue）
@@ -106,7 +125,7 @@ decision_iter<N>.md   # Generator の戦略的判断（維持/ピボット）
 review_findings_iter<N>.md  # code-review / security-review の要修正指摘（オーケストレーターが作成）
 ```
 
-各エージェントへのpromptには必ず「ワークスペースの絶対パス」「読むべきファイル」「書くべきファイル名」を明示すること。
+各エージェントへのpromptには必ず「ワークスペースの絶対パス」「実装先（worktree）の絶対パス」「読むべきファイル」「書くべきファイル名」を明示すること。
 
 ## 中断・失敗時の原則
 
