@@ -29,8 +29,12 @@
 		`background-color: oklch(0.85 0.06 ${hue}); color: oklch(0.35 0.06 ${hue});`
 	);
 
-	function submitLogout(event: Event) {
-		(event.currentTarget as HTMLElement).closest('form')?.requestSubmit();
+	// bits-uiのonSelectに渡るイベントはdispatchされていないため currentTarget が null になる。
+	// そのためイベントからformを辿らず、要素参照を直接持つ。
+	let logoutForm = $state<HTMLFormElement>();
+
+	function submitLogout() {
+		logoutForm?.requestSubmit();
 	}
 </script>
 
@@ -53,7 +57,7 @@
 		</DropdownMenu.Group>
 		<DropdownMenu.Separator />
 		<DropdownMenu.Group>
-			<form method="POST" action="/logout" class="contents">
+			<form bind:this={logoutForm} method="POST" action="/logout" class="contents">
 				<DropdownMenu.Item variant="destructive" onSelect={submitLogout}>
 					<LogOutIcon />
 					ログアウト
