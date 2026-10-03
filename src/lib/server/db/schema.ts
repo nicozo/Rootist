@@ -10,7 +10,7 @@ import {
 	uniqueIndex
 } from 'drizzle-orm/pg-core';
 
-// issue #115: MySQLからSupabase(Postgres)へ移行。スキーマはPostgres用に新規に作り直している。
+// issue #115: 旧DBからSupabase(Postgres)へ移行。スキーマはPostgres用に新規に作り直している。
 // 5テーブルすべてRLSを有効化しポリシーは作らない（SupabaseのData APIからpublishable keyで
 // 読めないようにする。アプリはDB所有者ロールで直結するため影響を受けない）。
 // テーブルを追加する時も必ず .enableRLS() を付けること（docs/supabase-setup.md）。

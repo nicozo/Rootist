@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	if (!UUID_PATTERN.test(params.shareId)) {
 		error(404, '共有されたプランが見つかりません');
 	}
-	// 保存時は小文字のUUID。旧DB(MySQL, 大小無視の照合順序)では大文字でも一致していたため、小文字に揃えて検索する
+	// 保存時は小文字のUUID。旧DB(大小無視の照合順序)では大文字でも一致していたため、小文字に揃えて検索する
 	const shareId = params.shareId.toLowerCase();
 	const [record] = await db.select().from(plans).where(eq(plans.shareId, shareId)).limit(1);
 

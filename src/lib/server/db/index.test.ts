@@ -66,7 +66,7 @@ describe('DB接続の初期化', () => {
 		expect(POOL_OPTIONS.idle_timeout).toBeGreaterThan(0);
 	});
 
-	it('MySQL用のmodeオプションをDrizzleへ渡さない', async () => {
+	it('旧DB用のmodeオプションをDrizzleへ渡さない', async () => {
 		await importDb({ DATABASE_URL: URL_FOR_TEST });
 
 		const [, options] = drizzle.mock.calls[0] as unknown as [unknown, Record<string, unknown>];
