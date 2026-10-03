@@ -1,5 +1,5 @@
-import { page } from 'vitest/browser';
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { page } from 'vite-plus/test/browser';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { get } from 'svelte/store';
 import { routeResult, planDraft, type RouteResult } from '$lib/stores/route';

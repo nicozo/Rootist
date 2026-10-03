@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 
 // issue #62: auth.ts の環境変数による分岐の単体テスト。
 // Better Auth本体・DB接続は初期化させず、渡された設定だけを検証する。

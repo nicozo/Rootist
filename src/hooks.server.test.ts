@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 
 // issue #62: hooks.server.ts の単体テスト。Better Auth本体・SvelteKit統合ハンドラはモックする。
 

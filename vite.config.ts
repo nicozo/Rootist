@@ -1,12 +1,46 @@
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vitest/config';
-import { playwright } from '@vitest/browser-playwright';
+import { defineConfig, lazyPlugins } from 'vite-plus';
+import { playwright } from 'vite-plus/test/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
+	staged: {
+		'*.{js,ts,svelte}': 'eslint --fix',
+		'*': 'vp fmt --no-error-on-unmatched-pattern'
+	},
+	fmt: {
+		useTabs: true,
+		singleQuote: true,
+		trailingComma: 'none',
+		printWidth: 100,
+		sortPackageJson: false,
+		sortTailwindcss: {
+			stylesheet: './src/routes/layout.css'
+		},
+		svelte: {},
+		ignorePatterns: [
+			'package-lock.json',
+			'pnpm-lock.yaml',
+			'yarn.lock',
+			'bun.lock',
+			'bun.lockb',
+			'/static/',
+			'/drizzle/'
+		]
+	},
+	plugins: lazyPlugins(() => [tailwindcss(), sveltekit()]),
 
 	test: {
+		// Vitest v4 compatibility: preserve mock call history.
+		// Remove after tests no longer rely on calls from setup or earlier tests.
+		// https://viteplus.dev/guide/vitest-v5#remove-unneeded-compatibility-settings
+		// https://vitest.dev/guide/migration/#clearmocks-is-enabled-by-default
+		clearMocks: false,
+		// Vitest v4 compatibility: keep separate Vite servers for inline projects.
+		// Remove when plugins and config hooks can run once for shared projects.
+		// https://viteplus.dev/guide/vitest-v5#remove-unneeded-compatibility-settings
+		// https://vitest.dev/guide/migration/#inline-projects-share-the-vite-server-by-default
+		sharedViteServer: false,
 		expect: { requireAssertions: true },
 
 		coverage: {

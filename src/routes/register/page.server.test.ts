@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { APIError } from 'better-auth';
 import { EMAIL_FORMAT_MESSAGE, DUPLICATE_EMAIL_MESSAGE } from '$lib/server/auth-errors';
 
