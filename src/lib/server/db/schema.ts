@@ -1,78 +1,84 @@
 import { relations } from 'drizzle-orm';
 import {
-	mysqlTable,
-	serial,
-	varchar,
-	json,
+	pgTable,
+	integer,
+	jsonb,
 	timestamp,
 	text,
 	boolean,
 	index,
 	uniqueIndex
-} from 'drizzle-orm/mysql-core';
+} from 'drizzle-orm/pg-core';
 
-export const plans = mysqlTable('plans', {
-	id: serial('id').primaryKey(),
-	shareId: varchar('share_id', { length: 36 }).notNull().unique(),
-	data: json('data').notNull(),
-	createdAt: timestamp('created_at').notNull().defaultNow()
-});
+// issue #115: MySQLからSupabase(Postgres)へ移行。スキーマはPostgres用に新規に作り直している。
+// 5テーブルすべてRLSを有効化しポリシーは作らない（SupabaseのData APIからpublishable keyで
+// 読めないようにする。アプリはDB所有者ロールで直結するため影響を受けない）。
+// テーブルを追加する時も必ず .enableRLS() を付けること（docs/supabase-setup.md）。
+const tz = { withTimezone: true } as const;
 
-// issue #49: issue #3の自前実装（users/sessions、argon2id、Luciaパターン）をBetter Auth標準
-// スキーマへ移行。以下4テーブルは `pnpm dlx auth@latest generate` の出力をそのまま採用したもので、
-// カラム名・型は手動設計しない（Better Authの規約が正）。既存ユーザーデータは破棄済み。
-export const user = mysqlTable('user', {
-	id: varchar('id', { length: 36 }).primaryKey(),
-	name: varchar('name', { length: 255 }).notNull(),
-	email: varchar('email', { length: 255 }).notNull().unique(),
+export const plans = pgTable('plans', {
+	id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+	// shareIdはUUID文字列。UUID型にしないのは、不正形式の入力でDBの型エラーを起こさないため
+	shareId: text('share_id').notNull().unique(),
+	data: jsonb('data').notNull(),
+	createdAt: timestamp('created_at', tz).notNull().defaultNow()
+}).enableRLS();
+
+// issue #49/#115: Better Auth標準スキーマ（better-auth 1.7.2のgetAuthTablesの定義に合わせる。
+// カラム名・型は手動設計しない）。#116でSupabase Authへ置き換える際に4テーブルごと削除する暫定移植。
+export const user = pgTable('user', {
+	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	email: text('email').notNull().unique(),
 	emailVerified: boolean('email_verified').default(false).notNull(),
 	image: text('image'),
-	createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
-	updatedAt: timestamp('updated_at', { fsp: 3 })
+	createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+	updatedAt: timestamp('updated_at', tz)
 		.defaultNow()
 		.$onUpdate(() => new Date())
 		.notNull()
-});
+}).enableRLS();
 
-export const session = mysqlTable(
+export const session = pgTable(
 	'session',
 	{
-		id: varchar('id', { length: 36 }).primaryKey(),
-		expiresAt: timestamp('expires_at', { fsp: 3 }).notNull(),
-		token: varchar('token', { length: 255 }).notNull().unique(),
-		createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
-		updatedAt: timestamp('updated_at', { fsp: 3 })
+		id: text('id').primaryKey(),
+		expiresAt: timestamp('expires_at', tz).notNull(),
+		token: text('token').notNull().unique(),
+		createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', tz)
 			.$onUpdate(() => new Date())
 			.notNull(),
 		ipAddress: text('ip_address'),
 		userAgent: text('user_agent'),
-		userId: varchar('user_id', { length: 36 })
+		userId: text('user_id')
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' })
 	},
 	(table) => [index('session_userId_idx').on(table.userId)]
-);
+).enableRLS();
 
-export const account = mysqlTable(
+export const account = pgTable(
 	'account',
 	{
-		id: varchar('id', { length: 36 }).primaryKey(),
-		issuer: varchar('issuer', { length: 191 }).notNull(),
-		accountId: varchar('account_id', { length: 191 }).notNull(),
+		id: text('id').primaryKey(),
+		// issue #42: Better Authランタイムが必須とする列（CLIの出力に無くても消さない）
+		issuer: text('issuer').notNull(),
+		accountId: text('account_id').notNull(),
 		providerId: text('provider_id').notNull(),
-		userId: varchar('user_id', { length: 36 })
+		userId: text('user_id')
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
 		accessToken: text('access_token'),
 		refreshToken: text('refresh_token'),
 		idToken: text('id_token'),
-		accessTokenExpiresAt: timestamp('access_token_expires_at', { fsp: 3 }),
-		refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { fsp: 3 }),
+		accessTokenExpiresAt: timestamp('access_token_expires_at', tz),
+		refreshTokenExpiresAt: timestamp('refresh_token_expires_at', tz),
 		scope: text('scope'),
 		// email/password認証のパスワードハッシュ（scrypt）。平文パスワードは一切保存しない
 		password: text('password'),
-		createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
-		updatedAt: timestamp('updated_at', { fsp: 3 })
+		createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', tz)
 			.$onUpdate(() => new Date())
 			.notNull()
 	},
@@ -80,23 +86,23 @@ export const account = mysqlTable(
 		uniqueIndex('account_issuer_accountId_uidx').on(table.issuer, table.accountId),
 		index('account_userId_idx').on(table.userId)
 	]
-);
+).enableRLS();
 
-export const verification = mysqlTable(
+export const verification = pgTable(
 	'verification',
 	{
-		id: varchar('id', { length: 36 }).primaryKey(),
-		identifier: varchar('identifier', { length: 255 }).notNull(),
+		id: text('id').primaryKey(),
+		identifier: text('identifier').notNull(),
 		value: text('value').notNull(),
-		expiresAt: timestamp('expires_at', { fsp: 3 }).notNull(),
-		createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
-		updatedAt: timestamp('updated_at', { fsp: 3 })
+		expiresAt: timestamp('expires_at', tz).notNull(),
+		createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', tz)
 			.defaultNow()
 			.$onUpdate(() => new Date())
 			.notNull()
 	},
 	(table) => [index('verification_identifier_idx').on(table.identifier)]
-);
+).enableRLS();
 
 export const userRelations = relations(user, ({ many }) => ({
 	sessions: many(session),

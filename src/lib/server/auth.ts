@@ -22,7 +22,7 @@ export const isGoogleAuthEnabled = Boolean(googleClientId && googleClientSecret)
 // （メール送信・その他プラグイン等は#44/#45のスコープ外のため設定しない）。
 export const auth = betterAuth({
 	database: drizzleAdapter(db, {
-		provider: 'mysql'
+		provider: 'pg'
 	}),
 	emailAndPassword: {
 		enabled: true,

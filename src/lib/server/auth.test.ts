@@ -126,8 +126,8 @@ describe('Better Authへ渡す設定', () => {
 		});
 	});
 
-	it('DrizzleアダプタをMySQLで構成する', () => {
-		expect(drizzleAdapter).toHaveBeenCalledWith({}, { provider: 'mysql' });
+	it('DrizzleアダプタをPostgresで構成する', () => {
+		expect(drizzleAdapter).toHaveBeenCalledWith({}, { provider: 'pg' });
 		expect(passedConfig().database).toBe('drizzle-adapter');
 	});
 

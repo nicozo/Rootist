@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { getTableName, getTableColumns, createTableRelationsHelpers, Many, One } from 'drizzle-orm';
+import { getTableConfig } from 'drizzle-orm/pg-core';
 import {
 	plans,
 	user,
@@ -45,6 +46,12 @@ describe('plans', () => {
 
 	it('share_idを一意にする', () => {
 		expect(column(plans, 'share_id')?.isUnique).toBe(true);
+	});
+
+	// issue #115: 不正形式の入力でDBの型エラー(500)を起こさないため、UUID型ではなく文字列型にする
+	it('share_idは文字列型、dataはjsonbにする', () => {
+		expect(column(plans, 'share_id')?.columnType).toBe('PgText');
+		expect(column(plans, 'data')?.columnType).toBe('PgJsonb');
 	});
 
 	it('share_idとdataを必須にする', () => {
@@ -96,10 +103,10 @@ describe('session', () => {
 		expect(column(session, 'token')?.isUnique).toBe(true);
 	});
 
-	it('userIdからuserへ参照を張る', () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const [fk] = (session as any)[Symbol.for('drizzle:MySqlInlineForeignKeys')] ?? [];
+	it('userIdからuserへ参照を張り、削除時にカスケードする', () => {
+		const [fk] = getTableConfig(session).foreignKeys;
 		expect(fk?.reference().foreignTable).toBe(user);
+		expect(fk?.onDelete).toBe('cascade');
 	});
 
 	it('更新時刻を自動更新する', () => {
@@ -136,10 +143,10 @@ describe('account', () => {
 		expect(column(account, 'issuer')?.notNull).toBe(true);
 	});
 
-	it('userIdからuserへ参照を張る', () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const [fk] = (account as any)[Symbol.for('drizzle:MySqlInlineForeignKeys')] ?? [];
+	it('userIdからuserへ参照を張り、削除時にカスケードする', () => {
+		const [fk] = getTableConfig(account).foreignKeys;
 		expect(fk?.reference().foreignTable).toBe(user);
+		expect(fk?.onDelete).toBe('cascade');
 	});
 
 	it('更新時刻を自動更新する', () => {
@@ -161,14 +168,8 @@ describe('verification', () => {
 
 describe('インデックス', () => {
 	/** テーブルに定義された追加インデックスの名前を集合で返す。 */
-	function indexNames(table: unknown) {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const config = (table as any)[Symbol.for('drizzle:ExtraConfigBuilder')]?.(
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			(table as any)[Symbol.for('drizzle:MySqlExtraConfigColumns')] ?? {}
-		);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		return new Set((config ?? []).map((i: any) => i?.config?.name).filter(Boolean));
+	function indexNames(table: Parameters<typeof getTableConfig>[0]) {
+		return new Set(getTableConfig(table).indexes.map((i) => i.config.name));
 	}
 
 	it('sessionにuserIdの索引を張る', () => {
@@ -213,5 +214,20 @@ describe('リレーション', () => {
 
 		expect(rels.user).toBeInstanceOf(One);
 		expect((rels.user as One<'user'>).referencedTable).toBe(user);
+	});
+});
+
+// issue #115: SupabaseのData APIから公開キーで読めないよう、全テーブルでRLSを有効にしポリシーは作らない。
+describe('RLS（行レベルセキュリティ）', () => {
+	it.each([
+		['plans', plans],
+		['user', user],
+		['session', session],
+		['account', account],
+		['verification', verification]
+	])('%s はRLSが有効でポリシーが無い', (_label, table) => {
+		const config = getTableConfig(table);
+		expect(config.enableRLS).toBe(true);
+		expect(config.policies).toHaveLength(0);
 	});
 });
