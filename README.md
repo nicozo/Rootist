@@ -51,6 +51,32 @@ docker compose --profile dev up -d
 docker compose logs -f dev
 ```
 
+### issue 単位で並行起動する（worktree 開発）
+
+従来の手順（上記）はそのまま既定ポート（アプリ 5173 / MySQL 3306）で動きます。git worktree で issue ごとに並行開発する場合は、worktree の `.env` に次の 5 キーを設定すると、`rootist-issue-<N>` という別環境（コンテナ・ボリューム・ポートが issue ごとに分離）として起動できます。
+
+| キー                   | 値（例: issue #112）                            |
+| ---------------------- | ----------------------------------------------- |
+| `COMPOSE_PROJECT_NAME` | `rootist-issue-112`                             |
+| `DEV_PORT`             | `20112`（`20000 + 番号`）                       |
+| `MYSQL_PORT`           | `30112`（`30000 + 番号`）                       |
+| `DATABASE_URL`         | メインの値のホスト部を `localhost:30112` に変更 |
+| `BETTER_AUTH_URL`      | `http://localhost:20112`                        |
+
+```bash
+# worktree 内で。MySQL だけ起動し、アプリはホストで動かす
+docker compose up -d mysql
+pnpm db:push                          # 初回のみ。issue 環境の MySQL は空で始まる
+pnpm dev --port 20112 --strictPort    # DEV_PORT で起動（使用中なら別ポートにずれず失敗）
+
+# ポートの確認
+docker compose ps                       # 自 issue のコンテナと公開ポート
+docker compose ls                       # 全プロジェクトの一覧
+docker ps --filter name=rootist-issue-  # 全 issue 環境のコンテナとポート
+```
+
+命名規則・ポート計算式・制約（Google ログインなど）の詳細は [CLAUDE.md](CLAUDE.md) の「Docker 開発環境（issue 単位の分離）」を参照してください。
+
 ### キャッシュなしで起動
 
 ```bash
