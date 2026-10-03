@@ -109,3 +109,11 @@ DB接続には環境変数 `DATABASE_URL`、認証には `BETTER_AUTH_SECRET` / 
   - `plan/+page.svelte` でデバウンス350msで呼び出し
 - **Google Gemini API**（`gemini-flash-latest`） — 目的地からプラン（訪問順序・時刻スケジュール）を生成（`GEMINI_API_KEY`、REST直叩き）
 - **Better Auth** — ユーザー登録・ログイン（メール/パスワード）。`BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` が必須
+
+## Claude Code プラグイン
+
+**Svelte公式プラグイン**（`svelte@svelte`、`sveltejs/ai-tools`）をプロジェクトスコープで有効化している（`.claude/settings.json`）。初回は `/plugin marketplace add sveltejs/ai-tools` が必要。MCPはstdio方式（`npx -y @sveltejs/mcp`）のためNode.jsが前提。
+
+- **Svelte MCP**: `svelte-autofixer`（コード検証）、`get-documentation` / `list-sections`（公式ドキュメント参照）を使う。`playground-link` は使わない
+- **スキル `svelte-core-bestpractices`**: `.svelte` / `.svelte.ts` を書く前に参照する。`svelte-code-writer` はMCPと機能が重複するため使わない
+- **エージェント開発フロー**: `spec-implementation-generator` が Svelte ファイル変更後に `svelte-autofixer` を実行し、指摘ゼロにする。実行結果は `self_evaluation.md` に記録し、`strict-qa-evaluator` はその記録を証拠に判定する（QAはSvelte MCPを持たない）
