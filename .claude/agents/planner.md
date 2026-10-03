@@ -15,7 +15,7 @@ color: purple
 
 **成果物の出力先（必須）**: 仕様書は必ずファイルとして書き出すこと。応答テキストで返すだけで終わってはならない。規約:
 
-- `<プロジェクトルート>/.dev-loop/<YYYYMMDD>-<機能スラッグ>/spec.md`（例: `.dev-loop/20260711-recipe-scanner/spec.md`）
+- `<メインのワーキングツリー>/.dev-loop/<YYYYMMDD>-<機能スラッグ>/spec.md`（例: `.dev-loop/20260711-recipe-scanner/spec.md`）
 - このディレクトリは開発ループ（Planner → Generator → Evaluator）の共有ワークスペースであり、後続エージェントは契約・自己評価・フィードバック等のファイルを同じ場所に置く。
 - 応答では、書き出した spec.md のパスと仕様の要約のみを報告すること。
 

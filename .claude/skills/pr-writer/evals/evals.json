@@ -1,0 +1,40 @@
+{
+  "skill_name": "pr-writer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "PRを作って",
+      "setup": "現在のブランチに issue #130 を解決するコミットがある",
+      "expected_output": "差分と issue を読み、テンプレートに沿った下書きを提示して了承を待つ",
+      "expectations": [
+        "git diff main...HEAD と gh issue view 130 で情報を集めている",
+        "何を が結果視点（〜できるようになった）で書かれている",
+        "どうやって に採用したアプローチと判断根拠が書かれている",
+        "Closes #130 を含めている",
+        "了承前に gh pr create を実行していない"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "その内容でPRを出して",
+      "setup": "下書きは了承済み。main にブランチ保護（必須ステータスチェック）が無い",
+      "expected_output": "PR を作成し、auto-merge は有効にせずその旨を伝え、cleanup の監視モードを起動する",
+      "expectations": [
+        "gh api でブランチ保護を確認している",
+        "gh pr merge --auto を実行していない",
+        "auto-merge を有効にしなかった理由を報告している",
+        "cleanup スキルを PR 番号付きで呼んでいる"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "PR出して",
+      "setup": "diff に、一見遠回りな実装（理由がコードから読み取れない）が含まれる",
+      "expected_output": "その箇所の意図を憶測で書かず、ユーザーに確認する",
+      "expectations": [
+        "意図が読み取れない実装について、ユーザーに質問している",
+        "推測した理由を事実として本文に書いていない"
+      ]
+    }
+  ]
+}

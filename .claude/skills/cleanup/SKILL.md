@@ -33,7 +33,9 @@ until s=$(gh pr view <PR番号> --json state -q .state) && [ "$s" != OPEN ]; do 
 
 ## 後片付け
 
-開発は worktree（`.claude/worktrees/<name>`）で行う運用なので、後片付けは**メインのワーキングツリー**（`git worktree list --porcelain` の先頭エントリ）を基点に行う。以下の git コマンドは `git -C <メインのワーキングツリー>` で実行する（worktree の中では `main` に switch できないため）。
+用語: **メインのワーキングツリー** はリポジトリ本体のチェックアウト（`git worktree list --porcelain` の先頭エントリ）、**worktree** は開発用に `.claude/worktrees/<name>` へ作った作業ディレクトリを指す。
+
+後片付けはメインのワーキングツリーを基点に行い、git コマンドは `git -C <メインのワーキングツリー>` で実行する（worktree の中では `main` に switch できないため）。
 
 1. **手元の状態の確認 — 作業を邪魔する状態なら何も変更せずに止めて報告する**
    - メインのワーキングツリーで `git status --porcelain` に出力がある（未コミットの変更がある）→ 止める。stash や破棄は勝手にしない
@@ -50,7 +52,11 @@ until s=$(gh pr view <PR番号> --json state -q .state) && [ "$s" != OPEN ]; do 
 4. **worktree の削除**
    `git worktree list --porcelain` で、3. の削除対象ブランチをチェックアウトしている worktree（メインのワーキングツリー以外）を特定する。
    - その worktree で `git -C <path> status --porcelain` に出力がある → 未コミットの作業が残っているので、worktree もブランチも削除せずスキップして報告する
-   - クリーンなら `git worktree remove <path>` で削除する（`--force` は使わない。git が未追跡ファイル等を検出して拒否したらスキップして報告する）
+   - **gitignore 対象のファイルは `git worktree remove` で黙って消える**（`--force` 無しでも拒否されない）。削除前に `git -C <path> status --porcelain --ignored` の `!!` 行を確認する:
+     - `.dev-loop/` がある → QAレポート等の記録が失われるので削除せず、メインのワーキングツリーの `.dev-loop/` へ移すか、ユーザーに確認する
+     - `.env` がメインのワーキングツリーの `.env` と異なる（`cmp -s` で比較）→ 手元の設定が失われるので、ユーザーに確認する
+     - それ以外（`node_modules/`、`.svelte-kit/` 等の再生成できるもの）→ そのまま削除してよい
+   - 問題が無ければ `git worktree remove <path>` で削除する（`--force` は使わない。git が拒否したらスキップして報告する）
    - セッションの作業ディレクトリが削除対象の worktree の中にある場合は、先に ExitWorktree（`action: "keep"`）等でメインのワーキングツリーへ戻ってから削除する
    - 最後に `git worktree prune` で、ディレクトリが既に消えている worktree の登録を掃除する
 
@@ -66,4 +72,4 @@ until s=$(gh pr view <PR番号> --json state -q .state) && [ "$s" != OPEN ]; do 
 
 - リモートブランチの削除（GitHub の「マージ後にブランチを自動削除」設定に任せる）
 - マージされていないブランチ・PRが open/closed(未マージ) のブランチの削除
-- `.dev-loop/` ワークスペースの削除
+- メインのワーキングツリーの `.dev-loop/` ワークスペースの削除

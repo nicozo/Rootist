@@ -1,0 +1,41 @@
+{
+  "skill_name": "cleanup",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "PR #200 がマージされたので片付けて",
+      "setup": "feat/a が worktree .claude/worktrees/a でチェックアウトされ main にマージ済み。worktree はクリーンで、gitignore 対象は node_modules/ のみ。メインのワーキングツリーは main でクリーン",
+      "expected_output": "main を最新化し、worktree .claude/worktrees/a を削除してから feat/a を git branch -d で削除し、結果を報告する",
+      "expectations": [
+        "git コマンドをメインのワーキングツリー基点（git -C）で実行している",
+        "git worktree remove を --force 無しで実行している",
+        "worktree を削除した後に git branch -d でブランチを削除している",
+        "git worktree prune を実行している",
+        "削除した worktree とブランチ、残っているブランチを報告している"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "/cleanup",
+      "setup": "マージ済みブランチ feat/b の worktree に gitignore 対象の .dev-loop/20261001-b/ が残っている",
+      "expected_output": "worktree を削除せず、.dev-loop/ をメインのワーキングツリーへ移すかユーザーに確認する",
+      "expectations": [
+        "git status --porcelain --ignored で gitignore 対象のファイルを確認している",
+        ".dev-loop/ があることを検出し、worktree remove を実行する前に止まっている",
+        ".dev-loop/ をメインのワーキングツリーへ移すか、ユーザーに確認している"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "マージされたので掃除して",
+      "setup": "PR はマージ済みだが squash マージのため feat/c は git branch --merged main に出ない。feat/c の worktree に未コミットの変更がある",
+      "expected_output": "未コミットの変更がある worktree はスキップし、強制削除せずに理由とともに報告する",
+      "expectations": [
+        "git branch -D を了承なしに実行していない",
+        "未コミットの変更がある worktree を削除していない",
+        "stash や変更の破棄をしていない",
+        "スキップした理由を報告している"
+      ]
+    }
+  ]
+}

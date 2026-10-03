@@ -1,0 +1,38 @@
+{
+  "skill_name": "issue-writer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "プランをPDFで出力できるようにしたい。issueを作って",
+      "setup": "背景（なぜ）は説明されていない",
+      "expected_output": "起票前に、PDF出力が欲しいきっかけや困りごとを質問する",
+      "expectations": [
+        "最初の応答で背景（きっかけ・困りごと）を質問している",
+        "背景を確認する前に gh issue create を実行していない"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "旅行当日に電波が悪い場所でプランが見られず困った。オフラインでも見られるようにしたい。Service Workerでキャッシュする形でissueにして",
+      "setup": "背景は具体的に語られている",
+      "expected_output": "背景を重ねて質問せず、手段（Service Worker）を観察可能な要件に言い換えた下書きを提示する",
+      "expectations": [
+        "既に具体的な背景を同じ質問で掘り返していない",
+        "開発要件に Service Worker などの技術選定を書いていない",
+        "開発要件が - [ ] 形式の観察可能な状態（〜できること）で書かれている",
+        "下書きを提示し、了承を得る前に起票していない"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "いいよ、その内容で起票して",
+      "setup": "直前に下書きを提示し、ユーザーが了承した",
+      "expected_output": "テンプレートに沿った本文で enhancement ラベル付きの issue を作成し、URL を報告する",
+      "expectations": [
+        "gh issue create に --label enhancement を付けている",
+        "本文がなぜ／何を／開発要件／補足の構成になっている",
+        "発行された issue URL を報告している"
+      ]
+    }
+  ]
+}
