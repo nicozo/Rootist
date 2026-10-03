@@ -88,6 +88,7 @@ GitHub issueの要望を元に、Planner → Generator → QA の3エージェ�
    - タイトル: `feat: <issueタイトル>` 等のConventional Commits形式
    - 本文: 実装概要、QA評価結果の要約、レビュー実施結果（code-review / security-review）、`Closes #<issue番号>`（issue起点の場合）
 8. ユーザーへ最終報告: PRのURL、イテレーション回数、QA判定サマリ、既知の制限事項
+9. `cleanup` スキルを PR番号付き（監視モード）で呼び、マージを見守る。マージされたら自動で後片付けが行われる
 
 ## ファイル連携規約（全エージェント共通）
 
