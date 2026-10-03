@@ -1,12 +1,15 @@
 # Docker MCP Toolkit の導入手順
 
-Claude Code から Docker Hub 上のイメージ検索・情報取得などを自然言語で実行できるようにするための、Docker MCP Toolkit（gateway）のセットアップ手順です。
+Claude Code から Docker Hub 上のイメージ検索・情報取得や、ライブラリの最新ドキュメント参照（Context7）を行えるようにするための、Docker MCP Toolkit（gateway）のセットアップ手順です。
 
 ## 1. これは何か / 何ができるようになるか / 現時点でできないこと
 
 Docker MCP Toolkit（`docker mcp gateway`）は、複数の MCP（Model Context Protocol）サーバーを1つの gateway プロセスにまとめ、Claude Code などの MCP クライアントに公開する仕組みです。MCP サーバーはホストに直接インストールされるのではなく、それぞれ専用の Docker コンテナ内で隔離実行されます（起動には `docker run --rm -i --init --security-opt no-new-privileges ...` のようなサンドボックス設定が使われます）。そのため、新しい MCP サーバーを使うたびにホストへ Node.js / Python 等の実行環境を個別に構築する必要がありません。
 
-rootist リポジトリでは、`rootist` という名前の Docker MCP プロファイルに **`dockerhub`（Docker Hub 公式 MCP サーバー）** を1件だけ登録しています。これにより、Claude Code から「このイメージの最新タグを調べて」「このリポジトリの情報を取得して」といった Docker Hub 上のレジストリ操作を自然言語で依頼できるようになります。
+rootist リポジトリでは、`rootist` という名前の Docker MCP プロファイルに 次の2件を登録しています。
+
+- **`dockerhub`（Docker Hub 公式 MCP サーバー）**: 「このイメージの最新タグを調べて」「このリポジトリの情報を取得して」といった Docker Hub 上のレジストリ操作を自然言語で依頼できます。
+- **`context7`（Context7 リモート MCP サーバー）**: better-auth / drizzle-orm / bits-ui / Tailwind CSS v4 などのライブラリについて、バージョンに合った最新ドキュメントとコード例を取得できます（`resolve-library-id` / `query-docs` の2ツール）。Svelte / SvelteKit は Svelte MCP を優先し、Context7 はそれ以外のライブラリに使います（CLAUDE.md 参照）。`context7` はコンテナではなく `https://mcp.context7.com/mcp` へ gateway が中継するリモートサーバーです。
 
 ### 現時点でできないこと
 
@@ -82,7 +85,23 @@ docker mcp profile server add rootist --server catalog://mcp/docker-mcp-catalog/
 
 設定後、`docker mcp gateway run --profile rootist --dry-run` の出力で `dockerhub` の起動引数に `-e HUB_PAT_TOKEN` と `--username=<ユーザー名>` が含まれていれば、両方が gateway に渡っています。
 
-### 3-5. Claude Code でプロジェクトスコープの MCP サーバーを承認する
+### 3-5. プロファイルに `context7` を追加し、API キーを登録する
+
+```bash
+docker mcp profile server add rootist --server catalog://mcp/docker-mcp-catalog/context7
+```
+
+`Added 1 server(s) to profile rootist` と出力されれば追加済みです。
+
+Context7 は API キー無しでも動作しますが、レート制限が厳しいため API キーの登録を前提とします。[Context7 のダッシュボード](https://context7.com/dashboard) で API キーを発行し、クリップボードにコピーした状態で次を実行します（シークレットの扱いは6章参照）。
+
+```bash
+pbpaste | docker mcp secret set context7.api_key
+```
+
+シークレット名は **`context7.api_key`** です（`docker mcp profile show rootist` の `context7` の `secrets:` に記載された `name`）。gateway はこの値を `CONTEXT7_API_KEY` ヘッダーとして Context7 に送ります。登録後、`docker mcp secret ls` に `context7.api_key` を含む行が表示されることを確認してください。
+
+### 3-6. Claude Code でプロジェクトスコープの MCP サーバーを承認する
 
 `.mcp.json` はリポジトリに同梱済みです（プロジェクトルート）。このファイルがあると、Claude Code はプロジェクトを開いたときに `MCP_DOCKER` という名前のプロジェクトスコープ MCP サーバーを検出します。Claude Code を再起動（またはプロジェクトを開き直す）と、承認プロンプトが表示されるので承認してください。承認後は `/mcp` コマンドで `MCP_DOCKER` が接続済みとして表示されます。
 
@@ -96,7 +115,7 @@ docker mcp profile server add rootist --server catalog://mcp/docker-mcp-catalog/
 docker mcp profile show rootist
 ```
 
-**期待される出力の特徴**: `servers:` 配下に要素が1件存在し、`snapshot.server.name: dockerhub` が含まれていること。`servers:` が空（`servers: []` 相当）の場合はプロファイルにサーバーが登録されていません。
+**期待される出力の特徴**: `servers:` 配下に要素が2件存在し、`snapshot.server.name: dockerhub` と `snapshot.server.name: context7` が含まれていること。`servers:` が空（`servers: []` 相当）の場合はプロファイルにサーバーが登録されていません。
 
 ### 4-2. ゲートウェイの dry-run
 
@@ -104,13 +123,13 @@ docker mcp profile show rootist
 docker mcp gateway run --profile rootist --dry-run
 ```
 
-**期待される出力の特徴**: `- Those servers are enabled: dockerhub` の行に続き、`> dockerhub: (13 tools)` のようにツール数が表示され、`> 13 tools listed in ...` という合計行が出ること。その後 `mcp-find` 等の内部管理ツール（9件）が追加表示されますが、これは `dockerhub` とは別枠の常設ツールです。最後に `Dry run mode enabled, not starting the server.` と表示されて終了すれば正常です（`--dry-run` を付けない限り、このコマンドは常駐プロセスとして待受を続けるため、動作確認では必ず `--dry-run` を付けてください）。
+**期待される出力の特徴**: `> dockerhub: (13 tools)` と `> context7: (2 tools)` のようにサーバーごとのツール数が表示され、`> 15 tools listed in ...` という合計行が出ること。その後 `mcp-find` 等の内部管理ツール（9件）が追加表示されますが、これはカタログ由来のサーバーとは別枠の常設ツールです。最後に `Dry run mode enabled, not starting the server.` と表示されて終了すれば正常です（`--dry-run` を付けない限り、このコマンドは常駐プロセスとして待受を続けるため、動作確認では必ず `--dry-run` を付けてください）。
 
 参考: `--profile` を付けずに `docker mcp gateway run --dry-run` を実行すると `- No server is enabled` / `> 0 tools listed` となり、カタログ由来のツールが1つも出なくなります（内部管理ツール9件は変わらず表示されます）。これが `.mcp.json` の `args` に `--profile rootist` を必ず含める理由です。
 
 ### 4-3. Claude Code 側の接続確認
 
-Claude Code の対話セッションで `/mcp` を実行し、`MCP_DOCKER` が接続済みとして一覧に表示され、`dockerhub` 由来のツールが1件以上見えることを確認してください（この手順は Claude Code 本体の UI を介するため、開発者自身の環境で確認する必要があります）。
+Claude Code の対話セッションで `/mcp` を実行し、`MCP_DOCKER` が接続済みとして一覧に表示され、`dockerhub` 由来のツールに加えて `resolve-library-id` / `query-docs`（Context7）が見えることを確認してください（この手順は Claude Code 本体の UI を介するため、開発者自身の環境で確認する必要があります）。
 
 ## 5. MCP サーバーを追加する
 
@@ -149,6 +168,7 @@ docker mcp catalog show mcp/docker-mcp-catalog:latest
 - **ツールが1つも見えない** → プロファイルが未作成、または `--profile` に渡している名前が `rootist` と一致していない可能性があります。`docker mcp profile show rootist` を実行し、`servers:` が空でないか確認してください。これは本手順で最も踏みやすい失敗です。
 - **`getPersonalNamespace` が `InvalidTokenError: Invalid token specified: missing part #2` で失敗する** → PAT のシークレットが未登録（またはシークレット名の誤り）、あるいはユーザー名が未設定です。3-4 と6章の手順で `dockerhub.username` と `dockerhub.pat_token` を設定してください。
 - **`getPersonalNamespace` が `Failed to authenticate PAT for <ユーザー名>: 401` で失敗する** → ユーザー名と PAT は gateway に渡っていますが、PAT の値が誤っています（貼り付けミス、失効、削除済みトークンなど）。`docker mcp secret rm dockerhub.pat_token` の後、6章の手順で正しいトークンを登録し直してください。
+- **Context7 のツールがレート制限エラーを返す** → API キーが未登録、またはシークレット名が誤っている可能性があります。`docker mcp secret ls` に `context7.api_key` があるか確認し、無ければ 3-5 の手順で登録してください。登録し直す場合は先に `docker mcp secret rm context7.api_key` を実行します。
 - **`--profile` と `--servers` / `--enable-all-servers` は同時に指定できません（相互排他）**。`docker mcp gateway run --help` にも明記されています。`.mcp.json` の `args` にはこの3者のうち `--profile` のみを含めてください。
 - **CLI のサブコマンド名はバージョンによって変わります。** 迷ったら `docker mcp profile --help` のように `--help` を付けて実際のサブコマンド一覧を確認してください。参考として、本手順書執筆時点（`docker mcp version` = `v0.43.3`）の `docker mcp profile` サブコマンドは `config` / `create` / `export` / `import` / `list` / `pull` / `push` / `remove` / `server` / `show` / `tools` であり、**`use` や `select` に相当するサブコマンドは存在しません**。
 - **公式ドキュメントと実際の CLI 出力が食い違う場合は、実際の CLI 出力を優先してください。** ドキュメントの更新が CLI のリリースに追いついていない場合があります。
