@@ -65,12 +65,13 @@ until s=$(gh pr view <PR番号> --json state -q .state) && [ "$s" != OPEN ]; do 
    - **issue 環境の Docker プロジェクトの削除（worktree を削除する前に行う）**: worktree の `.env` からプロジェクト名を取り出し、`rootist-issue-<数字>` に完全一致する場合のみ、そのプロジェクトのコンテナ・ネットワーク・名前付きボリュームを削除する（dev プロファイルのコンテナも含む）。プロジェクト名は必ず `-p` で明示する（シェルの `COMPOSE_PROJECT_NAME` が `.env` より優先されて別プロジェクトを消す事故を防ぐ）:
 
      ```bash
-     name=$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' <path>/.env | tail -n1)
+     name=$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' <path>/.env | tail -n1 | tr -d "\"'")
      printf '%s\n' "$name" | grep -qxE 'rootist-issue-[0-9]+' \
        && docker compose -p "$name" --project-directory <path> --profile dev down --volumes --remove-orphans
      ```
 
-     - `rootist` や `rootist-issue-`・`rootist-issue-12a` など完全一致しない値、キー無しの場合は Docker に触れない
+     - 値の前後のクォートは除去して判定する（`COMPOSE_PROJECT_NAME="rootist-issue-112"` と書かれていても対象になる）
+     - `rootist` や `rootist-issue-`・`rootist-issue-12a` など完全一致しない値、キー無しの場合は Docker に触れない。ただし **`COMPOSE_PROJECT_NAME` キーがあるのに完全一致しない場合は、Docker に触れずスキップしたことをユーザーに報告する**（メインの `rootist` 以外の想定外の値は、コンテナ・ボリュームが残る恐れがあるため）
      - Docker デーモンが使えない／プロジェクトが存在しない場合はスキップして報告する（worktree の削除は続行してよい）
 
    - 問題が無ければ `git worktree remove <path>` で削除する（`--force` は使わない。git が拒否したらスキップして報告する）

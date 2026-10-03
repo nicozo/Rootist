@@ -49,7 +49,7 @@ pnpm test:unit -- --run   # 単発実行
 pnpm test:e2e      # Playwright E2E
 pnpm test          # 全テスト一括
 
-# DB操作（要: docker compose --profile dev up -d でMySQLコンテナ起動）
+# DB操作（要: MySQLコンテナ起動。従来起動は docker compose --profile dev up -d、issue 環境は docker compose up -d mysql）
 pnpm db:push       # スキーマをDBに直接反映（開発用）
 pnpm db:generate   # マイグレーションファイル生成
 pnpm db:migrate    # マイグレーション実行
@@ -94,7 +94,7 @@ git worktree 1つ = issue 1つ = Compose プロジェクト 1つとして扱い�
 
 ### worktree の `.env` に設定する 5 キー（issue N の場合）
 
-`.env` をメインからコピーした直後に設定する。既存キーは置き換え、未定義キーは追加し、各キーがちょうど 1 回だけ現れる状態にする。メインの `.env` は変更しない。
+`.env` をメインからコピーした直後に設定する。既存キーは置き換え、未定義キーは追加し、各キーがちょうど 1 回だけ現れる状態にする。**値はクォートしない**（`KEY=value` 形式。メインの `DATABASE_URL="..."` のクォートも外す）。メインの `.env` は変更しない。
 
 | キー                   | 値                                                                                         |
 | ---------------------- | ------------------------------------------------------------------------------------------ |

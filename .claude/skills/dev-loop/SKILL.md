@@ -55,7 +55,7 @@ dev-loop 進捗:
    2. `git worktree add -b <ブランチ> .claude/worktrees/<スラッグ> main`（ブランチ名は `feat/issue-<n>-<スラッグ>`、テキスト入力の場合は `feat/<スラッグ>`）
    3. EnterWorktree（`path` 指定）でセッションを worktree に移す
    4. `cp <メインのワーキングツリー>/.env .env` と `pnpm install` — gitignore 対象の `.env` と `node_modules/` は worktree に無いため
-   5. **issue 番号指定の場合のみ**、コピーした `.env` に issue 単位の Docker 環境用 5 キーを設定する（規則・理由は CLAUDE.md「Docker 開発環境（issue 単位の分離）」）。既存キーは置き換え、未定義キーは追加し、各キーがちょうど 1 回だけ現れる状態にする。メインの `.env` は変更しない:
+   5. **issue 番号指定の場合のみ**、コピーした `.env` に issue 単位の Docker 環境用 5 キーを設定する（規則・理由は CLAUDE.md「Docker 開発環境（issue 単位の分離）」）。既存キーは置き換え、未定義キーは追加し、各キーがちょうど 1 回だけ現れる状態にする。**値はクォートしない**（`KEY=value` 形式。メインの `DATABASE_URL="..."` のクォートも外す）。メインの `.env` は変更しない:
 
       | キー                   | 値                                                                                         |
       | ---------------------- | ------------------------------------------------------------------------------------------ |
@@ -94,9 +94,20 @@ Planner（`planner`）を起動。promptに含めるもの:
 
 1. **devサーバー起動（オーケストレーターの仕事）**:
    - worktree 内で実行する（`.env` の `COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT` がそのまま効く。シェルで環境変数を上書きしない）。`DEV_PORT` は `sed -n 's/^DEV_PORT=//p' .env | tail -n1` で読む（issue 番号なし＝未設定なら 5173）
-   - DB が必要なら、**MySQL サービスだけ**を起動する: `docker compose up -d mysql`（`--profile dev` で dev コンテナは起動しない。ホストの `pnpm dev` とポートを取り合い、QA 対象のコードが曖昧になるため）。`docker compose ps` で `rootist-issue-<N>-mysql-1` と `0.0.0.0:<MYSQL_PORT>->3306/tcp` を確認する
-   - 初回（MySQL が空）は `pnpm db:push --force` でスキーマを反映する（Bash は非対話のため、drizzle-kit の確認プロンプトを `--force` で自動承認する。接続先は `.env` の `DATABASE_URL` = 自 issue の MySQL）
-   - `pnpm dev --port <DEV_PORT> --strictPort` を `run_in_background: true` で起動する（`--strictPort` により、ポートが使用中なら別ポートへずれずに失敗する。他の環境のサーバーを QA 対象と取り違えないため）。`curl -s -o /dev/null -w "%{http_code}" http://localhost:<DEV_PORT>/` が200を返すまで待つ
+   - DB が必要なら、**MySQL サービスだけ**を起動する: `docker compose up -d mysql`（`--profile dev` で dev コンテナは起動しない。ホストの `pnpm dev` とポートを取り合い、QA 対象のコードが曖昧になるため）。**起動に失敗したら（ポート衝突など）先へ進まず、中断してユーザーに報告する**（issue 番号なしの worktree でメインの MySQL が 3306 を使っている場合など）。成功したら `docker compose ps` で `rootist-issue-<N>-mysql-1` と `0.0.0.0:<MYSQL_PORT>->3306/tcp` を確認する
+   - 初回（MySQL が空）は `pnpm db:push --force` でスキーマを反映する（Bash は非対話のため、drizzle-kit の確認プロンプトを `--force` で自動承認する）。`--force` はデータを失う変更も無確認で適用するため、**次の 3 条件がすべて成り立つときだけ**実行する。1 つでも欠けたら `db:push` を自動実行せず、ユーザーに確認する（メインの DB を書き換えないため）。(1) `.env` の `COMPOSE_PROJECT_NAME` が `rootist-issue-<数字>` に完全一致、(2) `.env` の `DATABASE_URL` が `@localhost:<MYSQL_PORT>/` を含む、(3) `mysql` サービスが healthy（起動直後は healthy になるまで待つ）。判定と実行（クォートは除いて判定する）:
+
+     ```bash
+     name=$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' .env | tail -n1 | tr -d "\"'")
+     port=$(sed -n 's/^MYSQL_PORT=//p' .env | tail -n1 | tr -d "\"'")
+     printf '%s\n' "$name" | grep -qxE 'rootist-issue-[0-9]+' \
+       && [ -n "$port" ] \
+       && sed -n 's/^DATABASE_URL=//p' .env | tail -n1 | tr -d "\"'" | grep -qF "@localhost:${port}/" \
+       && [ "$(docker compose ps mysql --format '{{.Health}}')" = healthy ] \
+       && pnpm db:push --force
+     ```
+
+   - `pnpm dev --port <DEV_PORT> --strictPort` を `run_in_background: true` で起動する。起動前に `lsof -iTCP:<DEV_PORT> -sTCP:LISTEN -P` が**空であることを確認し、空でなければ中断して報告する**。`--strictPort` は別ポートへのずれを防ぐが、ワイルドカードアドレス（Docker の公開ポート等）で LISTEN しているプロセスとの衝突は検知しないことがある（macOS で確認）ため、事前の空き確認が必要。`curl -s -o /dev/null -w "%{http_code}" http://localhost:<DEV_PORT>/` が200を返すまで待つ
 2. QAに **SendMessage**: 「`handoff.md` を読み、http://localhost:<DEV_PORT> でPlaywright動的テストを実施し、評価レポートを `qa_report_iter<N>.md` に書け」（`<DEV_PORT>` は実際の数値に置き換えて URL を明記する。issue 番号なしの場合は 5173）
 3. レポートの総合判定（PASS/FAIL）を読み取る
 

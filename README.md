@@ -55,7 +55,7 @@ docker compose logs -f dev
 
 従来の手順（上記）はそのまま既定ポート（アプリ 5173 / MySQL 3306）で動きます。git worktree で issue ごとに並行開発する場合は、worktree の `.env` に次の 5 キーを設定すると、`rootist-issue-<N>` という別環境（コンテナ・ボリューム・ポートが issue ごとに分離）として起動できます。
 
-| キー                   | 値（例: issue #112）                            |
+| キー                   | 値（例: issue #112。クォートしない）            |
 | ---------------------- | ----------------------------------------------- |
 | `COMPOSE_PROJECT_NAME` | `rootist-issue-112`                             |
 | `DEV_PORT`             | `20112`（`20000 + 番号`）                       |
@@ -67,7 +67,7 @@ docker compose logs -f dev
 # worktree 内で。MySQL だけ起動し、アプリはホストで動かす
 docker compose up -d mysql
 pnpm db:push                          # 初回のみ。issue 環境の MySQL は空で始まる
-pnpm dev --port 20112 --strictPort    # DEV_PORT で起動（使用中なら別ポートにずれず失敗）
+pnpm dev --port 20112 --strictPort    # DEV_PORT で起動（別ポートにずれない。事前に lsof -iTCP:20112 -sTCP:LISTEN -P が空であることを確認）
 
 # ポートの確認
 docker compose ps                       # 自 issue のコンテナと公開ポート
