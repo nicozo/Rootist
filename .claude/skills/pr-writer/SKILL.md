@@ -28,7 +28,7 @@ argument-hint: [Closesするissue番号（省略可）]
    diffを読んで説明が要ると感じた箇所は、憶測で埋めずユーザーに意図を確認してから書く。
 
 5. **下書きを見せてからpush・PR作成する**
-   pushとPR作成は公開行為。下書きを提示し、ユーザーの了承を得てから実行する。
+   pushとPR作成は公開行為。下書きを提示し、ユーザーの了承を得てから実行する。PR作成と同時にauto-mergeを有効にする旨も下書きと一緒に伝える（了承はまとめて得てよい）。
 
 ## テンプレート
 
@@ -36,4 +36,12 @@ argument-hint: [Closesするissue番号（省略可）]
 
 ## 実行
 
-`gh pr create --title "..." --body-file -`（またはヒアドキュメント）で作成し、発行されたPR URLを報告する。マージは別途ユーザーの明示的な指示があるまで行わない。
+`gh pr create --title "..." --body-file -`（またはヒアドキュメント）で作成し、続けて auto-merge を有効にする。
+
+```bash
+gh pr merge <PR番号> --auto --merge
+```
+
+- auto-merge は「必須ステータスチェック・必須レビューが揃うまで待ってからマージ」する仕組み。ベースブランチに必須チェックが無いとCIを待たずに即マージされるため、有効化の前に `gh api repos/{owner}/{repo}/branches/<base>/protection` でブランチ保護（必須ステータスチェック）があるか確認する。無ければ auto-merge は有効にせず、その旨をユーザーに伝える。
+- マージ方式はリポジトリの慣習に合わせて merge commit（`--merge`）を使う。
+- 発行されたPR URLと、auto-mergeを有効にしたかどうかを報告する。
