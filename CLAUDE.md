@@ -23,7 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 開発作業（機能追加・修正など、ファイル変更を伴う作業）を始めるときは、必ず git worktree を切って作業すること。メインのワーキングツリー（`main`）で直接ブランチを切り替えたり変更したりしない
   - 作業ブランチごとに worktree を作成し（`git worktree add -b <branch> .claude/worktrees/<name> main`）、その中で実装・コミット・push を行う
   - worktree には gitignore 対象の `.env` と `node_modules/` が無いので、作成直後にメインのワーキングツリーから `.env` をコピーし `pnpm install` する
-  - issue 番号 N の worktree では、`.env` をコピーした直後に `COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT` / `DATABASE_URL` / `BETTER_AUTH_URL` の 5 キーを設定する（値と手順は「Docker 開発環境（issue 単位の分離）」の節）
+  - issue 番号 N の worktree では、`.env` をコピーした直後に `COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT` / `BETTER_AUTH_URL` の 4 キーを設定する（`DATABASE_URL` は書き換えない。メインの Supabase 接続をそのまま使う）（値と手順は「Docker 開発環境（issue 単位の分離）」の節）
   - PRマージ後は worktree も削除して片付ける（`cleanup` スキルが worktree とブランチをまとめて削除する）
 - Claude Code（オーケストレーター本体・generator等のサブエージェントを問わず）が作成するコミットには、コミット履歴の透明性を保つため必ず以下のトレーラーを含めること
 
@@ -54,8 +54,8 @@ pnpm test:unit -- --run   # 単発実行
 pnpm test:e2e      # Playwright E2E
 pnpm test          # 全テスト一括
 
-# DB操作（要: MySQLコンテナ起動。従来起動は docker compose --profile dev up -d、issue 環境は docker compose up -d mysql）
-pnpm db:push       # スキーマをDBに直接反映（開発用）
+# DB操作（Supabase 開発用クラウドに直結。docs/supabase-setup.md 参照。MySQL コンテナは不要）
+# スキーマ変更の正式手順: pnpm db:generate → 生成 SQL をレビュー → pnpm db:migrate（db:push は使わない）
 pnpm db:generate   # マイグレーションファイル生成
 pnpm db:migrate    # マイグレーション実行
 pnpm db:studio     # Drizzle Studio（DBブラウザ）
@@ -97,24 +97,23 @@ git worktree 1つ = issue 1つ = Compose プロジェクト 1つとして扱い�
 - `DEV_PORT` は、dev コンテナで動かす場合もホストの `pnpm dev` で動かす場合も、その issue のアプリ用ポートとして共通で使う（同時には使わない）
 - issue 番号 10000 以上は対象外（到達時に方式を見直す）
 
-### worktree の `.env` に設定する 5 キー（issue N の場合）
+### worktree の `.env` に設定する 4 キー（issue N の場合）
 
-`.env` をメインからコピーした直後に設定する。既存キーは置き換え、未定義キーは追加し、各キーがちょうど 1 回だけ現れる状態にする。**値はクォートしない**（`KEY=value` 形式。メインの `DATABASE_URL="..."` のクォートも外す）。メインの `.env` は変更しない。
+`.env` をメインからコピーした直後に設定する。既存キーは置き換え、未定義キーは追加し、各キーがちょうど 1 回だけ現れる状態にする。**値はクォートしない**（`KEY=value` 形式）。`DATABASE_URL` は書き換えない（全 worktree でメインと同じ Supabase の値を使う）。メインの `.env` は変更しない。
 
-| キー                   | 値                                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------------------ |
-| `COMPOSE_PROJECT_NAME` | `rootist-issue-<N>`                                                                        |
-| `DEV_PORT`             | `20000+N`                                                                                  |
-| `MYSQL_PORT`           | `30000+N`                                                                                  |
-| `DATABASE_URL`         | メインの値のホスト部を `localhost:<MYSQL_PORT>` に置換（ユーザー・パスワード・DB名は同じ） |
-| `BETTER_AUTH_URL`      | `http://localhost:<DEV_PORT>`（Better Auth は baseURL とアクセス元の一致が前提）           |
+| キー                   | 値                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| `COMPOSE_PROJECT_NAME` | `rootist-issue-<N>`                                                              |
+| `DEV_PORT`             | `20000+N`                                                                        |
+| `MYSQL_PORT`           | `30000+N`                                                                        |
+| `BETTER_AUTH_URL`      | `http://localhost:<DEV_PORT>`（Better Auth は baseURL とアクセス元の一致が前提） |
 
-### MySQL は issue ごとに分離する（案B）
+### アプリの DB は Supabase 共有（issue 別の分離なし）
 
-dev・MySQL とも issue 別にする。プロジェクト名を分けるだけで MySQL・ボリュームも自然に分離され、`compose.yaml` の変更がポートの可変化だけで済む。`pnpm db:push` によるスキーマ変更やテストデータが他 issue・メインの環境に干渉せず、後始末も「その issue のプロジェクトを丸ごと消す」だけで済む（MySQL 共有案は外部ネットワーク・ボリュームの追加設定が必要で複雑になる）。
+アプリの DB は Supabase の開発用クラウドプロジェクトで、**全 worktree が同じ DB に直結する**（issue 別の分離はしない。理由は `docs/supabase-setup.md`）。issue 環境の Compose プロジェクトで分離するのはアプリ（dev コンテナ）のポートだけで、MySQL コンテナはアプリから使われない（compose の mysql サービス・`MYSQL_PORT` は #119 で削除予定）。
 
-- issue 環境の MySQL は空で始まる。初回起動後に `pnpm db:push` でスキーマを反映する（seed が必要なら `pnpm exec tsx seed.ts`）
-- MySQL コンテナが issue 数だけ動くのでメモリを使う。マージ後の `cleanup` で確実に削除する
+- スキーマ変更は `pnpm db:generate` → 生成 SQL をレビュー → `pnpm db:migrate`。共有 DB なので同時に複数 issue から流さない。`db:push` は使わない（履歴なしで破壊的変更を流し得るため）
+- 検証で作ったテストデータは、検証後に削除する
 
 ### ポートの確認方法
 
@@ -125,19 +124,19 @@ dev・MySQL とも issue 別にする。プロジェクト名を分けるだけ�
 
 ### 制約・後始末
 
-- issue 番号の無い worktree（dev-loop のテキスト入力モード等）は 5 キーを設定しない。ディレクトリ名由来のプロジェクト名＋既定ポートになり、メインの環境と同時には起動できない（起動に失敗するだけで他の環境は止まらない）
+- issue 番号の無い worktree（dev-loop のテキスト入力モード等）は 4 キーを設定しない。ディレクトリ名由来のプロジェクト名＋既定ポートになり、メインの環境と同時には起動できない（起動に失敗するだけで他の環境は止まらない）
 - Google ログインは Google Cloud Console に登録済みのリダイレクト URI（ポート 5173）以外では動かない既知の制約がある。issue 環境（`DEV_PORT` が 5173 以外）では確認できない
 - issue 環境の Compose プロジェクト（コンテナ・ネットワーク・ボリューム）は、マージ後に `cleanup` スキルが worktree 削除の前に削除する。メインの `rootist` や他 issue のプロジェクトには触れない
 
 ## Supabase 環境
 
-DB・認証を Supabase（Postgres + Supabase Auth）へ移行中（親 issue #113）。ローカル開発は開発用クラウドプロジェクトへの直結で、`supabase start` は使わない。環境変数は `.env.example`、方式の理由と手順は `docs/supabase-setup.md` を参照。
+DB は Supabase の Postgres へ移行済み（#115。`DATABASE_URL` は Session pooler の接続文字列）。認証は Supabase Auth へ移行中（親 issue #113。Better Auth は #116 まで暫定で Postgres 上で動かす）。ローカル開発は開発用クラウドプロジェクトへの直結で、`supabase start` は使わない。環境変数は `.env.example`、方式の理由と手順は `docs/supabase-setup.md` を参照。
 
 ## アーキテクチャ概要
 
 **サービス概要**: ユーザーが行き先を入力するだけで、最短ルートでの旅行プランを自動生成するサービス。
 
-**スタック**: SvelteKit (Svelte 5) + TypeScript + Tailwind CSS v4 + MySQL + Drizzle ORM
+**スタック**: SvelteKit (Svelte 5) + TypeScript + Tailwind CSS v4 + PostgreSQL（Supabase）+ Drizzle ORM
 
 ### ルート構成
 
@@ -168,7 +167,7 @@ src/routes/
 
 - `auth.ts` — Better Auth設定（email/password認証）
 - `auth-errors.ts` — Better Authのエラーを画面表示用の日本語メッセージに変換
-- `db/index.ts` — mysql2 + Drizzle ORM の DB 接続
+- `db/index.ts` — postgres.js + Drizzle ORM の DB 接続（Supabase の Session pooler）
 - `db/schema.ts` — テーブルスキーマ定義（Better Auth標準スキーマ `user`/`session`/`account`/`verification` + `plans`）
 
 `src/hooks.server.ts` が全リクエストでセッションを検証し `event.locals.user` に載せる（ルートガードは無し）。

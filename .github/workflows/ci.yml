@@ -31,7 +31,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: mysql://ci:ci@localhost:3306/ci
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       BETTER_AUTH_SECRET: ci-dummy-secret-not-for-production-use-only
       BETTER_AUTH_URL: http://localhost:4173
       GOOGLE_CLIENT_ID: ci-dummy-google-client-id
