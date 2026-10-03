@@ -15,11 +15,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## git戦略
 
 - Conventional Commits
-- ブランチ名は `<type>/<スラッグ>` とする
+- ブランチ名は `<type>/issue-<issue番号>-<スラッグ>` とする（issueを切ってから開発する）
   - `<type>` はConventional Commitsと同じ種別（`feat` / `fix` / `docs` / `style` / `refactor` / `perf` / `test` / `build` / `ci` / `chore`）。変更の主目的に合うものを選ぶ
   - `<スラッグ>` は英小文字・数字・ハイフンのみ（kebab-case）で、変更内容が分かる短い英語にする。日本語・大文字・アンダースコア・スペースは使わない
-  - issue起点の場合は `<type>/issue-<番号>-<スラッグ>` とする（例: `feat/issue-12-share-plan`）
-  - 例: `feat/share-plan-url` / `fix/user-menu-logout` / `chore/worktree-workflow`
+  - 例: `feat/issue-12-share-plan` / `fix/issue-34-user-menu-logout` / `chore/issue-98-context7`
   - `main` への直接コミットはしない。dependabot など自動生成ブランチは対象外
 - 開発作業（機能追加・修正など、ファイル変更を伴う作業）を始めるときは、必ず git worktree を切って作業すること。メインのワーキングツリー（`main`）で直接ブランチを切り替えたり変更したりしない
   - 作業ブランチごとに worktree を作成し（`git worktree add -b <branch> .claude/worktrees/<name> main`）、その中で実装・コミット・push を行う

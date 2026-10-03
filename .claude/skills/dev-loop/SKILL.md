@@ -52,7 +52,7 @@ dev-loop 進捗:
 3. ワークスペース作成: `<メインのワーキングツリー>/.dev-loop/<YYYYMMDD>-<機能スラッグ>/`（スラッグはissueタイトルから英語kebab-caseで生成）。issue内容を `issue.md` に保存（番号・タイトル・本文・URL）。**worktree 内には置かない** — マージ後の cleanup で worktree ごと消えるため
 4. worktree作成:
    1. `git -C <メインのワーキングツリー> pull --ff-only` で main を最新化
-   2. `git worktree add -b <ブランチ> .claude/worktrees/<スラッグ> main`（ブランチ名は `feat/issue-<n>-<スラッグ>`、テキスト入力の場合は `feat/<スラッグ>`）
+   2. `git worktree add -b <ブランチ> .claude/worktrees/<スラッグ> main`（ブランチ名は CLAUDE.md の規則どおり `<type>/issue-<n>-<スラッグ>`。テキスト入力でissue番号が無い場合は先にissueを起票するか、番号なしの `<type>/<スラッグ>` を使う）
    3. EnterWorktree（`path` 指定）でセッションを worktree に移す
    4. `cp <メインのワーキングツリー>/.env .env` と `pnpm install` — gitignore 対象の `.env` と `node_modules/` は worktree に無いため
 
