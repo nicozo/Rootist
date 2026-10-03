@@ -36,8 +36,8 @@ pnpm check
 pnpm check:watch   # ウォッチモード
 
 # Lint / フォーマット
-pnpm lint          # prettier + eslint チェック
-pnpm format        # prettier 自動修正
+pnpm lint          # vp fmt --check（フォーマット）+ eslint チェック
+pnpm format        # vp fmt で自動整形（prettier ではない）
 
 # テスト
 pnpm test:unit     # Vitest（ウォッチモード）
