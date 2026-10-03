@@ -55,6 +55,17 @@ dev-loop 進捗:
    2. `git worktree add -b <ブランチ> .claude/worktrees/<スラッグ> main`（ブランチ名は `feat/issue-<n>-<スラッグ>`、テキスト入力の場合は `feat/<スラッグ>`）
    3. EnterWorktree（`path` 指定）でセッションを worktree に移す
    4. `cp <メインのワーキングツリー>/.env .env` と `pnpm install` — gitignore 対象の `.env` と `node_modules/` は worktree に無いため
+   5. **issue 番号指定の場合のみ**、コピーした `.env` に issue 単位の Docker 環境用 5 キーを設定する（規則・理由は CLAUDE.md「Docker 開発環境（issue 単位の分離）」）。既存キーは置き換え、未定義キーは追加し、各キーがちょうど 1 回だけ現れる状態にする。メインの `.env` は変更しない:
+
+      | キー                   | 値                                                                                         |
+      | ---------------------- | ------------------------------------------------------------------------------------------ |
+      | `COMPOSE_PROJECT_NAME` | `rootist-issue-<N>`                                                                        |
+      | `DEV_PORT`             | `20000+N`                                                                                  |
+      | `MYSQL_PORT`           | `30000+N`                                                                                  |
+      | `DATABASE_URL`         | メインの値のホスト部を `localhost:<MYSQL_PORT>` に置換（ユーザー・パスワード・DB名は同じ） |
+      | `BETTER_AUTH_URL`      | `http://localhost:<DEV_PORT>`                                                              |
+
+      テキスト入力モード（issue 番号なし）では設定しない。その場合はディレクトリ名由来のプロジェクト名＋既定ポート（5173 / 3306）になり、メインの環境と同時には起動できない（起動に失敗するだけで他の環境は止まらない）。N が 10000 以上の場合は対象外のため中断してユーザーに報告する。
 
 ### Step 1: Planner — 仕様策定
 
@@ -82,9 +93,11 @@ Planner（`planner`）を起動。promptに含めるもの:
 ### Step 4: QA評価（イテレーションN）
 
 1. **devサーバー起動（オーケストレーターの仕事）**:
-   - `docker compose --profile dev up -d` でMySQL起動（DB不要な変更ならスキップ可）
-   - `pnpm dev` を `run_in_background: true` で起動し、`curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/` が200を返すまで待つ
-2. QAに **SendMessage**: 「`handoff.md` を読み、http://localhost:5173 でPlaywright動的テストを実施し、評価レポートを `qa_report_iter<N>.md` に書け」
+   - worktree 内で実行する（`.env` の `COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT` がそのまま効く。シェルで環境変数を上書きしない）。`DEV_PORT` は `sed -n 's/^DEV_PORT=//p' .env | tail -n1` で読む（issue 番号なし＝未設定なら 5173）
+   - DB が必要なら、**MySQL サービスだけ**を起動する: `docker compose up -d mysql`（`--profile dev` で dev コンテナは起動しない。ホストの `pnpm dev` とポートを取り合い、QA 対象のコードが曖昧になるため）。`docker compose ps` で `rootist-issue-<N>-mysql-1` と `0.0.0.0:<MYSQL_PORT>->3306/tcp` を確認する
+   - 初回（MySQL が空）は `pnpm db:push --force` でスキーマを反映する（Bash は非対話のため、drizzle-kit の確認プロンプトを `--force` で自動承認する。接続先は `.env` の `DATABASE_URL` = 自 issue の MySQL）
+   - `pnpm dev --port <DEV_PORT> --strictPort` を `run_in_background: true` で起動する（`--strictPort` により、ポートが使用中なら別ポートへずれずに失敗する。他の環境のサーバーを QA 対象と取り違えないため）。`curl -s -o /dev/null -w "%{http_code}" http://localhost:<DEV_PORT>/` が200を返すまで待つ
+2. QAに **SendMessage**: 「`handoff.md` を読み、http://localhost:<DEV_PORT> でPlaywright動的テストを実施し、評価レポートを `qa_report_iter<N>.md` に書け」（`<DEV_PORT>` は実際の数値に置き換えて URL を明記する。issue 番号なしの場合は 5173）
 3. レポートの総合判定（PASS/FAIL）を読み取る
 
 ### Step 5: 判定分岐
@@ -95,7 +108,7 @@ Planner（`planner`）を起動。promptに含めるもの:
 
 ### Step 6: 仕上げ — レビュー・コミット・PR
 
-1. devサーバーを停止（バックグラウンドタスクをkill）
+1. devサーバーを停止（バックグラウンドタスクをkill）。issue 環境の Compose プロジェクトは残してよい（マージ後の `cleanup` が worktree 削除前に削除する）
 2. `pnpm test:unit -- --run` を実行。失敗したらStep 5のFAIL扱いでGeneratorに差し戻し
 3. **コードレビュー**: Skillツールで `code-review` を実行（ブランチの変更差分が対象。QAの静的レビューはSOLID/規約準拠が中心なので、バグハントはここで補完する）
 4. **セキュリティレビュー**: Skillツールで `security-review` を実行
@@ -130,5 +143,5 @@ review_findings_iter<N>.md  # code-review / security-review の要修正指摘�
 ## 中断・失敗時の原則
 
 - どのステップでも、同じ失敗が2回続いたらループを止めてユーザーに状況を報告する（無限ループ禁止）
-- 中断時もdevサーバー・MySQLコンテナの後始末を忘れない（MySQLはユーザーが使っている可能性があるので `docker compose down` はしない。devサーバーのみ停止）
+- 中断時もdevサーバーの後始末を忘れない。ホストの dev サーバー（`pnpm dev`）は停止する。自 issue の Compose プロジェクト（`rootist-issue-<N>`）は再開に備えて残し、`docker compose down` はしない（マージ後の `cleanup` が削除する）。**他プロジェクト（メインの `rootist` や他 issue）のコンテナには一切触れない**
 - エージェントの応答はそのまま転記せず、要点（成果物パス・判定・次のアクション）に絞ってユーザーに報告する
