@@ -36,3 +36,6 @@ storybook-static
 .dev-loop/
 .playwright-mcp/
 .vitest/
+
+# git worktree（開発用作業ディレクトリ）
+.claude/worktrees/
