@@ -1,9 +1,6 @@
 import { error } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { plans } from '$lib/server/db/schema';
+import { findPlanByShareId } from '$lib/server/db/plans';
 import type { PageServerLoad } from './$types';
-import type { RouteResult } from '$lib/stores/route';
 
 // issue #115: shareIdはPOST /api/plansがrandomUUID()で発行したUUID。形式が違う入力はDBを呼ばずに404にする。
 // Postgresのtext型はNUL文字(%00)を受け付けずエラー(500)になるため、検索前に弾く必要がある。
@@ -16,13 +13,11 @@ export const load: PageServerLoad = async ({ params }) => {
 	}
 	// 保存時は小文字のUUID。旧DB(大小無視の照合順序)では大文字でも一致していたため、小文字に揃えて検索する
 	const shareId = params.shareId.toLowerCase();
-	const [record] = await db.select().from(plans).where(eq(plans.shareId, shareId)).limit(1);
+	const result = await findPlanByShareId(shareId);
 
-	if (!record) {
+	if (!result) {
 		error(404, '共有されたプランが見つかりません');
 	}
 
-	return {
-		result: record.data as RouteResult
-	};
+	return { result };
 };

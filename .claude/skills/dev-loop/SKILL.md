@@ -91,7 +91,7 @@ Planner（`planner`）を起動。promptに含めるもの:
 
 1. **devサーバー起動（オーケストレーターの仕事）**:
    - worktree 内で実行する（`.env` の `COMPOSE_PROJECT_NAME` / `DEV_PORT` がそのまま効く。シェルで環境変数を上書きしない）。`DEV_PORT` は `sed -n 's/^DEV_PORT=//p' .env | tail -n1` で読む（issue 番号なし＝未設定なら 5173）
-   - DB は Supabase 開発用クラウドに直結する（ローカルの DB コンテナは起動しない。`.env` の `DATABASE_URL` はメインと同じ値）。スキーマ変更（`drizzle/` に新しいマイグレーション）を含む issue は、**ユーザーに確認してから** `pnpm db:migrate` を実行する（共有 DB を書き換えるため。自動で流す手順・`--force` 系の自動承認は無い）。`db:push` は使わない
+   - DB は Supabase 開発用クラウドに直結する（ローカルの DB コンテナは起動しない。`.env` の `DATABASE_URL` はメインと同じ値）。スキーマ変更（`supabase/migrations/` に新しいマイグレーション）を含む issue は、マイグレーションの適用を**ユーザーに依頼する**（共有 DB を書き換えるため。**ユーザーが自分の端末で** `pnpm db:migrate` を実行する。`pnpm db:migrate` は TTY 必須で、エージェントからは実行できない・実行しない。`supabase db push` を直接叩く・`--yes` で迂回することも禁止）。`db:push` 相当の履歴なし適用はしない
    - `pnpm dev --port <DEV_PORT> --strictPort` を `run_in_background: true` で起動する。起動前に `lsof -iTCP:<DEV_PORT> -sTCP:LISTEN -P` が**空であることを確認し、空でなければ中断して報告する**。`--strictPort` は別ポートへのずれを防ぐが、ワイルドカードアドレス（Docker の公開ポート等）で LISTEN しているプロセスとの衝突は検知しないことがある（macOS で確認）ため、事前の空き確認が必要。`curl -s -o /dev/null -w "%{http_code}" http://localhost:<DEV_PORT>/` が200を返すまで待つ
 2. QAに **SendMessage**: 「`handoff.md` を読み、http://localhost:<DEV_PORT> でPlaywright動的テストを実施し、評価レポートを `qa_report_iter<N>.md` に書け」（`<DEV_PORT>` は実際の数値に置き換えて URL を明記する。issue 番号なしの場合は 5173）
 3. レポートの総合判定（PASS/FAIL）を読み取る

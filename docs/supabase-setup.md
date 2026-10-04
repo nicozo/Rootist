@@ -44,7 +44,7 @@ cp .env.example .env
 | `SUPABASE_SECRET_KEY`      | Project Settings > API Keys > Secret key（`sb_secret_...`）                              | **秘密・サーバー専用**     |
 | `DATABASE_URL`             | Connect > Connection string > Session pooler（`[YOUR-PASSWORD]` を DB パスワードに置換） | **秘密（パスワード含む）** |
 
-`DATABASE_URL` は**アプリと Drizzle Kit の DB 接続**に使います。Session pooler（ポート 5432）を使うのは、Direct connection が IPv4 非対応のため（自宅回線などで繋がらないことがある）です。**Transaction pooler（ポート 6543）は使いません**（プリペアドステートメントが使えず、アプリ側の設定が必要になるため）。
+`DATABASE_URL` は**アプリと Supabase CLI（マイグレーション）の DB 接続**に使います。Session pooler（ポート 5432）を使うのは、Direct connection が IPv4 非対応のため（自宅回線などで繋がらないことがある）です。**Transaction pooler（ポート 6543）は使いません**（プリペアドステートメントが使えず、アプリ側の設定が必要になるため）。
 
 ### 接続確認
 
@@ -77,28 +77,49 @@ docker run --rm postgres:17 psql "$DATABASE_URL" -tAc 'select 1'
 
 ## 6. スキーマの反映（マイグレーション）
 
-スキーマの正は `src/lib/server/db/schema.ts` と `drizzle/` のマイグレーションです。
+スキーマの正は **`supabase/migrations/<タイムスタンプ>_<名前>.sql`**（Supabase CLI のマイグレーション。SQL を手で書く）です。ORM やスキーマ定義の TS ファイルはありません。クラウド直結のため `supabase start`・`supabase link`・`supabase/config.toml` は使いません（`--db-url` で `.env` の `DATABASE_URL` を直接指定します）。CLI は依存に入れず、`pnpm dlx supabase@<固定版>` で一時実行します（バージョンは `src/lib/dev-tools/supabase-db.ts` の `SUPABASE_CLI`）。
 
 ```bash
-# drizzle-kit は実行時にカレントディレクトリの .env を読み込むため、set -a は不要
-# （シェルで設定済みの DATABASE_URL があればそれが優先される）
-pnpm db:generate            # schema.ts の変更から drizzle/ に SQL を生成する
-# 生成された drizzle/*.sql をレビューする（RLS の有効化が含まれていること）
-pnpm db:migrate             # 開発用 DB へ適用する
+pnpm db:new add_something   # 1. 空のマイグレーションを作る（名前は英小文字・数字・_ のみ。DB には触れない）
+# 2. supabase/migrations/<ts>_add_something.sql に SQL を手で書く（下の RLS チェックリストを満たすこと）
+pnpm db:status              # 3. 適用状況の確認（読み取りのみ。Local と Remote の差を見る）
+pnpm db:migrate             # 4. 適用（ユーザーが自分の端末で実行する。下記）
+pnpm db:status              # 5. Local と Remote が一致したことを確認
 ```
 
-- `pnpm db:push` は使いません（削除済み）。履歴を残さずに共有の開発 DB へ破壊的な変更を流せてしまうためです。
+`pnpm db:*` は `.env` の `DATABASE_URL` を自動で読み込みます（手動で export する必要はありません）。シェルで設定済みの `DATABASE_URL` が**空文字も含めて**優先されます。値が空、または `postgres://` / `postgresql://` で始まらない場合は CLI を起動せずエラーで止まります。
+
+### 適用（`pnpm db:migrate`）のルール
+
+- **ユーザーが自分の端末で実行します。エージェント（オーケストレーター含む）は実行せず、ユーザーに依頼します。** 共有 DB に DDL を流すためです。
+- 対話端末（TTY）でないと拒否されます。流れは「dry-run で適用予定を表示 → 適用対象が無ければ終了 → wrapper が `[y/N]` を確認（既定 No。`y` / `yes` のみ承認）→ 承認時だけ `supabase db push`」です。追加の引数（`--yes` など）は受け付けません。
+- **この TTY ガードはセキュリティ境界ではなく、誤操作を防ぐ仕組みです。** `script` コマンドなどで疑似端末を作る、`pnpm dlx supabase@... db push` を直接叩く、といった方法で迂回できます（迂回しないこと）。
+- Supabase CLI の `db push` は、**対話端末でない環境では確認プロンプトなしで即適用される**ことを実測で確認しています（`--yes` 無しでも）。そのため非 TTY で `db push` を直接実行してはいけません。
+- 対話端末では、wrapper の `[y/N]` に `y` と答えた後に、**CLI 自身の確認（Yes/No の対話 UI）がもう一度表示されます**（二重確認。実測）。wrapper のガードは CLI のプロンプトに依存しない設計です。wrapper の確認文言は接続先を断定しません（接続先は `DATABASE_URL` で決まり、ホスト名などは表示しません）。
+- ここでの「`db push`」は Supabase CLI の履歴付きマイグレーション適用です。旧 `pnpm db:push`（履歴を残さず破壊的変更を流し得るため削除済みの別コマンド）とは別物です。
+
+### RLS チェックリスト（表を作る SQL を書くとき）
+
+1. 表を作る SQL と**同じファイル**で `alter table public.<表> enable row level security;` を書く。
+2. **ポリシー（`create policy`）は作らない**（Data API から publishable key で読めない状態を保つ。アプリは DB 所有者ロールで直結するため影響を受けない）。
+3. 適用後に「7. テーブルの公開範囲（RLS）」の curl で、Data API から読めない（`[]` または権限エラー）ことを確認する。
+4. `pnpm test:unit` の静的検査（`src/lib/dev-tools/migration-rls.test.ts`）が、`supabase/migrations/*.sql` の全表について RLS 有効化漏れとポリシーの混入を検出します（CI の `pnpm test` でも走るため、マージ前に漏れが止まります）。限界は検査コード冒頭のコメント参照（`$$` 内の `;`、コメントや文字列内の SQL など）。
+
+### その他
+
 - 開発用 DB は全 worktree で共有です。**マイグレーションは同時に複数の issue から流さず**、流す前にほかの worktree への影響を確認してください。
 - 接続は Session pooler（5432）を使います。Transaction pooler（6543）は使いません。
-- 適用履歴は Drizzle Kit の既定（`drizzle` スキーマの `__drizzle_migrations`）に残ります。DB を作り直した場合も `pnpm db:migrate` だけで空から再現できます。
-- 旧認証の 4 テーブル（user / session / account / verification）は #116 で削除済みです（`0001` マイグレーション）。ユーザーは Supabase Auth の `auth.users` が管理し、`auth` / `storage` などの Supabase 管理スキーマにはマイグレーションから触れません。
+- 適用履歴は Supabase CLI の既定（`supabase_migrations.schema_migrations`）に残ります。
+- `--db-url` を引数で渡すため、**DB パスワードが `ps` の出力に見えます**。また CLI のエラー出力に接続文字列が含まれることがあるため、ログやチャットにそのまま貼らないでください。
+- DB の閲覧・編集は Supabase ダッシュボードの Table Editor / SQL Editor を使います（専用の DB ブラウザコマンドはありません）。
+- 旧認証の 4 テーブル（user / session / account / verification）は #116 で削除済みです。ユーザーは Supabase Auth の `auth.users` が管理し、`auth` / `storage` などの Supabase 管理スキーマにはマイグレーションから触れません。
 
 ## 7. テーブルの公開範囲（RLS）
 
 Supabase は `public` スキーマのテーブルを Data API（REST）で公開し得ます。RLS が無効だと、`.env` の publishable key（公開前提のキー）だけで全行が読めてしまいます。
 
-- **作成する全テーブルで RLS を有効にし、ポリシーは作りません**（`pgTable(...).enableRLS()`。生成されるマイグレーションに `ENABLE ROW LEVEL SECURITY` が含まれます）。アプリはサーバーから DB 所有者ロールで直結するため影響を受けません。
-- **テーブルを追加するときも必ず `.enableRLS()` を付けてください。**
+- **作成する全テーブルで RLS を有効にし、ポリシーは作りません**（マイグレーションで `create table` するときは、同じファイルで `alter table ... enable row level security` を書きます。「6. スキーマの反映」の RLS チェックリスト）。アプリはサーバーから DB 所有者ロールで直結するため影響を受けません。
+- **テーブルを追加するときも必ず RLS を有効化してください。** 漏れは静的検査テストが検出します。
 - Data API から読めないことの確認（`plans` の例。`[]` または権限エラーが返れば OK。行が返れば NG）:
 
 ```bash
@@ -116,7 +137,7 @@ MySQL から Supabase の Postgres への切り替えに伴い、各開発者は
 1. `DATABASE_URL` を Supabase の Session pooler 文字列に置き換える（旧 `SUPABASE_DB_URL` の値をそのまま移せばよい）。
 2. 旧変数 `SUPABASE_DB_URL` の行を削除する。
 3. すでに作成済みの worktree（`DATABASE_URL` が `localhost:<MYSQL_PORT>` に書き換わっているもの）は、同じく Supabase の値に直す。以後、新しい worktree では `DATABASE_URL` を書き換えない（メインと同じ値のまま使う）。
-4. スキーマは #115 の作業中に開発用クラウド DB へ適用済み。DB を作り直した場合のみ `pnpm db:migrate` を実行する。
+4. スキーマは #115 の作業中に開発用クラウド DB へ適用済み。DB を作り直した場合のみマイグレーションを適用する（#128 以降は「6. スキーマの反映」の手順で、ユーザーが自分の端末で `pnpm db:migrate`）。
 
 影響: 既存のユーザーアカウントと共有 URL は引き継がれず失効します（開発段階のため許容）。ブラウザに残った旧セッション Cookie は無効になり、未ログイン扱いになります。
 
@@ -147,7 +168,7 @@ curl -s "$SUPABASE_URL/auth/v1/settings" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" 
 
 1. メインの `.env` に残っている旧認証用の環境変数は削除してよい（残っていても無害）。
 2. 既存のアカウントは使えなくなります。新規登録し直してください。ブラウザに残った旧 Cookie は自動的に未ログイン扱いになります。
-3. `0001` マイグレーション（旧認証 4 テーブルの削除）が開発用 DB に未適用なら、ほかの worktree（旧認証で動いている未マージのブランチ）への影響を確認してから `pnpm db:migrate` を実行する。適用すると、そうしたブランチではログイン・登録ができなくなります（プラン作成・共有は影響を受けません）。
+3. 旧認証 4 テーブルの削除（#128 以前の `0001` マイグレーション）は適用済みです。適用すると、そうしたブランチではログイン・登録ができなくなります（プラン作成・共有は影響を受けません）。
 4. 新しい worktree の `.env` に設定するキーは 2 つ（`COMPOSE_PROJECT_NAME` / `DEV_PORT`）です（#119 で `MYSQL_PORT` は廃止）。
 5. Google ログインを使うには、「11. Google ログイン」の設定をして `.env` に `GOOGLE_AUTH_ENABLED=true` を追加する。メインの `.env` の `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` は不要になった（Supabase ダッシュボードに登録する）。
 
@@ -183,3 +204,20 @@ Supabase Auth の既定どおり、**同じメールアドレスの identity は
 1. メインの `.env` から `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `MYSQL_ROOT_PASSWORD` / `RESEND_API_KEY` を削除してよい（残っていても無害）。worktree の `.env` の `MYSQL_PORT` も同様。
 2. 手元に残った旧 MySQL のコンテナ・ボリュームは不要。`docker compose down -v --remove-orphans` で片付けられる（メインは `rootist`、issue 環境は `rootist-issue-<N>` のプロジェクト）。
 3. prod コンテナ（`docker compose --profile prod up`）は `.env` の `DATABASE_URL` / `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` / `GOOGLE_AUTH_ENABLED` / `GOOGLE_MAPS_API_KEY` / `GEMINI_API_KEY` を受け取って起動する。
+
+## 13. 開発者向け移行手順（#128 のマージ後）
+
+ORM（drizzle-orm）とそのマイグレーション基盤（drizzle-kit）を依存から外し、スキーマの正を `supabase/migrations` に移しました。アプリの DB アクセス経路（Session pooler へ DB 所有者ロールで直結）と public スキーマ（表・列・制約・RLS）は変わりません。
+
+1. `pnpm install` で drizzle 関連が消えます。旧 `pnpm db:generate` / `pnpm db:studio` は無くなりました（DB の閲覧は Supabase ダッシュボード）。`pnpm db:migrate` は Supabase CLI の wrapper に変わり、ユーザーが自分の端末で実行するコマンドになりました。
+2. **DB に残る `drizzle` スキーマ（`drizzle.__drizzle_migrations`）は意図的に残置しています。消さないでください。** 理由: 未マージの他ブランチは旧 drizzle-kit のまま `pnpm db:migrate` を実行し得ます。履歴表を消すと 0000 から再適用しようとして、旧認証 4 表を作り直す・失敗するなど共有 DB を汚します。残しておけば「適用済み」と判断されて何も起きません。`drizzle` スキーマは Data API の公開対象（public）外のため、残しても公開範囲の問題はありません。**削除は、旧 drizzle 前提のブランチが無くなったことを確認した後の別 issue で行います。**
+3. 未マージの他ブランチで旧 `drizzle/` に新しいマイグレーションを作っている場合は、`supabase/migrations` の SQL に書き直してから適用してください（「6. スキーマの反映」）。
+4. **一度きりのベースライン履歴登録**: `supabase/migrations/20261004000000_baseline_plans.sql` は既存 DB と同じ状態を記述したもので、既存 DB では実行させません。履歴だけを登録します（SQL は実行されず、`public` の表には触れません）。共有 DB への書き込みなので、**ユーザーの承認後に実施**します。登録済みかは `pnpm db:status` で確認します（Local と Remote の両方に `20261004000000` があれば登録済み）。未登録のまま次のマイグレーションを `pnpm db:migrate` すると、ベースラインも適用対象として表示されます。その場合は先に下記を実施してください（ベースライン SQL は冪等なので、誤って流れても失敗・変更は起きません）。
+
+```bash
+cd <リポジトリ>; set -a; . ./.env; set +a
+pnpm dlx supabase@2.119.0 migration repair 20261004000000 --status applied --db-url "$DATABASE_URL"
+pnpm db:status    # Local と Remote が 20261004000000 で一致していること
+```
+
+5. `.env` の `DATABASE_URL` は引き続き Session pooler の文字列です（アプリと Supabase CLI の両方が使います）。パスワードに記号がある場合は URL エンコードしてください。

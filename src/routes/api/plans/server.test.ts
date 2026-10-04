@@ -1,17 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 
-// issue #62: プラン保存APIの単体テスト。DBへは実接続せずinsertをモックする。
+// issue #62: プラン保存APIの単体テスト。DBへは実接続せず保存関数(insertPlan)をモックする。
+// issue #128: ORMをやめ、plansへの保存は $lib/server/db/plans に集約した。
 
-const { insertValues, dbMock } = vi.hoisted(() => {
-	const insertValues = vi.fn();
-	return {
-		insertValues,
-		dbMock: { insert: vi.fn(() => ({ values: insertValues })) }
-	};
-});
+const { insertPlan } = vi.hoisted(() => ({ insertPlan: vi.fn() }));
 
-vi.mock('$lib/server/db', () => ({ db: dbMock }));
-vi.mock('$lib/server/db/schema', () => ({ plans: {} }));
+vi.mock('$lib/server/db/plans', () => ({ insertPlan }));
 
 const { POST } = await import('./+server');
 
@@ -40,7 +34,7 @@ function destination(order: number, overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
-	insertValues.mockResolvedValue(undefined);
+	insertPlan.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -56,7 +50,7 @@ describe('POST /api/plans バリデーション', () => {
 			status: 400,
 			body: { message: 'リクエストボディが大きすぎます' }
 		});
-		expect(insertValues).not.toHaveBeenCalled();
+		expect(insertPlan).not.toHaveBeenCalled();
 	});
 
 	it('不正なJSONを拒否する', async () => {
@@ -129,9 +123,7 @@ describe('POST /api/plans 保存', () => {
 		expect(res.status).toBe(201);
 		const { shareId } = await res.json();
 		expect(shareId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-		expect(insertValues).toHaveBeenCalledWith(
-			expect.objectContaining({ shareId, data: expect.objectContaining({ summary: '概要' }) })
-		);
+		expect(insertPlan).toHaveBeenCalledWith(shareId, expect.objectContaining({ summary: '概要' }));
 	});
 
 	it('呼び出しごとに異なるshareIdを発行する', async () => {
@@ -157,7 +149,7 @@ describe('POST /api/plans 保存', () => {
 			})
 		);
 
-		const saved = insertValues.mock.calls[0][0].data;
+		const saved = insertPlan.mock.calls[0][1];
 		expect(saved.destinations[0]).toEqual({
 			order: 1,
 			name: '場所1',
@@ -176,7 +168,7 @@ describe('POST /api/plans 保存', () => {
 	it('summaryが文字列でない場合は空文字にする', async () => {
 		await POST(jsonEvent({ destinations: [destination(1)], summary: 123 }));
 
-		expect(insertValues.mock.calls[0][0].data.summary).toBe('');
+		expect(insertPlan.mock.calls[0][1].summary).toBe('');
 	});
 
 	it('origin/endDestinationを正規化して保存する', async () => {
@@ -190,7 +182,7 @@ describe('POST /api/plans 保存', () => {
 			})
 		);
 
-		const saved = insertValues.mock.calls[0][0].data;
+		const saved = insertPlan.mock.calls[0][1];
 		expect(saved.origin).toEqual({ name: '東京駅', displayAddress: '千代田区' });
 		expect(saved.endDestination).toEqual({ name: 'ホテル', displayAddress: '新宿区' });
 		expect(saved.transportMode).toBe('transit');
@@ -206,7 +198,7 @@ describe('POST /api/plans 保存', () => {
 	])('不正なoriginはundefined・endDestinationはnullに落とす: %s', async (_label, place) => {
 		await POST(jsonEvent({ destinations: [destination(1)], origin: place, endDestination: place }));
 
-		const saved = insertValues.mock.calls[0][0].data;
+		const saved = insertPlan.mock.calls[0][1];
 		expect(saved.origin).toBeUndefined();
 		expect(saved.endDestination).toBeNull();
 	});
@@ -216,7 +208,7 @@ describe('POST /api/plans 保存', () => {
 			jsonEvent({ destinations: [destination(1)], transportMode: 1, startTime: { at: 9 } })
 		);
 
-		const saved = insertValues.mock.calls[0][0].data;
+		const saved = insertPlan.mock.calls[0][1];
 		expect(saved.transportMode).toBeNull();
 		expect(saved.startTime).toBeNull();
 	});
@@ -224,13 +216,13 @@ describe('POST /api/plans 保存', () => {
 	it('planDateを含むボディをPOSTすると保存されたdata.planDateがその値になる', async () => {
 		await POST(jsonEvent({ destinations: [destination(1)], planDate: '2026-09-05' }));
 
-		expect(insertValues.mock.calls[0][0].data.planDate).toBe('2026-09-05');
+		expect(insertPlan.mock.calls[0][1].planDate).toBe('2026-09-05');
 	});
 
 	it('planDate未指定なら保存data.planDateはnull', async () => {
 		await POST(jsonEvent({ destinations: [destination(1)] }));
 
-		expect(insertValues.mock.calls[0][0].data.planDate).toBeNull();
+		expect(insertPlan.mock.calls[0][1].planDate).toBeNull();
 	});
 
 	it.each(['2026-02-30', '2026/09/05', 123, {}])(
@@ -239,13 +231,13 @@ describe('POST /api/plans 保存', () => {
 			const res = await POST(jsonEvent({ destinations: [destination(1)], planDate }));
 
 			expect(res.status).toBe(201);
-			expect(insertValues.mock.calls[0][0].data.planDate).toBeNull();
+			expect(insertPlan.mock.calls[0][1].planDate).toBeNull();
 		}
 	);
 
 	it('DB insertが失敗したら500を投げ、DBの生エラーは返さない', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
-		insertValues.mockRejectedValue(new Error('ER_DUP_ENTRY: secret table detail'));
+		insertPlan.mockRejectedValue(new Error('ER_DUP_ENTRY: secret table detail'));
 
 		await expect(POST(jsonEvent({ destinations: [destination(1)] }))).rejects.toMatchObject({
 			status: 500,

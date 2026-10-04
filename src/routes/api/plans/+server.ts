@@ -1,7 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { randomUUID } from 'node:crypto';
-import { db } from '$lib/server/db';
-import { plans } from '$lib/server/db/schema';
+import { insertPlan } from '$lib/server/db/plans';
 import type { RequestHandler } from './$types';
 import type { RouteDestination, RouteResult } from '$lib/stores/route';
 import { isPlanDate } from '$lib/plan-date';
@@ -112,7 +111,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const shareId = randomUUID();
 
 	try {
-		await db.insert(plans).values({ shareId, data });
+		await insertPlan(shareId, data);
 	} catch (e) {
 		console.error('[POST /api/plans] DB insert failed:', e);
 		error(500, 'プランの保存に失敗しました');

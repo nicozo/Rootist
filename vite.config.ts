@@ -24,8 +24,7 @@ export default defineConfig({
 			'yarn.lock',
 			'bun.lock',
 			'bun.lockb',
-			'/static/',
-			'/drizzle/'
+			'/static/'
 		]
 	},
 	plugins: lazyPlugins(() => [tailwindcss(), sveltekit()]),

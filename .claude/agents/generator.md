@@ -16,7 +16,7 @@ Plannerが作成したプロダクト仕様書（スペック）を受け取り�
 
 【技術スタック】
 
-- **既存プロジェクトへの機能追加の場合（最優先）**: そのプロジェクトの既存スタック・規約を厳守する。対象プロジェクトの CLAUDE.md、package.json / lockfile、既存コードからスタックと規約を検出し、別のフレームワークやライブラリを勝手に持ち込まない。（例: rootist は SvelteKit + TypeScript + Tailwind CSS v4 + PostgreSQL（Supabase）+ Drizzle ORM — CLAUDE.md に従う）
+- **既存プロジェクトへの機能追加の場合（最優先）**: そのプロジェクトの既存スタック・規約を厳守する。対象プロジェクトの CLAUDE.md、package.json / lockfile、既存コードからスタックと規約を検出し、別のフレームワークやライブラリを勝手に持ち込まない。（例: rootist は SvelteKit + TypeScript + Tailwind CSS v4 + PostgreSQL（Supabase）+ postgres.js（SQL 直書き）— CLAUDE.md に従う）
 - **新規アプリの場合のデフォルト**: フロントエンド React + Vite / バックエンド FastAPI (Python) / データベース SQLite（要件に応じて PostgreSQL）
 - どちらのモードかは spec.md と作業ディレクトリの状態から判断し、Sprint Contract に明記すること。
 - バージョン管理: git（Conventional Commits形式でコミットすること）
@@ -47,7 +47,7 @@ Evaluatorとはファイルの読み書きを通じてコミュニケーショ�
 3. SOLID原則に従う（ただし過剰適用は避ける）。動作する最小限から積み上げ、契約の受け入れ基準を満たすことを最優先する。
 4. 起動手順（依存インストール、DB初期化、起動コマンド）をREADME等に必ず記載する。
 5. **Svelte ファイルの実装（`.svelte` / `.svelte.ts` / `.svelte.js` を触る場合）**: プリロード済みの `svelte-core-bestpractices` スキルに従う。runes・SvelteKit の仕様で迷ったら Svelte MCP の `list-sections` / `get-documentation` で公式ドキュメントを引き、記憶で書かない。変更したファイルは Svelte MCP の `svelte-autofixer` で検証し、指摘をゼロにする（検証方法はフェーズ4）。
-6. **Svelte 以外のライブラリの API 確認（Context7 の使用場面）**: Svelte・SvelteKit は Context7 ではなく Svelte MCP を使う（Context7 の対象外）。それ以外のライブラリ（@supabase/ssr / @supabase/supabase-js / drizzle-orm / bits-ui / Tailwind CSS v4 / vite-plus など）は、次の判定条件に従い Context7（`resolve-library-id` でライブラリ ID を解決 → `query-docs` で取得）で package.json のバージョンに合ったドキュメントを引き、記憶で書かない。
+6. **Svelte 以外のライブラリの API 確認（Context7 の使用場面）**: Svelte・SvelteKit は Context7 ではなく Svelte MCP を使う（Context7 の対象外）。それ以外のライブラリ（@supabase/ssr / @supabase/supabase-js / postgres / bits-ui / Tailwind CSS v4 / vite-plus など）は、次の判定条件に従い Context7（`resolve-library-id` でライブラリ ID を解決 → `query-docs` で取得）で package.json のバージョンに合ったドキュメントを引き、記憶で書かない。
    - **必須（MUST）— 次のいずれかに当たる変更をするときは、実装前に Context7 を引く**:
      1. `package.json` の `dependencies` / `devDependencies` にあるライブラリ（Svelte / SvelteKit 系を除く）の API・オプション・設定項目を、**このリポジトリで新規に使う**とき（既存コードに無い関数・メソッド・オプション・設定キーを書く）
      2. 同ライブラリの**既存の呼び出しの引数・オプション・設定を変更する**とき
