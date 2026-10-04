@@ -180,7 +180,7 @@ describe('障害', () => {
 					resolveCall({ id: 'a', branch: B116 }),
 					toolResult({ branch: B116, toolUseId: 'a', text: 'Invalid API key. Please check' }),
 					resolveCall({ id: 'b', branch: B116 }),
-					toolResult({ branch: B116, toolUseId: 'b', text: 'Available Libraries: ...' })
+					toolResult({ branch: B116, toolUseId: 'b', text: 'synthetic successful result text' })
 				]
 			}
 		]);
