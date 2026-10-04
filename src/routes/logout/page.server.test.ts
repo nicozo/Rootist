@@ -11,7 +11,7 @@ const COOKIES = [
 	{ name: 'sb-abc-auth-token.1', value: 'y' },
 	{ name: 'sb-abc-auth-token-code-verifier', value: 'z' },
 	{ name: 'theme', value: 'dark' },
-	{ name: 'better-' + 'auth.session_token', value: 'old' }
+	{ name: 'session_token', value: 'old' }
 ];
 
 /** default actionに渡す最小限のイベント。 */

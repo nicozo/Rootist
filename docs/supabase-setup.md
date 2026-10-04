@@ -91,7 +91,7 @@ pnpm db:migrate             # 開発用 DB へ適用する
 - 開発用 DB は全 worktree で共有です。**マイグレーションは同時に複数の issue から流さず**、流す前にほかの worktree への影響を確認してください。
 - 接続は Session pooler（5432）を使います。Transaction pooler（6543）は使いません。
 - 適用履歴は Drizzle Kit の既定（`drizzle` スキーマの `__drizzle_migrations`）に残ります。DB を作り直した場合も `pnpm db:migrate` だけで空から再現できます。
-- Better Auth の 4 テーブル（user / session / account / verification）は #116 で削除済みです（`0001` マイグレーション）。ユーザーは Supabase Auth の `auth.users` が管理し、`auth` / `storage` などの Supabase 管理スキーマにはマイグレーションから触れません。
+- 旧認証の 4 テーブル（user / session / account / verification）は #116 で削除済みです（`0001` マイグレーション）。ユーザーは Supabase Auth の `auth.users` が管理し、`auth` / `storage` などの Supabase 管理スキーマにはマイグレーションから触れません。
 
 ## 7. テーブルの公開範囲（RLS）
 
@@ -145,9 +145,9 @@ curl -s "$SUPABASE_URL/auth/v1/settings" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" 
 
 ## 10. 開発者向け移行手順（#116 のマージ後）
 
-1. メインの `.env` から `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` を削除してよい（残っていても無害）。
+1. メインの `.env` に残っている旧認証用の環境変数は削除してよい（残っていても無害）。
 2. 既存のアカウントは使えなくなります。新規登録し直してください。ブラウザに残った旧 Cookie は自動的に未ログイン扱いになります。
-3. `0001` マイグレーション（Better Auth 4 テーブルの削除）が開発用 DB に未適用なら、ほかの worktree（Better Auth で動いている未マージのブランチ）への影響を確認してから `pnpm db:migrate` を実行する。適用すると、そうしたブランチではログイン・登録ができなくなります（プラン作成・共有は影響を受けません）。
+3. `0001` マイグレーション（旧認証 4 テーブルの削除）が開発用 DB に未適用なら、ほかの worktree（旧認証で動いている未マージのブランチ）への影響を確認してから `pnpm db:migrate` を実行する。適用すると、そうしたブランチではログイン・登録ができなくなります（プラン作成・共有は影響を受けません）。
 4. 新しい worktree の `.env` に設定するキーは 2 つ（`COMPOSE_PROJECT_NAME` / `DEV_PORT`）です（#119 で `MYSQL_PORT` は廃止）。
 5. Google ログインを使うには、「11. Google ログイン」の設定をして `.env` に `GOOGLE_AUTH_ENABLED=true` を追加する。メインの `.env` の `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` は不要になった（Supabase ダッシュボードに登録する）。
 
@@ -158,7 +158,7 @@ Google 認証は Supabase Auth の OAuth（PKCE）で行います。アプリは
 ### 設定手順（初回のみ・手作業）
 
 1. **Google Cloud Console** > APIs & Services > Credentials で OAuth 2.0 クライアント ID（種類: ウェブアプリケーション）を作成する。
-   - **承認済みのリダイレクト URI**: Supabase ダッシュボードの Authentication > Sign In / Providers > Google に表示される Callback URL（`https://<project-ref>.supabase.co/auth/v1/callback`）を登録する。アプリのポートは登録不要（worktree のポート 20000+N でも動く）。旧 Better Auth 用の `http://localhost:5173/api/auth/callback/google` は削除してよい。
+   - **承認済みのリダイレクト URI**: Supabase ダッシュボードの Authentication > Sign In / Providers > Google に表示される Callback URL（`https://<project-ref>.supabase.co/auth/v1/callback`）を登録する。アプリのポートは登録不要（worktree のポート 20000+N でも動く）。旧認証用に登録していたリダイレクト URI は削除してよい。
 2. **Supabase ダッシュボード** > Authentication > Sign In / Providers > Google を有効にし、Client ID / Client Secret を貼る。Client Secret はここにだけ置き、リポジトリや `.env` に書かない。
 3. Redirect URLs に `http://localhost:*/**`（2-3 で設定済み）が入っていることを確認する。
 4. `.env` に `GOOGLE_AUTH_ENABLED=true` を設定する。**未設定・`true` 以外なら Google ボタンは出ず**、email/password のログインや開発は影響を受けない（Google の認証情報が無い環境向け）。`POST /auth/google` を直接叩かれても 404 にする。
@@ -170,7 +170,7 @@ Supabase Auth の既定どおり、**同じメールアドレスの identity は
 - email/password で登録済みのメールで Google ログインすると、同じユーザー（`auth.users` の同じ行）としてログインする。逆（Google が先）の場合、同じメールで email/password 登録を試みると登録済みとして扱われる。
 - Supabase は、メール未確認の email/password アカウントがあるときに同じメールで Google ログインされた場合、乗っ取り（事前登録による pre-hijacking）を防ぐため未確認側を無効化する。このプロジェクトは「Confirm email」を OFF にしているため、この挙動を前提にしている。
 - 表示名・画像は `user_metadata`（`name` → `full_name` → メールのローカル部、`avatar_url` / `picture`）から決まる。
-- Better Auth 時代の既存ユーザーとの移行・リンクはしない（親 issue #113 の「作り直し」前提）。
+- 旧認証時代の既存ユーザーとの移行・リンクはしない（親 issue #113 の「作り直し」前提）。
 
 ### 動作確認
 

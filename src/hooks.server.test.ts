@@ -21,8 +21,8 @@ function hookEvent(cookies: Cookie[] = []) {
 	};
 }
 
-// 撤去済みの旧認証ライブラリが使っていたCookie名（sb- ではないので無視されるはず）
-const LEGACY_COOKIE_NAME = 'better-' + 'auth.session_token';
+// sb- で始まらないCookie名（Supabaseのものではないので無視されるはず）
+const NON_SB_COOKIE_NAME = 'session_token';
 
 const AUTH_COOKIE = [{ name: 'sb-abc-auth-token', value: 'secret-cookie-value-123' }];
 
@@ -116,8 +116,8 @@ describe('Supabaseへの問い合わせ（I-10・I-2）', () => {
 		expect(resolve).toHaveBeenCalledOnce();
 	});
 
-	it('旧認証ライブラリの Cookie だけでも getUser を呼ばない', async () => {
-		const { locals } = await runHandle(hookEvent([{ name: LEGACY_COOKIE_NAME, value: 'dummy' }]));
+	it('sb- 以外の Cookie だけでも getUser を呼ばない', async () => {
+		const { locals } = await runHandle(hookEvent([{ name: NON_SB_COOKIE_NAME, value: 'dummy' }]));
 
 		expect(getUser).not.toHaveBeenCalled();
 		expect(locals.user).toBeNull();
