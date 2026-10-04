@@ -14,6 +14,7 @@
 		"format": "vp fmt .",
 		"lint": "vp fmt --check . && eslint .",
 		"test:unit": "vp test",
+		"metrics:context7": "node scripts/context7-metrics/cli.ts",
 		"test:coverage": "vp test run --coverage",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
 		"test:e2e": "playwright test",
