@@ -60,7 +60,7 @@ describe('/register load', () => {
 		});
 	});
 
-	it('未ログインならGoogleログインの可否（常にfalse）を返す', async () => {
+	it('未ログインならGoogleログインの可否を返す', async () => {
 		await expect(load(loadEvent(null))).resolves.toEqual({ googleAuthEnabled: false });
 	});
 });

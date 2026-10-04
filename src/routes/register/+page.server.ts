@@ -20,7 +20,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 
 	// 環境変数未設定時はボタン非表示にするためのフラグをサーバーでのみ判定して渡す。
-	// issue #116: #117までは常にfalse
 	return { googleAuthEnabled: isGoogleAuthEnabled };
 };
 

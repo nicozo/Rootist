@@ -79,11 +79,14 @@ describe('環境変数', () => {
 });
 
 describe('isGoogleAuthEnabled', () => {
-	it('#117まで常に false（GOOGLE_CLIENT_* があっても）', async () => {
-		env.GOOGLE_CLIENT_ID = 'id';
-		env.GOOGLE_CLIENT_SECRET = 'secret';
-		const { isGoogleAuthEnabled } = await load();
-		expect(isGoogleAuthEnabled).toBe(false);
+	it('GOOGLE_AUTH_ENABLED=true のときだけ true', async () => {
+		env.GOOGLE_AUTH_ENABLED = 'true';
+		expect((await load()).isGoogleAuthEnabled).toBe(true);
+	});
+
+	it.each([undefined, '', 'false', '1'])('GOOGLE_AUTH_ENABLED=%j なら false', async (v) => {
+		env.GOOGLE_AUTH_ENABLED = v;
+		expect((await load()).isGoogleAuthEnabled).toBe(false);
 	});
 });
 

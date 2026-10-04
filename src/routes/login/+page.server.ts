@@ -10,7 +10,7 @@ import {
 } from '$lib/server/auth-errors';
 
 // Googleログイン失敗時に戻ってきたエラーを画面表示用の固定日本語メッセージに変換する。
-// 生のエラーコード（?errorの値そのもの）は画面に出さない。#117で再利用する。
+// 生のエラーコード（?errorの値そのもの）は画面に出さない。
 const GOOGLE_LOGIN_FAILURE_MESSAGE =
 	'Googleログインを完了できませんでした。もう一度お試しください。';
 
@@ -23,7 +23,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const googleError = url.searchParams.has('error');
 
 	return {
-		// issue #116: #117までは常にfalse
 		googleAuthEnabled: isGoogleAuthEnabled,
 		googleError: googleError ? GOOGLE_LOGIN_FAILURE_MESSAGE : null
 	};
