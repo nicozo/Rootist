@@ -65,6 +65,14 @@ async function pickPlace(placeholder: string, query: string, name: string) {
 	await clickSuggestion(name);
 }
 
+/**
+ * 実行中のアニメーション（in:fly などのトランジション）が終わるのを待つ。
+ * 再生中の要素をクリックすると、負荷が高いときにクリックを取りこぼして解除が効かないことがある（issue #94）。
+ */
+async function settleAnimations() {
+	await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined)));
+}
+
 /** 「行きたい場所」を1件追加する。 */
 async function addLocation(name: string) {
 	await pickPlace('例：東京タワー、浅草寺...', name, name);
@@ -303,6 +311,7 @@ describe('/plan +page.svelte 出発地とゴール', () => {
 			.element(page.getByRole('button', { name: '出発地の選択を解除' }))
 			.toBeInTheDocument();
 
+		await settleAnimations();
 		await page.getByRole('button', { name: '出発地の選択を解除' }).click();
 
 		await vi.waitFor(() =>
@@ -335,6 +344,7 @@ describe('/plan +page.svelte 出発地とゴール', () => {
 			.element(page.getByRole('button', { name: 'ゴールの選択を解除' }))
 			.toBeInTheDocument();
 
+		await settleAnimations();
 		await page.getByRole('button', { name: 'ゴールの選択を解除' }).click();
 
 		await expect
