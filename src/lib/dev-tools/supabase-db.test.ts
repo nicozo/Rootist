@@ -172,6 +172,13 @@ describe('dry-run 出力の解釈', () => {
 		expect(parseDryRunOutput(`DRY RUN\n${DRY_UP_TO_DATE}\n`)).toBe('up_to_date');
 		expect(parseDryRunOutput(`DRY RUN\n${DRY_PENDING}\n`)).toBe('pending');
 		expect(parseDryRunOutput('something else')).toBe('unknown');
+		// 対話端末ではテキスト形式（ANSI装飾つき）で出力される
+		expect(
+			parseDryRunOutput(
+				'DRY RUN: x\nWould push these migrations:\n \u2022 \u001b[1m1_a.sql\u001b[22m\nFinished'
+			)
+		).toBe('pending');
+		expect(parseDryRunOutput('Connecting...\nRemote database is up to date.\n')).toBe('up_to_date');
 		expect(parseDryRunOutput('{broken json')).toBe('unknown');
 	});
 });

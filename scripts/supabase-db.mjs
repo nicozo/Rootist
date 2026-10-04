@@ -20,13 +20,18 @@ function runCli(args, { stdin, capture }) {
 	return new Promise((resolve) => {
 		const child = spawn('pnpm', ['dlx', SUPABASE_CLI, ...args], {
 			cwd: repoRoot,
-			stdio: [stdin, capture ? 'pipe' : 'inherit', 'inherit']
+			stdio: [stdin, capture ? 'pipe' : 'inherit', capture ? 'pipe' : 'inherit']
 		});
 		let stdout = '';
 		if (capture) {
+			// 対話端末では適用予定の一覧が stderr に出るため、stdout と stderr の両方を取得して端末にも流す
 			child.stdout.on('data', (chunk) => {
 				stdout += chunk;
 				process.stdout.write(chunk);
+			});
+			child.stderr.on('data', (chunk) => {
+				stdout += chunk;
+				process.stderr.write(chunk);
 			});
 		}
 		child.on('error', (e) => {

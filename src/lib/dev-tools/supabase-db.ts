@@ -104,9 +104,15 @@ export function isApproval(answer: string | null): boolean {
 
 export type DryRunResult = 'up_to_date' | 'pending' | 'unknown';
 
-/** `supabase db push --dry-run` の出力（最終行付近の JSON）を解釈する。解釈できなければ unknown。 */
+/**
+ * `supabase db push --dry-run` の出力を解釈する。解釈できなければ unknown（その場合は適用しない）。
+ * CLI は端末の有無で出力形式が変わる（実測: 非TTYでは最終行にJSON `{"upToDate":...}`、
+ * 対話端末では "Would push these migrations:" / "Remote database is up to date." のテキスト）ため両方を見る。
+ */
 export function parseDryRunOutput(stdout: string): DryRunResult {
-	for (const line of stdout.split(/\r?\n/).reverse()) {
+	// eslint-disable-next-line no-control-regex
+	const text = stdout.replace(/\u001b\[[0-9;]*m/g, '');
+	for (const line of text.split(/\r?\n/).reverse()) {
 		const trimmed = line.trim();
 		if (!trimmed.startsWith('{')) continue;
 		try {
@@ -117,13 +123,15 @@ export function parseDryRunOutput(stdout: string): DryRunResult {
 			// 次の行を試す
 		}
 	}
+	if (/Remote database is up to date/i.test(text)) return 'up_to_date';
+	if (/Would push these migrations/i.test(text)) return 'pending';
 	return 'unknown';
 }
 
 export type RunOptions = {
 	/** 子プロセスの stdin。dry-run は 'ignore'（wrapper 自身の y/N 入力を奪わせない） */
 	stdin: 'ignore' | 'inherit';
-	/** true なら stdout を取得して返す（同時に端末にも流す） */
+	/** true なら stdout と stderr を取得して（結合して）返す。同時に端末にも流す */
 	capture: boolean;
 };
 
