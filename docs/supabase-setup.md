@@ -11,12 +11,12 @@ rootist の DB・認証を Supabase（Postgres + Supabase Auth）へ移行する
 - **目的が Supabase 自体の学習・検証**であり、マネージド版の挙動（Auth・RLS・Google OAuth・ダッシュボード）をそのまま確認するのが最短。ローカル版は Auth メールや OAuth の挙動が本番と異なる部分がある。
 - **ローカル環境は重い**。Postgres・Auth・Realtime・Studio 等で 10 前後のコンテナが起動し、#112 の「issue ごとに環境を分離」と組み合わせると、ポート衝突回避（`config.toml` のポート 7 本前後）とメモリ消費が issue 数ぶん増える。
 - 親 issue の前提どおり**既存データは持たない**ため、共有の開発 DB が壊れても作り直せばよい。
-- 「MySQL コンテナなしで動く」要件は、クラウド直結なら DB コンテナ自体が不要になるので満たせる。
+- クラウド直結なら DB コンテナ自体が不要になる（compose に DB サービスは無い）。
 
 ### トレードオフと運用ルール
 
 - ネットワーク接続が必須（オフライン開発は不可）。
-- worktree 間で DB が**共有**される（#112 の MySQL のような issue 別分離はしない）。スキーマ変更（マイグレーション）は同時に複数 issue で流さず、流す前にほかの worktree への影響を確認する（詳細は「6. スキーマの反映」）。
+- worktree 間で DB が**共有**される（issue ごとに DB を分離しない）。スキーマ変更（マイグレーション）は同時に複数 issue で流さず、流す前にほかの worktree への影響を確認する（詳細は「6. スキーマの反映」）。
 - Free プランは 1 週間アクセスがないと一時停止する。止まったらダッシュボードの Restore から復帰する。
 - 将来、オフライン開発や CI での独立した DB が必要になったら Supabase CLI のローカル環境を再検討する。
 
@@ -148,7 +148,7 @@ curl -s "$SUPABASE_URL/auth/v1/settings" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" 
 1. メインの `.env` から `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` を削除してよい（残っていても無害）。
 2. 既存のアカウントは使えなくなります。新規登録し直してください。ブラウザに残った旧 Cookie は自動的に未ログイン扱いになります。
 3. `0001` マイグレーション（Better Auth 4 テーブルの削除）が開発用 DB に未適用なら、ほかの worktree（Better Auth で動いている未マージのブランチ）への影響を確認してから `pnpm db:migrate` を実行する。適用すると、そうしたブランチではログイン・登録ができなくなります（プラン作成・共有は影響を受けません）。
-4. 新しい worktree の `.env` に設定するキーは 3 つ（`COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT`）です。
+4. 新しい worktree の `.env` に設定するキーは 2 つ（`COMPOSE_PROJECT_NAME` / `DEV_PORT`）です（#119 で `MYSQL_PORT` は廃止）。
 5. Google ログインを使うには、「11. Google ログイン」の設定をして `.env` に `GOOGLE_AUTH_ENABLED=true` を追加する。メインの `.env` の `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` は不要になった（Supabase ダッシュボードに登録する）。
 
 ## 11. Google ログイン（#117）
@@ -175,3 +175,11 @@ Supabase Auth の既定どおり、**同じメールアドレスの identity は
 ### 動作確認
 
 `GOOGLE_AUTH_ENABLED=true` で `pnpm dev` し、`/login` の「Googleでログイン」から認証する。ログイン後は `/plan` へ遷移する。Google の画面でキャンセルすると `/login` に戻り、エラーメッセージが出る。テストユーザーは Authentication > Users から削除する。
+
+## 12. 開発者向け移行手順（#119 のマージ後）
+
+旧構成（MySQL）の残骸を削除したため、各開発者は次を行ってください。
+
+1. メインの `.env` から `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `MYSQL_ROOT_PASSWORD` / `RESEND_API_KEY` を削除してよい（残っていても無害）。worktree の `.env` の `MYSQL_PORT` も同様。
+2. 手元に残った旧 MySQL のコンテナ・ボリュームは不要。`docker compose down -v --remove-orphans` で片付けられる（メインは `rootist`、issue 環境は `rootist-issue-<N>` のプロジェクト）。
+3. prod コンテナ（`docker compose --profile prod up`）は `.env` の `DATABASE_URL` / `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` / `GOOGLE_AUTH_ENABLED` / `GOOGLE_MAPS_API_KEY` / `GEMINI_API_KEY` を受け取って起動する。
