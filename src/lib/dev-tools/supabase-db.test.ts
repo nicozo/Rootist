@@ -233,6 +233,11 @@ describe('db:migrate の流れ', () => {
 		expect(logs).toContain(MESSAGES.upToDate);
 	});
 
+	it('確認文言は接続先を断定せず、接続文字列も含めない', () => {
+		expect(MESSAGES.prompt).not.toContain('共有');
+		expect(MESSAGES.prompt).not.toMatch(/postgres(ql)?:\/\//);
+	});
+
 	it('y の応答でだけ push を起動する', async () => {
 		const { deps, runCli, ask, logs } = makeDeps({ answer: 'y' });
 		expect(await main(['migrate'], deps)).toBe(0);

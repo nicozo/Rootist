@@ -150,7 +150,7 @@ export type Deps = {
 };
 
 export const MESSAGES = {
-	prompt: '上記のマイグレーションを共有 DB に適用しますか？ [y/N]: ',
+	prompt: '上記のマイグレーションを接続先の DB に適用しますか？ [y/N]: ',
 	cancelled: 'キャンセルしました。何も適用していません。',
 	approved: '承認されました。supabase db push を実行します。',
 	upToDate: '適用対象のマイグレーションはありません。何も実行しません。',
