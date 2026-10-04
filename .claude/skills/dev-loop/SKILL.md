@@ -111,17 +111,22 @@ Planner（`planner`）を起動。promptに含めるもの:
 5. レビュー指摘の扱い:
    - 正当性バグ・セキュリティ脆弱性（CRITICAL/HIGH相当）→ 指摘をワークスペースの `review_findings_iter<N>.md` に書き出し、Generatorに **SendMessage** で修正依頼 → 修正後にStep 3の裏取り・ユニットテスト・レビューを再実行（この差し戻しもイテレーション上限3回に含める）
    - 軽微な指摘（スタイル・低リスクの改善提案）→ 修正必須とせず、PR本文に「既知の指摘」として記載
-6. **issue の開発要件にチェックを入れる**（issue起点の場合のみ。レビュー差し戻しが落ち着いた最終状態で行う）:
+6. **Context7 計測**（最終 QA が PASS し、コミット前に行う。`docs/context7-measurement.md` 参照）:
+   1. その issue の使用実績と差し戻し回数を集計する: `pnpm metrics:context7 -- --dir ~/.claude/projects/-Users-katoukouhei-Dev-rootist/ --dev-loop <メインのワーキングツリー>/.dev-loop --issue <issue番号>`（issue 番号が無いテキスト入力モードでは `--since <作業開始日>` で絞る）
+   2. 結果の issue 行を `docs/context7-ledger.md` に追記する。**台帳の行は手で書かず、スクリプトの出力を転記する**（出力の issue 行の末尾に備考列を足し、台帳の `text` コードブロックの末尾に追加する。備考に使用場面ルールの版を書く）。台帳は次の「コミット」項目で同じ PR に含める
+   3. PR 本文に「Context7 計測」節を載せる（resolve / query-docs 回数、対象ライブラリ、QA イテレーション数、申告との不一致の有無）
+   4. ユーザーへの最終報告にも同じ要約を 1〜2 行で含める
+7. **issue の開発要件にチェックを入れる**（issue起点の場合のみ。レビュー差し戻しが落ち着いた最終状態で行う）:
    1. `gh issue view <n> --json body -q .body` で最新の本文を取得する
    2. 開発要件（`## 📋 開発要件` 配下の `- [ ]`）を1項目ずつ、最終の `qa_report_iter<N>.md`・`self_evaluation.md`・ユニットテスト結果と突き合わせ、**満たしたと確認できた項目だけ** `- [x]` にする。根拠が無い・QAで未検証・部分的にしか満たしていない項目は `- [ ]` のまま残す（推測でチェックしない）
    3. 本文の他の部分は1文字も変えず、`gh issue edit <n> --body-file <ファイル>` で反映する。反映前に取得し直した本文との差分が `[ ]`→`[x]` のみであることを確認する
    4. チェックできなかった項目があれば、項目と理由（例: 手動確認が必要・スコープ外に分離）を最終報告に含める
-7. Generatorが未コミットの変更を残していればConventional Commitsでコミット（`.dev-loop/` はコミットしない — gitignore済み）
-8. push して PR作成:
+8. Generatorが未コミットの変更を残していればConventional Commitsでコミット（`.dev-loop/` はコミットしない — gitignore済み）
+9. push して PR作成:
    - タイトル: `feat: <issueタイトル>` 等のConventional Commits形式
    - 本文: 実装概要、QA評価結果の要約、レビュー実施結果（code-review / security-review）、`Closes #<issue番号>`（issue起点の場合）
-9. ユーザーへ最終報告: PRのURL、イテレーション回数、QA判定サマリ、チェックできなかった開発要件、既知の制限事項
-10. `cleanup` スキルを PR番号付き（監視モード）で呼び、マージを見守る。マージされたら自動で後片付けが行われる
+10. ユーザーへ最終報告: PRのURL、イテレーション回数、QA判定サマリ、チェックできなかった開発要件、既知の制限事項
+11. `cleanup` スキルを PR番号付き（監視モード）で呼び、マージを見守る。マージされたら自動で後片付けが行われる
 
 ## ファイル連携規約（全エージェント共通）
 
@@ -132,7 +137,7 @@ issue.md              # オーケストレーターが作成（発端のissue）
 spec.md               # Planner
 sprint_contract.md    # Generator提案 → 合意版に更新
 contract_review.md    # QA（契約審査）
-self_evaluation.md    # Generator（検証コマンドの実行出力を貼付）
+self_evaluation.md    # Generator（検証コマンドの実行出力を貼付。Context7 使用記録節を含む）
 handoff.md            # Generator → QA への引き渡し
 qa_report_iter<N>.md  # QA評価レポート（イテレーション毎）
 decision_iter<N>.md   # Generator の戦略的判断（維持/ピボット）
