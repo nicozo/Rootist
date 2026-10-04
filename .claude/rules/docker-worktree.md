@@ -29,10 +29,6 @@ git worktree 1つ = issue 1つ = Compose プロジェクト 1つとして扱い�
 - `DEV_PORT` は、dev コンテナで動かす場合もホストの `pnpm dev` で動かす場合も、その issue のアプリ用ポートとして共通で使う（同時には使わない）
 - issue 番号 10000 以上は対象外（到達時に方式を見直す）
 
-## `.env` の書き方
-
-既存キーは置き換え、未定義キーは追加し、各キーがちょうど 1 回だけ現れる状態にする。**値はクォートしない**（`KEY=value` 形式）。`DATABASE_URL` は書き換えない（全 worktree でメインと同じ Supabase の値を使う）。メインの `.env` は変更しない。
-
 ## ポートの確認方法
 
 - その worktree の設定値: worktree の `.env` の `COMPOSE_PROJECT_NAME` / `DEV_PORT`

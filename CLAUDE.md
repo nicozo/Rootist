@@ -81,16 +81,5 @@ docker compose --profile dev up -d    # dev コンテナ起動（prod は --prof
 
 **スタック**: SvelteKit (Svelte 5) + TypeScript + Tailwind CSS v4 + PostgreSQL（Supabase）+ postgres.js（SQL 直書き。ORM なし）
 
-- DB・認証は Supabase（Postgres + Supabase Auth）。ローカル開発は開発用クラウドプロジェクトへの直結で、全 worktree が同じ DB を使う。環境変数は `.env.example`、方式の理由と手順は `docs/supabase-setup.md`
-- 外部 API: Google Places API (New)（住所検索）、Google Gemini API（プラン生成、REST 直叩き）。Google ログインは #117 まで停止
-- `plan-timeline.svelte` は本人向けの `/plan/result` と共有閲覧の `/plan/share/[shareId]` で共用する
-
-## パス依存の指示（`.claude/rules/`）
-
-| ファイル             | 対象                                          |
-| -------------------- | --------------------------------------------- |
-| `docker-worktree.md` | Docker・`.env`（issue 単位の環境分離）        |
-| `database.md`        | `supabase/`・サーバーサイド・マイグレーション |
-| `svelte.md`          | `.svelte` / `.svelte.ts`・UI コンポーネント   |
-| `testing.md`         | テストファイル・E2E                           |
-| `context7.md`        | ライブラリのドキュメント参照                  |
+- DB・認証は Supabase（Postgres + Supabase Auth）。方式・スキーマ変更の手順・サーバーサイド構成は `.claude/rules/database.md`
+- 外部 API: Google Places API (New)（住所検索）、Google Gemini API（プラン生成、REST 直叩き）

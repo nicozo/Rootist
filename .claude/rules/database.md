@@ -5,6 +5,9 @@ paths:
   - 'src/lib/server/**'
   - 'src/lib/dev-tools/**'
   - 'src/hooks.server.ts'
+  - 'src/routes/**/*.ts'
+  - 'package.json'
+  - '.env.example'
 ---
 
 # DB・Supabase
@@ -19,7 +22,7 @@ DB は Supabase の Postgres、認証は Supabase Auth。ローカル開発は�
 2. SQL を書く。新しい表は同じファイルで RLS を有効化し、ポリシーは作らない（静的検査テストが漏れを止める）
 3. **ユーザーが自分の端末で** `pnpm db:migrate`（dry-run を見て y/N）
 
-- エージェント（オーケストレーター含む）は `pnpm db:migrate` を実行せず、ユーザーに依頼する。TTY ガードはセキュリティ境界ではなく誤操作防止
+- `pnpm db:migrate` をエージェントが実行しない理由: TTY ガードはセキュリティ境界ではなく誤操作防止（禁止ルール自体は CLAUDE.md）
 - 共有 DB なので同時に複数 issue から流さない。`db:push` 相当（履歴なし・確認なしの適用）はしない
 - 適用状況の確認は `pnpm db:status`（読み取りのみ）。DB の閲覧・編集は Supabase ダッシュボードの Table Editor / SQL Editor を使う
 - 検証で作ったテストデータは、検証後に削除する
