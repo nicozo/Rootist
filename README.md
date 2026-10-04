@@ -69,7 +69,7 @@ docker compose ls                       # 全プロジェクトの一覧
 docker ps --filter name=rootist-issue-  # 全 issue 環境のコンテナとポート
 ```
 
-命名規則・ポート計算式・制約（Google ログインなど）の詳細は [CLAUDE.md](CLAUDE.md) の「Docker 開発環境（issue 単位の分離）」を参照してください。
+命名規則・ポート計算式・制約（Google ログインなど）の詳細は [.claude/rules/docker-worktree.md](.claude/rules/docker-worktree.md) を参照してください。
 
 ### キャッシュなしで起動
 

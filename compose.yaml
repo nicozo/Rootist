@@ -10,7 +10,7 @@ services:
       dockerfile: Dockerfile
       target: development # 開発ステージを指定
     ports:
-      # ホスト側ポートは DEV_PORT で変更可（未設定・空なら 5173）。命名規則は CLAUDE.md「Docker 開発環境」参照
+      # ホスト側ポートは DEV_PORT で変更可（未設定・空なら 5173）。命名規則は .claude/rules/docker-worktree.md 参照
       - '${DEV_PORT:-5173}:5173'
     volumes:
       - .:/app
