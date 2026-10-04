@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vite-plus/test';
 import { checkMigrations, createdPublicTables, type MigrationFile } from './migration-rls';
 
-// issue #128: supabase/migrations の RLS 静的検査。drizzle の .enableRLS() とそのテストの置き換え。
+// issue #128: supabase/migrations の RLS 静的検査（旧ORM時代のスキーマ定義側のRLS指定とそのテストの置き換え）。
 // 検査ロジックの限界は migration-rls.ts 冒頭のコメントを参照。
 
 const MIGRATIONS_DIR = new URL('../../../supabase/migrations/', import.meta.url);
@@ -130,7 +130,8 @@ alter table public.table_b enable row level security;`;
 	});
 });
 
-// schema.test.ts（drizzleのメタAPI）が守っていた plans の形を、ベースラインSQLの静的検査として維持する。
+// 旧スキーマ定義のテストが守っていた plans の形（4列・share_id は text not null unique・data は jsonb not null）を、
+// ベースラインSQLの静的検査として維持する。
 describe('ベースラインSQLの plans の形', () => {
 	const baseline = loadRealMigrations().find((m) => m.name.includes('baseline_plans'));
 	const sql = (baseline?.sql ?? '')

@@ -54,11 +54,12 @@ pnpm test:unit -- --run   # 単発実行
 pnpm test:e2e      # Playwright E2E
 pnpm test          # 全テスト一括
 
-# DB操作（Supabase 開発用クラウドに直結。docs/supabase-setup.md 参照）
-# スキーマ変更の正式手順: pnpm db:generate → 生成 SQL をレビュー → pnpm db:migrate（db:push は使わない）
-pnpm db:generate   # マイグレーションファイル生成
-pnpm db:migrate    # マイグレーション実行
-pnpm db:studio     # Drizzle Studio（DBブラウザ）
+# DB操作（Supabase 開発用クラウドに直結。Supabase CLI のマイグレーション。docs/supabase-setup.md §6 参照）
+# スキーマ変更の正式手順: pnpm db:new <名前> → supabase/migrations の SQL を手で書く（RLS チェックリスト）→ ユーザーが自分の端末で pnpm db:migrate（db:push 相当の確認なし適用はしない）
+pnpm db:new <名前>  # 空のマイグレーションファイルを作る（DB には触れない）
+pnpm db:migrate     # 未適用分を適用（TTY 必須。dry-run → y/N 確認。ユーザーが自分の端末で実行する。エージェントは実行しない）
+pnpm db:status      # 適用状況の確認（読み取りのみ）
+# DB の閲覧・編集は Supabase ダッシュボードの Table Editor / SQL Editor を使う
 
 # Storybook
 pnpm storybook     # localhost:6006 で起動
@@ -108,7 +109,7 @@ git worktree 1つ = issue 1つ = Compose プロジェクト 1つとして扱い�
 
 アプリの DB は Supabase の開発用クラウドプロジェクトで、**全 worktree が同じ DB に直結する**（issue 別の分離はしない。理由は `docs/supabase-setup.md`）。issue 環境の Compose プロジェクトで分離するのはアプリ（dev コンテナ）のポートだけ。
 
-- スキーマ変更は `pnpm db:generate` → 生成 SQL をレビュー → `pnpm db:migrate`。共有 DB なので同時に複数 issue から流さない。`db:push` は使わない（履歴なしで破壊的変更を流し得るため）
+- スキーマの正は `supabase/migrations/*.sql`（SQL を手で書く）。変更は `pnpm db:new <名前>` → SQL を書く（新しい表は同じファイルで RLS を有効化し、ポリシーは作らない。静的検査テストが漏れを止める）→ **ユーザーが自分の端末で** `pnpm db:migrate`（dry-run を見て y/N）。**エージェント（オーケストレーター含む）は `pnpm db:migrate` を実行せず、ユーザーに依頼する**。共有 DB なので同時に複数 issue から流さない。`db:push` 相当（履歴なし・確認なしの適用）はしない。TTY ガードはセキュリティ境界ではなく誤操作防止
 - 検証で作ったテストデータは、検証後に削除する
 
 ### ポートの確認方法
@@ -132,7 +133,7 @@ DB は Supabase の Postgres へ移行済み（`DATABASE_URL` は Session pooler
 
 **サービス概要**: ユーザーが行き先を入力するだけで、最短ルートでの旅行プランを自動生成するサービス。
 
-**スタック**: SvelteKit (Svelte 5) + TypeScript + Tailwind CSS v4 + PostgreSQL（Supabase）+ Drizzle ORM
+**スタック**: SvelteKit (Svelte 5) + TypeScript + Tailwind CSS v4 + PostgreSQL（Supabase）+ postgres.js（SQL 直書き。ORM なし）
 
 ### ルート構成
 
@@ -164,8 +165,8 @@ src/routes/
 - `supabase.ts` — リクエストごとの Supabase サーバー用クライアント生成（`@supabase/ssr`。セッションは HttpOnly の Cookie）
 - `auth-errors.ts` — Supabase Auth のエラーを画面表示用の日本語メッセージに変換、パスワード長の事前検査
 - `auth-user.ts` — Supabase のユーザーから `locals.user`（名前・画像）を決める純粋関数
-- `db/index.ts` — postgres.js + Drizzle ORM の DB 接続（Supabase の Session pooler）
-- `db/schema.ts` — テーブルスキーマ定義（`plans` のみ。ユーザーは Supabase Auth の `auth.users` が管理）
+- `db/index.ts` — postgres.js の DB 接続（Supabase の Session pooler）。`db/plans.ts` — plans の保存・取得（パラメータ化した SQL。ルートはここを呼ぶ）
+- スキーマ定義は TS ではなく `supabase/migrations/*.sql`（`plans` のみ。ユーザーは Supabase Auth の `auth.users` が管理）。`src/lib/dev-tools/` は Supabase CLI wrapper（`scripts/supabase-db.mjs` の判定ロジック）とマイグレーションの RLS 静的検査
 
 `src/hooks.server.ts` が全リクエストで Supabase Auth にユーザーを確認し（Cookie が無ければ通信しない）、`event.locals.user` / `event.locals.supabase` に載せる（ルートガードは無し）。
 
@@ -196,6 +197,6 @@ DB接続には環境変数 `DATABASE_URL`、認証には `SUPABASE_URL` / `SUPAB
 
 **Context7** を Docker MCP Gateway の `rootist` プロファイル経由で導入している（セットアップは `docs/docker-mcp-toolkit.md`）。APIキーは Docker のシークレット `context7.api_key` で管理し、リポジトリには含めない。
 
-- **使い分け**: Svelte / SvelteKit は **Svelte MCP を優先**する。Context7 はそれ以外のライブラリ（@supabase/ssr / @supabase/supabase-js / drizzle-orm / bits-ui / Tailwind CSS v4 / vite-plus / Gemini API / Google Places API など）の最新ドキュメント参照に使う
+- **使い分け**: Svelte / SvelteKit は **Svelte MCP を優先**する。Context7 はそれ以外のライブラリ（@supabase/ssr / @supabase/supabase-js / postgres / bits-ui / Tailwind CSS v4 / vite-plus / Gemini API / Google Places API など）の最新ドキュメント参照に使う
 - **使い方**: `resolve-library-id` でライブラリIDを解決 → `query-docs` でドキュメントを取得する。package.json のバージョンに合った情報を参照する
 - **付与範囲**: `generator` のみ（planner / evaluator は実装詳細に踏み込まないため付与しない）

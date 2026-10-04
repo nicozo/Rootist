@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 
 // issue #62: プラン保存APIの単体テスト。DBへは実接続せず保存関数(insertPlan)をモックする。
-// issue #128: drizzleをやめ、plansへの保存は $lib/server/db/plans に集約した。
+// issue #128: ORMをやめ、plansへの保存は $lib/server/db/plans に集約した。
 
 const { insertPlan } = vi.hoisted(() => ({ insertPlan: vi.fn() }));
 

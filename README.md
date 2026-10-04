@@ -92,16 +92,22 @@ pnpm exec tsx seed.ts
 
 ### マイグレーション
 
+スキーマの正は `supabase/migrations/*.sql`（Supabase CLI のマイグレーション。SQL を手で書く）です。手順の詳細と RLS チェックリストは [`docs/supabase-setup.md`](docs/supabase-setup.md) の「6. スキーマの反映」を参照してください。
+
 #### 開発環境
 
 ```bash
-# 1. スキーマの変更からマイグレーションを生成し、SQL をレビューして適用（db:push は使わない）
-pnpm run db:generate
-pnpm run db:migrate
+# 1. 空のマイグレーションを作り、SQL を手で書く（新しい表は同じファイルで RLS を有効化し、ポリシーは作らない）
+pnpm run db:new <名前>
 
-# 2. データベースの確認
-pnpm run db:studio
+# 2. 適用状況の確認（読み取りのみ）
+pnpm run db:status
+
+# 3. 適用（ユーザー自身の端末で実行。TTY 必須。dry-run を見て y/N で確認する）
+pnpm run db:migrate
 ```
+
+データベースの確認・編集は Supabase ダッシュボードの Table Editor / SQL Editor を使います。
 
 ## ☁️ Supabase 環境
 
