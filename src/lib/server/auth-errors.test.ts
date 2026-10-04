@@ -3,14 +3,22 @@ import {
 	normalizeEmail,
 	isValidEmailFormat,
 	deriveNameFromEmail,
+	checkPasswordLength,
 	mapSignUpErrorCode,
+	mapSignInErrorCode,
+	describeAuthError,
+	isUnexpectedAuthError,
 	EMAIL_FORMAT_MESSAGE,
 	PASSWORD_LENGTH_MESSAGE,
-	DUPLICATE_EMAIL_MESSAGE
+	PASSWORD_TOO_LONG_MESSAGE,
+	DUPLICATE_EMAIL_MESSAGE,
+	LOGIN_FAILURE_MESSAGE,
+	REGISTER_FAILURE_MESSAGE,
+	RATE_LIMIT_MESSAGE
 } from './auth-errors';
 
-// issue #49: Better Auth移行後のaction層エラーマッピング・メール正規化の単体テスト。
-// DBアクセス・Better Auth初期化を行わない純粋関数のみを対象とする（CIのダミーDATABASE_URLでも実行可能）。
+// issue #116: Supabase Auth向けのaction層エラーマッピング・メール正規化・パスワード長検査の単体テスト。
+// DBアクセス・Supabase初期化を行わない純粋関数のみを対象とする（CIのダミーDATABASE_URLでも実行可能）。
 
 describe('normalizeEmail', () => {
 	it('trimしてから小文字化する', () => {
@@ -47,27 +55,112 @@ describe('deriveNameFromEmail', () => {
 	});
 });
 
-describe('mapSignUpErrorCode', () => {
-	it('INVALID_EMAILをメール形式エラーメッセージに変換する', () => {
-		expect(mapSignUpErrorCode('INVALID_EMAIL')).toBe(EMAIL_FORMAT_MESSAGE);
+describe('メッセージ定数', () => {
+	it('既存メッセージの文言が変わっていない', () => {
+		expect(EMAIL_FORMAT_MESSAGE).toBe('メールアドレスの形式が正しくありません');
+		expect(PASSWORD_LENGTH_MESSAGE).toBe('パスワードは8文字以上で入力してください');
+		expect(DUPLICATE_EMAIL_MESSAGE).toBe('このメールアドレスは既に登録されています');
+		expect(LOGIN_FAILURE_MESSAGE).toBe('メールアドレスまたはパスワードが正しくありません');
+		expect(REGISTER_FAILURE_MESSAGE).toBe('登録に失敗しました。もう一度お試しください。');
 	});
 
-	it('PASSWORD_TOO_SHORTをパスワード長エラーメッセージに変換する', () => {
-		expect(mapSignUpErrorCode('PASSWORD_TOO_SHORT')).toBe(PASSWORD_LENGTH_MESSAGE);
-	});
-
-	it('PASSWORD_TOO_LONGをパスワード長エラーメッセージに変換する', () => {
-		expect(mapSignUpErrorCode('PASSWORD_TOO_LONG')).toBe(PASSWORD_LENGTH_MESSAGE);
-	});
-
-	it('USER_ALREADY_EXISTS_USE_ANOTHER_EMAILを重複メールエラーメッセージに変換する', () => {
-		expect(mapSignUpErrorCode('USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL')).toBe(
-			DUPLICATE_EMAIL_MESSAGE
+	it('追加メッセージの文言', () => {
+		expect(PASSWORD_TOO_LONG_MESSAGE).toBe(
+			'パスワードが長すぎます（半角英数字で72文字以内にしてください）'
+		);
+		expect(RATE_LIMIT_MESSAGE).toBe(
+			'試行回数が多すぎます。しばらく時間をおいてからもう一度お試しください。'
 		);
 	});
+});
 
-	it('未知のコードはnullを返す', () => {
+describe('checkPasswordLength', () => {
+	it('7文字は短すぎるメッセージ', () => {
+		expect(checkPasswordLength('a'.repeat(7))).toBe(PASSWORD_LENGTH_MESSAGE);
+	});
+
+	it('8文字は問題なし', () => {
+		expect(checkPasswordLength('a'.repeat(8))).toBeNull();
+	});
+
+	it('72バイトちょうどは問題なし', () => {
+		expect(checkPasswordLength('a'.repeat(72))).toBeNull();
+	});
+
+	it('73バイトは長すぎるメッセージ', () => {
+		expect(checkPasswordLength('a'.repeat(73))).toBe(PASSWORD_TOO_LONG_MESSAGE);
+	});
+
+	it('マルチバイト文字は文字数ではなくUTF-8バイト数で上限を判定する', () => {
+		// 「あ」は3バイト。24文字=72バイトは可、25文字=75バイトは不可
+		expect(checkPasswordLength('あ'.repeat(24))).toBeNull();
+		expect(checkPasswordLength('あ'.repeat(25))).toBe(PASSWORD_TOO_LONG_MESSAGE);
+	});
+
+	it('8文字未満のマルチバイトは短すぎるメッセージ（文字数で判定）', () => {
+		expect(checkPasswordLength('あ'.repeat(7))).toBe(PASSWORD_LENGTH_MESSAGE);
+		expect(checkPasswordLength('あ'.repeat(8))).toBeNull();
+	});
+});
+
+describe('mapSignUpErrorCode', () => {
+	it.each([
+		['user_already_exists', DUPLICATE_EMAIL_MESSAGE],
+		['email_exists', DUPLICATE_EMAIL_MESSAGE],
+		['weak_password', PASSWORD_LENGTH_MESSAGE],
+		['email_address_invalid', EMAIL_FORMAT_MESSAGE],
+		['validation_failed', EMAIL_FORMAT_MESSAGE],
+		['over_request_rate_limit', RATE_LIMIT_MESSAGE],
+		['over_email_send_rate_limit', RATE_LIMIT_MESSAGE]
+	])('%s を日本語メッセージに変換する', (code, message) => {
+		expect(mapSignUpErrorCode(code)).toBe(message);
+	});
+
+	it('signup_disabledと未知のコードはnull（汎用メッセージにフォールバック）', () => {
+		expect(mapSignUpErrorCode('signup_disabled')).toBeNull();
 		expect(mapSignUpErrorCode('SOME_UNKNOWN_CODE')).toBeNull();
 		expect(mapSignUpErrorCode(undefined)).toBeNull();
+	});
+});
+
+describe('mapSignInErrorCode', () => {
+	it.each(['over_request_rate_limit', 'over_email_send_rate_limit'])(
+		'%s だけ回数制限メッセージにする',
+		(code) => {
+			expect(mapSignInErrorCode(code)).toBe(RATE_LIMIT_MESSAGE);
+		}
+	);
+
+	it.each(['invalid_credentials', 'email_not_confirmed', 'user_not_found', 'whatever', undefined])(
+		'%s は統一メッセージにする',
+		(code) => {
+			expect(mapSignInErrorCode(code)).toBe(LOGIN_FAILURE_MESSAGE);
+		}
+	);
+});
+
+describe('isUnexpectedAuthError / describeAuthError', () => {
+	it.each([
+		[{ name: 'AuthRetryableFetchError', status: 0 }],
+		[{ name: 'AuthApiError', code: 'over_request_rate_limit', status: 429 }],
+		[{ name: 'AuthApiError', code: 'over_email_send_rate_limit', status: 429 }],
+		[{ name: 'AuthApiError', status: 503 }]
+	])('障害・回数制限・5xx は想定外（ログ対象）', (error) => {
+		expect(isUnexpectedAuthError(error)).toBe(true);
+	});
+
+	it.each([
+		[{ name: 'AuthSessionMissingError' }],
+		[{ name: 'AuthApiError', code: 'session_not_found', status: 403 }],
+		[{ name: 'AuthApiError', code: 'invalid_credentials', status: 400 }],
+		[{ name: 'AuthApiError', code: 'user_already_exists', status: 422 }]
+	])('通常の失敗・セッション無しは想定内（ログ対象外）', (error) => {
+		expect(isUnexpectedAuthError(error)).toBe(false);
+	});
+
+	it('describeAuthError は name/code/status だけを返す', () => {
+		expect(
+			describeAuthError({ name: 'X', code: 'c', status: 1, message: 'secret' } as never)
+		).toEqual({ name: 'X', code: 'c', status: 1 });
 	});
 });

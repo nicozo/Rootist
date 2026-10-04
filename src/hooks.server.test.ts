@@ -1,104 +1,192 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 
-// issue #62: hooks.server.ts の単体テスト。Better Auth本体・SvelteKit統合ハンドラはモックする。
+// issue #116: hooks.server.ts の単体テスト。Supabaseクライアント生成はモックし、ネットワークには出ない。
 
-const { getSession, svelteKitHandler } = vi.hoisted(() => ({
-	getSession: vi.fn(),
-	svelteKitHandler: vi.fn()
-}));
+const { getUser, createSupabaseClient } = vi.hoisted(() => {
+	const getUser = vi.fn();
+	return { getUser, createSupabaseClient: vi.fn(() => ({ auth: { getUser } })) };
+});
 
-vi.mock('$lib/server/auth', () => ({ auth: { api: { getSession } } }));
-vi.mock('better-auth/svelte-kit', () => ({ svelteKitHandler }));
-vi.mock('$app/environment', () => ({ building: false }));
+vi.mock('$lib/server/supabase', () => ({ createSupabaseClient }));
 
 const { handle } = await import('./hooks.server');
 
+type Cookie = { name: string; value: string };
+
 /** handleに渡す最小限のイベント。localsは呼び出し後に検証する。 */
-function hookEvent() {
+function hookEvent(cookies: Cookie[] = []) {
 	return {
 		locals: {} as Record<string, unknown>,
-		request: new Request('http://localhost/')
+		cookies: { getAll: () => cookies }
 	};
 }
 
-const SESSION = {
-	user: {
-		id: 'user-1',
-		email: 'a@example.com',
-		name: 'たろう',
-		image: 'https://example.com/a.png'
-	},
-	session: { id: 'session-1', expiresAt: new Date('2026-09-01T00:00:00Z') }
+// 撤去済みの旧認証ライブラリが使っていたCookie名（sb- ではないので無視されるはず）
+const LEGACY_COOKIE_NAME = 'better-' + 'auth.session_token';
+
+const AUTH_COOKIE = [{ name: 'sb-abc-auth-token', value: 'secret-cookie-value-123' }];
+
+const SUPABASE_USER = {
+	id: '11111111-1111-1111-1111-111111111111',
+	email: 'taro@example.com',
+	user_metadata: { name: 'たろう', avatar_url: 'https://e.com/a.png' }
 };
 
-/** handleを実行し、localsの中身を返す。 */
-async function runHandle(event: ReturnType<typeof hookEvent>) {
-	const resolve = vi.fn();
+async function runHandle(event: ReturnType<typeof hookEvent>, response = new Response('ok')) {
+	const resolve = vi.fn().mockResolvedValue(response);
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	await handle({ event: event as any, resolve });
-	return { locals: event.locals, resolve };
+	const result = await handle({ event: event as any, resolve });
+	return { locals: event.locals, resolve, result };
 }
 
 beforeEach(() => {
-	getSession.mockResolvedValue(null);
-	svelteKitHandler.mockResolvedValue(new Response('ok'));
+	getUser.mockResolvedValue({ data: { user: null }, error: null });
 });
 
 afterEach(() => {
 	vi.clearAllMocks();
+	vi.restoreAllMocks();
 });
 
 describe('handle', () => {
-	it('セッションがあればlocals.user / locals.sessionを設定する', async () => {
-		getSession.mockResolvedValue(SESSION);
+	it('ユーザーを確認できれば locals.user を規則どおりに設定する', async () => {
+		getUser.mockResolvedValue({ data: { user: SUPABASE_USER }, error: null });
 
-		const { locals } = await runHandle(hookEvent());
+		const { locals } = await runHandle(hookEvent(AUTH_COOKIE));
 
 		expect(locals.user).toEqual({
-			id: 'user-1',
-			email: 'a@example.com',
+			id: SUPABASE_USER.id,
+			email: 'taro@example.com',
 			name: 'たろう',
-			image: 'https://example.com/a.png'
+			image: 'https://e.com/a.png'
 		});
-		expect(locals.session).toEqual({ id: 'session-1', expiresAt: SESSION.session.expiresAt });
 	});
 
-	it('プロフィール画像が無いユーザーはimageをnullにする', async () => {
-		getSession.mockResolvedValue({ ...SESSION, user: { ...SESSION.user, image: undefined } });
-
+	it('locals.supabase を設定する', async () => {
 		const { locals } = await runHandle(hookEvent());
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		expect((locals.user as any).image).toBeNull();
+		expect(locals.supabase).toBe(createSupabaseClient.mock.results[0].value);
 	});
 
-	it('セッションが無ければlocalsをnullで初期化する', async () => {
-		getSession.mockResolvedValue(null);
+	it('resolve の戻り値をそのまま返す', async () => {
+		const response = new Response('page');
 
-		const { locals } = await runHandle(hookEvent());
+		const { result } = await runHandle(hookEvent(AUTH_COOKIE), response);
+
+		expect(result).toBe(response);
+	});
+
+	it('getUser がエラーを返したら locals.user = null で resolve する', async () => {
+		getUser.mockResolvedValue({ data: { user: null }, error: { code: 'session_not_found' } });
+
+		const { locals, resolve } = await runHandle(hookEvent(AUTH_COOKIE));
 
 		expect(locals.user).toBeNull();
-		expect(locals.session).toBeNull();
+		expect(resolve).toHaveBeenCalledOnce();
 	});
 
-	it('リクエストのheadersを渡してセッションを検証する', async () => {
-		const event = hookEvent();
+	it('getUser が例外を投げても throw せず locals.user = null で resolve する', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		getUser.mockRejectedValue(new TypeError('fetch failed'));
 
-		await runHandle(event);
+		const { locals, resolve } = await runHandle(hookEvent(AUTH_COOKIE));
 
-		expect(getSession).toHaveBeenCalledWith({ headers: event.request.headers });
+		expect(locals.user).toBeNull();
+		expect(resolve).toHaveBeenCalledOnce();
 	});
 
-	it('Better AuthのSvelteKitハンドラへ処理を委譲する', async () => {
-		const event = hookEvent();
-		const response = new Response('from better-auth');
-		svelteKitHandler.mockResolvedValue(response);
-		const resolve = vi.fn();
+	it('email が無いユーザーは未ログイン扱い（locals.user = null）', async () => {
+		getUser.mockResolvedValue({
+			data: { user: { ...SUPABASE_USER, email: undefined } },
+			error: null
+		});
+
+		const { locals } = await runHandle(hookEvent(AUTH_COOKIE));
+
+		expect(locals.user).toBeNull();
+	});
+});
+
+describe('Supabaseへの問い合わせ（I-10・I-2）', () => {
+	it('sb- の Cookie が無ければ getUser を呼ばない', async () => {
+		const { locals, resolve } = await runHandle(hookEvent([]));
+
+		expect(getUser).not.toHaveBeenCalled();
+		expect(locals.user).toBeNull();
+		expect(resolve).toHaveBeenCalledOnce();
+	});
+
+	it('旧認証ライブラリの Cookie だけでも getUser を呼ばない', async () => {
+		const { locals } = await runHandle(hookEvent([{ name: LEGACY_COOKIE_NAME, value: 'dummy' }]));
+
+		expect(getUser).not.toHaveBeenCalled();
+		expect(locals.user).toBeNull();
+	});
+
+	it('getUser は resolve より前に呼ばれる', async () => {
+		const order: string[] = [];
+		getUser.mockImplementation(async () => {
+			order.push('getUser');
+			return { data: { user: null }, error: null };
+		});
+		const event = hookEvent(AUTH_COOKIE);
+		const resolve = vi.fn(async () => {
+			order.push('resolve');
+			return new Response('ok');
+		});
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		await expect(handle({ event: event as any, resolve })).resolves.toBe(response);
-		expect(svelteKitHandler).toHaveBeenCalledWith(
-			expect.objectContaining({ event, resolve, building: false })
-		);
+		await handle({ event: event as any, resolve });
+
+		expect(order).toEqual(['getUser', 'resolve']);
+	});
+
+	it('getUser の例外時のログに Cookie の値やトークン文字列を含めない', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		getUser.mockRejectedValue(new Error('boom secret-cookie-value-123'));
+
+		await runHandle(hookEvent(AUTH_COOKIE));
+
+		expect(consoleError).toHaveBeenCalled();
+		const logged = JSON.stringify(consoleError.mock.calls);
+		expect(logged).not.toContain('secret-cookie-value-123');
+	});
+});
+
+// supabase-jsは障害・回数制限を例外ではなく戻り値のerrorで返す（QA指摘#1）
+describe('戻り値のエラーのログ', () => {
+	it.each([
+		['ネットワーク障害', { name: 'AuthRetryableFetchError', message: 'fetch failed', status: 0 }],
+		['回数制限(429)', { name: 'AuthApiError', code: 'over_request_rate_limit', status: 429 }],
+		['5xx', { name: 'AuthApiError', code: 'unexpected_failure', status: 500 }]
+	])('%s は locals.user=null のまま、種別（name/code/status）だけログに出す', async (_l, error) => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		getUser.mockResolvedValue({
+			data: { user: null },
+			error: { ...error, message: 'secret-cookie-value-123' }
+		});
+
+		const { locals, resolve } = await runHandle(hookEvent(AUTH_COOKIE));
+
+		expect(locals.user).toBeNull();
+		expect(resolve).toHaveBeenCalledOnce();
+		expect(consoleError).toHaveBeenCalledOnce();
+		const logged = JSON.stringify(consoleError.mock.calls);
+		expect(logged).toContain(error.name);
+		expect(logged).not.toContain('secret-cookie-value-123');
+	});
+
+	it.each([
+		['AuthSessionMissingError', { name: 'AuthSessionMissingError', status: 400 }],
+		['session_not_found', { name: 'AuthApiError', code: 'session_not_found', status: 403 }],
+		['bad_jwt', { name: 'AuthApiError', code: 'bad_jwt', status: 401 }]
+	])('想定内の未ログイン（%s）はログに出さない', async (_l, error) => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		getUser.mockResolvedValue({ data: { user: null }, error });
+
+		const { locals } = await runHandle(hookEvent(AUTH_COOKIE));
+
+		expect(locals.user).toBeNull();
+		expect(consoleError).not.toHaveBeenCalled();
 	});
 });

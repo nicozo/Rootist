@@ -9,7 +9,7 @@ Docker MCP Toolkit（`docker mcp gateway`）は、複数の MCP（Model Context 
 rootist リポジトリでは、`rootist` という名前の Docker MCP プロファイルに 次の2件を登録しています。
 
 - **`dockerhub`（Docker Hub 公式 MCP サーバー）**: 「このイメージの最新タグを調べて」「このリポジトリの情報を取得して」といった Docker Hub 上のレジストリ操作を自然言語で依頼できます。
-- **`context7`（Context7 リモート MCP サーバー）**: better-auth / drizzle-orm / bits-ui / Tailwind CSS v4 などのライブラリについて、バージョンに合った最新ドキュメントとコード例を取得できます（`resolve-library-id` / `query-docs` の2ツール）。Svelte / SvelteKit は Svelte MCP を優先し、Context7 はそれ以外のライブラリに使います（CLAUDE.md 参照）。`context7` はコンテナではなく `https://mcp.context7.com/mcp` へ gateway が中継するリモートサーバーです。
+- **`context7`（Context7 リモート MCP サーバー）**: @supabase/ssr / @supabase/supabase-js / drizzle-orm / bits-ui / Tailwind CSS v4 などのライブラリについて、バージョンに合った最新ドキュメントとコード例を取得できます（`resolve-library-id` / `query-docs` の2ツール）。Svelte / SvelteKit は Svelte MCP を優先し、Context7 はそれ以外のライブラリに使います（CLAUDE.md 参照）。`context7` はコンテナではなく `https://mcp.context7.com/mcp` へ gateway が中継するリモートサーバーです。
 
 ### 現時点でできないこと
 

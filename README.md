@@ -53,14 +53,13 @@ docker compose logs -f dev
 
 ### issue 単位で並行起動する（worktree 開発）
 
-従来の手順（上記）はそのまま既定ポート（アプリ 5173 / MySQL 3306）で動きます。git worktree で issue ごとに並行開発する場合は、worktree の `.env` に次の 4 キーを設定すると、`rootist-issue-<N>` という別環境（コンテナ・ボリューム・ポートが issue ごとに分離）として起動できます。
+従来の手順（上記）はそのまま既定ポート（アプリ 5173 / MySQL 3306）で動きます。git worktree で issue ごとに並行開発する場合は、worktree の `.env` に次の 3 キーを設定すると、`rootist-issue-<N>` という別環境（コンテナ・ボリューム・ポートが issue ごとに分離）として起動できます。
 
 | キー                   | 値（例: issue #112。クォートしない） |
 | ---------------------- | ------------------------------------ |
 | `COMPOSE_PROJECT_NAME` | `rootist-issue-112`                  |
 | `DEV_PORT`             | `20112`（`20000 + 番号`）            |
 | `MYSQL_PORT`           | `30112`（`30000 + 番号`）            |
-| `BETTER_AUTH_URL`      | `http://localhost:20112`             |
 
 ```bash
 # worktree 内で。DB は Supabase 開発用クラウドに直結（DATABASE_URL はメインと同じ値のまま）。アプリはホストで動かす
@@ -108,7 +107,7 @@ pnpm run db:studio
 
 ## ☁️ Supabase 環境
 
-DB は Supabase（Postgres）へ移行済みで、認証は移行中です。ローカル開発は開発用クラウドプロジェクトへの直結方式で、接続情報は `.env.example` を元に設定します。方式の理由と手順は [`docs/supabase-setup.md`](docs/supabase-setup.md) を参照してください。
+DB と email/password 認証は Supabase（Postgres / Supabase Auth）へ移行済みです（Google ログインは #117 まで停止中）。ローカル開発は開発用クラウドプロジェクトへの直結方式で、接続情報は `.env.example` を元に設定します。方式の理由と手順は [`docs/supabase-setup.md`](docs/supabase-setup.md) を参照してください。
 
 ## 🤖 Docker MCP Toolkit（Claude Code 連携）
 

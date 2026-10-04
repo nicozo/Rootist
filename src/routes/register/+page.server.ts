@@ -1,13 +1,16 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { APIError } from 'better-auth';
 import type { Actions, PageServerLoad } from './$types';
-import { auth, isGoogleAuthEnabled } from '$lib/server/auth';
+import { isGoogleAuthEnabled } from '$lib/server/supabase';
 import {
 	normalizeEmail,
 	isValidEmailFormat,
 	deriveNameFromEmail,
+	checkPasswordLength,
 	mapSignUpErrorCode,
-	EMAIL_FORMAT_MESSAGE
+	describeAuthError,
+	isUnexpectedAuthError,
+	EMAIL_FORMAT_MESSAGE,
+	REGISTER_FAILURE_MESSAGE
 } from '$lib/server/auth-errors';
 
 // ログイン済みユーザーが /register にアクセスしたら /plan へリダイレクトする
@@ -16,49 +19,62 @@ export const load: PageServerLoad = async ({ locals }) => {
 		redirect(303, '/plan');
 	}
 
-	// issue #42: Rev.2契約で追加。/loginと同様、環境変数未設定時はボタン非表示にするための
-	// フラグをサーバーでのみ判定して渡す（環境変数の値自体はクライアントへ渡さない）。
+	// 環境変数未設定時はボタン非表示にするためのフラグをサーバーでのみ判定して渡す。
+	// issue #116: #117までは常にfalse
 	return { googleAuthEnabled: isGoogleAuthEnabled };
 };
 
 export const actions: Actions = {
-	default: async ({ request }) => {
+	default: async ({ request, locals }) => {
 		const formData = await request.formData();
 		const rawEmail = String(formData.get('email') ?? '');
 		const password = String(formData.get('password') ?? '');
 
 		const email = normalizeEmail(rawEmail);
 
-		// Better Auth自身のzodスキーマ検証（VALIDATION_ERROR、汎用英語メッセージ）に到達する前に、
-		// 既存と同一の日本語メッセージを確実に返すための事前チェック（spec.md 2-6）
+		// Supabaseに送る前の事前チェック（ブラウザの検証を迂回した送信でも同じ結果にする）
 		if (!isValidEmailFormat(email)) {
 			return fail(400, { message: EMAIL_FORMAT_MESSAGE, email: rawEmail });
 		}
-
-		// Better Authのsign-up APIはnameを必須とする。UIに名前入力欄は追加しない方針のため、
-		// メールのローカル部から機械的に生成する（spec.md 2-5）
-		const name = deriveNameFromEmail(email);
-
-		try {
-			// autoSignIn: true（auth.ts）のため、成功時はそのままセッションCookieが発行される
-			// （sveltekit-cookiesプラグインがevent.cookiesへ自動転送する）
-			await auth.api.signUpEmail({ body: { name, email, password } });
-		} catch (err) {
-			if (err instanceof APIError) {
-				// 既知のエラーコード以外（想定外のBetter Auth内部エラー等）は汎用メッセージにする
-				const message =
-					mapSignUpErrorCode(err.body?.code) ?? '登録に失敗しました。もう一度お試しください。';
-				return fail(400, { message, email: rawEmail });
-			}
-			// Better AuthのAPIErrorではない想定外の例外。公開エンドポイントで未捕捉例外を
-			// そのまま500として露出させず、汎用メッセージにフォールバックする（ログには残す）。
-			console.error('register action: unexpected non-APIError exception', err);
-			return fail(400, {
-				message: '登録に失敗しました。もう一度お試しください。',
-				email: rawEmail
-			});
+		const passwordMessage = checkPasswordLength(password);
+		if (passwordMessage) {
+			return fail(400, { message: passwordMessage, email: rawEmail });
 		}
 
+		let hasSession = false;
+		try {
+			// UIに名前入力欄は追加しない方針のため、メールのローカル部を表示名として保存する
+			const { data, error } = await locals.supabase.auth.signUp({
+				email,
+				password,
+				options: { data: { name: deriveNameFromEmail(email) } }
+			});
+			if (error) {
+				const mapped = mapSignUpErrorCode(error.code);
+				// 未知のエラー・ネットワーク障害・回数制限は運用で観測できるよう種別のみ記録する
+				if (mapped === null || isUnexpectedAuthError(error)) {
+					console.error('register action: signUp failed', describeAuthError(error));
+				}
+				const message = mapped ?? REGISTER_FAILURE_MESSAGE;
+				return fail(400, { message, email: rawEmail });
+			}
+			hasSession = data.session !== null;
+		} catch (err) {
+			// 想定外の例外（ネットワーク障害等）を500として露出させず、汎用メッセージにする
+			console.error('register action: unexpected exception', err);
+			return fail(400, { message: REGISTER_FAILURE_MESSAGE, email: rawEmail });
+		}
+
+		if (!hasSession) {
+			// エラーが無いのにセッションが返らない＝Supabaseダッシュボードで「Confirm email」がONのまま
+			// （設定不備）。ログインしていないのにログイン済みの導線へ進めない。
+			console.error(
+				'register action: signUp returned no session. "Confirm email" may be ON in the Supabase dashboard'
+			);
+			return fail(400, { message: REGISTER_FAILURE_MESSAGE, email: rawEmail });
+		}
+
+		// redirectはtry/catchの外（リダイレクトの例外を誤って捕捉しないため）
 		redirect(303, '/plan');
 	}
 };

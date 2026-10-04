@@ -78,7 +78,6 @@ describe('DB接続の初期化', () => {
 
 		const [, options] = drizzle.mock.calls[0] as unknown as [unknown, { schema: object }];
 		expect(options.schema).toHaveProperty('plans');
-		expect(options.schema).toHaveProperty('user');
 	});
 
 	it('import時点ではクエリも接続も行わない（CIのダミーURLでも起動できる）', async () => {

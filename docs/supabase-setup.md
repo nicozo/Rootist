@@ -69,7 +69,7 @@ docker run --rm postgres:17 psql "$DATABASE_URL" -tAc 'select 1'
 
 - worktree の `.env` はメインからコピーするため、Supabase の 4 項目は**全 worktree で同じ値**になります。issue 別に書き換える必要はありません。
 - 一方、アプリのポート（`DEV_PORT` = 20000+N）は issue ごとに異なります。Auth のリダイレクト先がずれないよう、Redirect URLs はワイルドカードで登録しています（上記 2-3）。
-- Google ログインは従来どおり Google Cloud Console 側のリダイレクト URI の制約があります（#117 で Supabase 経由に切り替える際に再整理）。
+- Google ログインは #116 のマージから #117 まで使えません（#117 で Supabase 経由に切り替える際に再整理）。
 
 ## 5. Supabase MCP
 
@@ -91,7 +91,7 @@ pnpm db:migrate             # 開発用 DB へ適用する
 - 開発用 DB は全 worktree で共有です。**マイグレーションは同時に複数の issue から流さず**、流す前にほかの worktree への影響を確認してください。
 - 接続は Session pooler（5432）を使います。Transaction pooler（6543）は使いません。
 - 適用履歴は Drizzle Kit の既定（`drizzle` スキーマの `__drizzle_migrations`）に残ります。DB を作り直した場合も `pnpm db:migrate` だけで空から再現できます。
-- Better Auth の 4 テーブル（user / session / account / verification）は、認証を Supabase Auth へ移行する #116 まで暫定で `public` スキーマに置いています。`auth` / `storage` などの Supabase 管理スキーマにはマイグレーションから触れません。
+- Better Auth の 4 テーブル（user / session / account / verification）は #116 で削除済みです（`0001` マイグレーション）。ユーザーは Supabase Auth の `auth.users` が管理し、`auth` / `storage` などの Supabase 管理スキーマにはマイグレーションから触れません。
 
 ## 7. テーブルの公開範囲（RLS）
 
@@ -119,3 +119,34 @@ MySQL から Supabase の Postgres への切り替えに伴い、各開発者は
 4. スキーマは #115 の作業中に開発用クラウド DB へ適用済み。DB を作り直した場合のみ `pnpm db:migrate` を実行する。
 
 影響: 既存のユーザーアカウントと共有 URL は引き継がれず失効します（開発段階のため許容）。ブラウザに残った旧セッション Cookie は無効になり、未ログイン扱いになります。
+
+## 9. 認証（Supabase Auth）の設定（#116。初回のみ・1 人が実施）
+
+email/password 認証は Supabase Auth で行います。次をダッシュボードで設定してください（アプリ側は設定を変更しません）。
+
+1. **Authentication > Sign In / Providers > Email**: Email プロバイダが有効で、新規登録（Allow new users to sign up）が許可されていること。
+2. 同じ画面の **Confirm email を OFF** にする。rootist はメール確認を実装していないため、登録後にそのままログイン状態で `/plan` へ進む体験を保つのが理由です（ON のままだと登録してもセッションが返らず、登録画面に「登録に失敗しました」と出ます）。
+3. 同じ画面（または Authentication > Policies）の **Minimum password length を 8** にする（アプリ側も 8 文字未満を事前に弾きます。最大は Supabase の上限 72 バイト）。
+
+設定の確認（publishable key で Auth の公開設定を取得。`mailer_autoconfirm` が `true` なら Confirm email は OFF）:
+
+```bash
+set -a; . ./.env; set +a
+curl -s "$SUPABASE_URL/auth/v1/settings" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" | python3 -c "import sys,json; d=json.load(sys.stdin); print({k: d.get(k) for k in ['disable_signup','mailer_autoconfirm']}, 'email:', d['external']['email'])"
+# 期待値: disable_signup=False, mailer_autoconfirm=True, email=True
+```
+
+仕組みと注意:
+
+- セッションは Supabase の Cookie（`sb-` で始まる名前、**HttpOnly**）で持ちます。ブラウザ用の Supabase クライアントは作らず、登録・ログイン・ログアウトはサーバー（Form Actions）だけが Supabase Auth と通信します。
+- `SUPABASE_SECRET_KEY` はアプリのコードから使いません（手元の管理作業用）。
+- Supabase Auth の回数制限は IP 単位です。Form Actions 経由だと全利用者がサーバーの IP にまとまるため、短時間に登録・ログインを繰り返すと「試行回数が多すぎます」と表示されます。
+- 開発中に作ったテストユーザーは、ダッシュボードの **Authentication > Users** から削除するか、管理 API（`DELETE $SUPABASE_URL/auth/v1/admin/users/<id>`、Secret key を使う手元の管理作業のみ）で削除します。
+
+## 10. 開発者向け移行手順（#116 のマージ後）
+
+1. メインの `.env` から `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` を削除してよい（残っていても無害）。
+2. 既存のアカウントは使えなくなります。新規登録し直してください。ブラウザに残った旧 Cookie は自動的に未ログイン扱いになります。
+3. `0001` マイグレーション（Better Auth 4 テーブルの削除）が開発用 DB に未適用なら、ほかの worktree（Better Auth で動いている未マージのブランチ）への影響を確認してから `pnpm db:migrate` を実行する。適用すると、そうしたブランチではログイン・登録ができなくなります（プラン作成・共有は影響を受けません）。
+4. 新しい worktree の `.env` に設定するキーは 3 つ（`COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT`）です。
+5. Google ログインは #117 まで使えません。

@@ -1,28 +1,43 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
-import { APIError } from 'better-auth';
 
-// issue #62: /logout の load / default action の単体テスト。Better Auth本体はモックする。
+// issue #116: /logout の load / default action の単体テスト。Supabaseクライアントはモックする。
 
 const { signOut } = vi.hoisted(() => ({ signOut: vi.fn() }));
 
-vi.mock('$lib/server/auth', () => ({ auth: { api: { signOut } } }));
-
 const { load, actions } = await import('./+page.server');
 
+const COOKIES = [
+	{ name: 'sb-abc-auth-token.0', value: 'x' },
+	{ name: 'sb-abc-auth-token.1', value: 'y' },
+	{ name: 'sb-abc-auth-token-code-verifier', value: 'z' },
+	{ name: 'theme', value: 'dark' },
+	{ name: 'better-' + 'auth.session_token', value: 'old' }
+];
+
 /** default actionに渡す最小限のイベント。 */
-function actionEvent(headers: Record<string, string> = {}) {
-	return {
-		request: new Request('http://localhost/logout', { method: 'POST', headers })
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	} as any;
+function actionEvent() {
+	const cookies = { getAll: vi.fn(() => COOKIES), delete: vi.fn() };
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const event = { locals: { supabase: { auth: { signOut } } }, cookies } as any;
+	return { event, cookies };
+}
+
+function expectOnlySbCookiesDeleted(cookies: { delete: ReturnType<typeof vi.fn> }) {
+	expect(cookies.delete.mock.calls).toEqual([
+		['sb-abc-auth-token.0', { path: '/' }],
+		['sb-abc-auth-token.1', { path: '/' }],
+		['sb-abc-auth-token-code-verifier', { path: '/' }]
+	]);
 }
 
 beforeEach(() => {
-	signOut.mockResolvedValue(undefined);
+	signOut.mockResolvedValue({ error: null });
+	vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => {
 	vi.clearAllMocks();
+	vi.restoreAllMocks();
 });
 
 describe('/logout load', () => {
@@ -34,35 +49,30 @@ describe('/logout load', () => {
 });
 
 describe('/logout default action', () => {
-	it('サインアウト後に/へリダイレクトする', async () => {
-		await expect(actions.default(actionEvent())).rejects.toMatchObject({
-			status: 303,
-			location: '/'
-		});
-		expect(signOut).toHaveBeenCalledOnce();
+	it('この端末のセッションのみ無効化し、sb- の Cookie だけを削除して/へ303', async () => {
+		const { event, cookies } = actionEvent();
+
+		await expect(actions.default(event)).rejects.toMatchObject({ status: 303, location: '/' });
+
+		expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+		expectOnlySbCookiesDeleted(cookies);
 	});
 
-	it('セッション特定のためCookieを含むheadersをBetter Authへ渡す', async () => {
-		await expect(
-			actions.default(actionEvent({ cookie: 'better-auth.session_token=abc' }))
-		).rejects.toMatchObject({ status: 303 });
+	it('signOut がエラーを返しても/へ303し、sb- の Cookie を削除する', async () => {
+		signOut.mockResolvedValue({ error: { code: 'session_not_found' } });
+		const { event, cookies } = actionEvent();
 
-		const passedHeaders = signOut.mock.calls[0][0].headers as Headers;
-		expect(passedHeaders.get('cookie')).toBe('better-auth.session_token=abc');
+		await expect(actions.default(event)).rejects.toMatchObject({ status: 303, location: '/' });
+
+		expectOnlySbCookiesDeleted(cookies);
 	});
 
-	it('未ログイン状態でもエラーにせず/へリダイレクトする', async () => {
-		signOut.mockRejectedValue(new APIError('UNAUTHORIZED', { code: 'FAILED_TO_GET_SESSION' }));
+	it('signOut が例外を投げても500にせず/へ303し、sb- の Cookie を削除する', async () => {
+		signOut.mockRejectedValue(new TypeError('fetch failed'));
+		const { event, cookies } = actionEvent();
 
-		await expect(actions.default(actionEvent())).rejects.toMatchObject({
-			status: 303,
-			location: '/'
-		});
-	});
+		await expect(actions.default(event)).rejects.toMatchObject({ status: 303, location: '/' });
 
-	it('APIError以外の想定外例外はそのまま伝播させる', async () => {
-		signOut.mockRejectedValue(new TypeError('unexpected internal failure'));
-
-		await expect(actions.default(actionEvent())).rejects.toThrow('unexpected internal failure');
+		expectOnlySbCookiesDeleted(cookies);
 	});
 });
