@@ -32,7 +32,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   ```
 
 - 開発作業は issue 作成（`issue-writer`）から始める。PR 作成時は `pr-writer` に issue 番号を渡し、本文に `Closes #<issue番号>` を入れる（`dev-loop` を使わない単体フローでも同様）
-- PR 作成前に `code-review` と `security-review` を必ず実行する。重大な指摘（正当性バグ・セキュリティ脆弱性）は修正して `pnpm check` / `pnpm lint` / `pnpm test:unit -- --run` と両レビューをやり直し、軽微な指摘は PR 本文に「既知の指摘」として記載する（`dev-loop` を使う場合も同じ）
+- PR 作成前に `code-review`（effort は常に `high` 固定。Skill 呼び出し時は args に `high` を渡す）と `security-review` を必ず実行する。重大な指摘（正当性バグ・セキュリティ脆弱性）は修正して `pnpm check` / `pnpm lint` / `pnpm test:unit -- --run` と両レビューをやり直し、軽微な指摘は PR 本文に「既知の指摘」として記載する（`dev-loop` を使う場合も同じ）
 
 ## Commands
 
