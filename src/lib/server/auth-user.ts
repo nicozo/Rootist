@@ -17,7 +17,7 @@ function httpsUrl(value: unknown): string | null {
 
 /**
  * 表示名: user_metadata.name → full_name → メールのローカル部。
- * full_name / avatar_url / picture は #117 のGoogleログインでSupabaseが入れる項目（受け口のみ先に用意）。
+ * full_name / avatar_url / picture はGoogleログインでSupabaseが入れる項目。
  */
 export function resolveDisplayName(metadata: Record<string, unknown>, email: string): string {
 	const local = email.split('@')[0];
