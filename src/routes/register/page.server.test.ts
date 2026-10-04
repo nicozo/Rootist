@@ -191,3 +191,44 @@ describe('/register default action', () => {
 		expect(signUp).not.toHaveBeenCalled();
 	});
 });
+
+describe('/register 戻り値のエラーのログ（QA指摘#1）', () => {
+	it('ネットワーク障害（AuthRetryableFetchError を戻り値で返す）は汎用メッセージ＋種別のみログ', async () => {
+		signUp.mockResolvedValue({
+			data: { user: null, session: null },
+			error: { name: 'AuthRetryableFetchError', message: 'secret-password', status: 0 }
+		});
+
+		const result = await runAction(actionEvent({ ...VALID, password: 'secret-password' }));
+
+		expect(result.status).toBe(400);
+		expect(result.data.message).toBe(REGISTER_FAILURE_MESSAGE);
+		expect(console.error).toHaveBeenCalledOnce();
+		const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
+		expect(logged).toContain('AuthRetryableFetchError');
+		expect(logged).not.toContain('secret-password');
+	});
+
+	it('回数制限(429)は回数制限メッセージ＋ログ', async () => {
+		signUp.mockResolvedValue({
+			data: { user: null, session: null },
+			error: { name: 'AuthApiError', code: 'over_request_rate_limit', status: 429 }
+		});
+
+		const result = await runAction(actionEvent(VALID));
+
+		expect(result.data.message).toBe(RATE_LIMIT_MESSAGE);
+		expect(console.error).toHaveBeenCalledOnce();
+	});
+
+	it('重複などの通常の失敗はログに出さない', async () => {
+		signUp.mockResolvedValue({
+			data: { user: null, session: null },
+			error: { name: 'AuthApiError', code: 'user_already_exists', status: 422 }
+		});
+
+		await runAction(actionEvent(VALID));
+
+		expect(console.error).not.toHaveBeenCalled();
+	});
+});

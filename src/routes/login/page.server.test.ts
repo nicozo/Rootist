@@ -157,3 +157,49 @@ describe('/login default action', () => {
 		expect(JSON.stringify(result.data)).not.toContain('secret-password');
 	});
 });
+
+describe('/login 戻り値のエラーのログ（QA指摘#1）', () => {
+	it('ネットワーク障害（AuthRetryableFetchError を戻り値で返す）は統一メッセージ＋種別のみログ', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		signInWithPassword.mockResolvedValue({
+			data: {},
+			error: { name: 'AuthRetryableFetchError', message: 'secret-password', status: 0 }
+		});
+
+		const result = await runAction(
+			actionEvent({ email: 'a@example.com', password: 'secret-password' })
+		);
+
+		expect(result.status).toBe(400);
+		expect(result.data.message).toBe(LOGIN_FAILURE_MESSAGE);
+		expect(consoleError).toHaveBeenCalledOnce();
+		const logged = JSON.stringify(consoleError.mock.calls);
+		expect(logged).toContain('AuthRetryableFetchError');
+		expect(logged).not.toContain('secret-password');
+	});
+
+	it('回数制限(429)は回数制限メッセージ＋ログ', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		signInWithPassword.mockResolvedValue({
+			data: {},
+			error: { name: 'AuthApiError', code: 'over_request_rate_limit', status: 429 }
+		});
+
+		const result = await runAction(actionEvent({ email: 'a@example.com', password: 'x' }));
+
+		expect(result.data.message).toBe(RATE_LIMIT_MESSAGE);
+		expect(consoleError).toHaveBeenCalledOnce();
+	});
+
+	it('誤パスワード等の通常の失敗はログに出さない', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		signInWithPassword.mockResolvedValue({
+			data: {},
+			error: { name: 'AuthApiError', code: 'invalid_credentials', status: 400 }
+		});
+
+		await runAction(actionEvent({ email: 'a@example.com', password: 'x' }));
+
+		expect(consoleError).not.toHaveBeenCalled();
+	});
+});

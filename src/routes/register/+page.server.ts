@@ -7,6 +7,8 @@ import {
 	deriveNameFromEmail,
 	checkPasswordLength,
 	mapSignUpErrorCode,
+	describeAuthError,
+	isUnexpectedAuthError,
 	EMAIL_FORMAT_MESSAGE,
 	REGISTER_FAILURE_MESSAGE
 } from '$lib/server/auth-errors';
@@ -48,7 +50,12 @@ export const actions: Actions = {
 				options: { data: { name: deriveNameFromEmail(email) } }
 			});
 			if (error) {
-				const message = mapSignUpErrorCode(error.code) ?? REGISTER_FAILURE_MESSAGE;
+				const mapped = mapSignUpErrorCode(error.code);
+				// 未知のエラー・ネットワーク障害・回数制限は運用で観測できるよう種別のみ記録する
+				if (mapped === null || isUnexpectedAuthError(error)) {
+					console.error('register action: signUp failed', describeAuthError(error));
+				}
+				const message = mapped ?? REGISTER_FAILURE_MESSAGE;
 				return fail(400, { message, email: rawEmail });
 			}
 			hasSession = data.session !== null;

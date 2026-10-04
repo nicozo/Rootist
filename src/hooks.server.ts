@@ -1,4 +1,5 @@
 import type { Handle } from '@sveltejs/kit';
+import { describeAuthError, isUnexpectedAuthError } from '$lib/server/auth-errors';
 import { toAppUser } from '$lib/server/auth-user';
 import { createSupabaseClient } from '$lib/server/supabase';
 
@@ -19,6 +20,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 			const { data, error } = await event.locals.supabase.auth.getUser();
 			if (!error) {
 				event.locals.user = toAppUser(data.user);
+			} else if (isUnexpectedAuthError(error)) {
+				// supabase-jsは障害・回数制限を例外でなく戻り値のerrorで返す。セッション無し・無効
+				// （通常の未ログイン）は想定内なので出さず、それ以外は種別のみ記録する（値は出さない）
+				console.error('hooks: getUser failed', describeAuthError(error));
 			}
 		} catch (err) {
 			// Cookie・トークンの値は出さず、エラーの種別のみ記録する

@@ -1,7 +1,13 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { isGoogleAuthEnabled } from '$lib/server/supabase';
-import { normalizeEmail, mapSignInErrorCode, LOGIN_FAILURE_MESSAGE } from '$lib/server/auth-errors';
+import {
+	normalizeEmail,
+	mapSignInErrorCode,
+	describeAuthError,
+	isUnexpectedAuthError,
+	LOGIN_FAILURE_MESSAGE
+} from '$lib/server/auth-errors';
 
 // Googleログイン失敗時に戻ってきたエラーを画面表示用の固定日本語メッセージに変換する。
 // 生のエラーコード（?errorの値そのもの）は画面に出さない。#117で再利用する。
@@ -38,6 +44,10 @@ export const actions: Actions = {
 		try {
 			const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
 			if (error) {
+				// 誤パスワード等の通常の失敗は出さず、障害・回数制限だけ種別を記録する
+				if (isUnexpectedAuthError(error)) {
+					console.error('login action: signInWithPassword failed', describeAuthError(error));
+				}
 				return fail(400, { message: mapSignInErrorCode(error.code), email: rawEmail });
 			}
 		} catch (err) {

@@ -152,3 +152,41 @@ describe('Supabaseへの問い合わせ（I-10・I-2）', () => {
 		expect(logged).not.toContain('secret-cookie-value-123');
 	});
 });
+
+// supabase-jsは障害・回数制限を例外ではなく戻り値のerrorで返す（QA指摘#1）
+describe('戻り値のエラーのログ', () => {
+	it.each([
+		['ネットワーク障害', { name: 'AuthRetryableFetchError', message: 'fetch failed', status: 0 }],
+		['回数制限(429)', { name: 'AuthApiError', code: 'over_request_rate_limit', status: 429 }],
+		['5xx', { name: 'AuthApiError', code: 'unexpected_failure', status: 500 }]
+	])('%s は locals.user=null のまま、種別（name/code/status）だけログに出す', async (_l, error) => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		getUser.mockResolvedValue({
+			data: { user: null },
+			error: { ...error, message: 'secret-cookie-value-123' }
+		});
+
+		const { locals, resolve } = await runHandle(hookEvent(AUTH_COOKIE));
+
+		expect(locals.user).toBeNull();
+		expect(resolve).toHaveBeenCalledOnce();
+		expect(consoleError).toHaveBeenCalledOnce();
+		const logged = JSON.stringify(consoleError.mock.calls);
+		expect(logged).toContain(error.name);
+		expect(logged).not.toContain('secret-cookie-value-123');
+	});
+
+	it.each([
+		['AuthSessionMissingError', { name: 'AuthSessionMissingError', status: 400 }],
+		['session_not_found', { name: 'AuthApiError', code: 'session_not_found', status: 403 }],
+		['bad_jwt', { name: 'AuthApiError', code: 'bad_jwt', status: 401 }]
+	])('想定内の未ログイン（%s）はログに出さない', async (_l, error) => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		getUser.mockResolvedValue({ data: { user: null }, error });
+
+		const { locals } = await runHandle(hookEvent(AUTH_COOKIE));
+
+		expect(locals.user).toBeNull();
+		expect(consoleError).not.toHaveBeenCalled();
+	});
+});

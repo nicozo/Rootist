@@ -6,6 +6,8 @@ import {
 	checkPasswordLength,
 	mapSignUpErrorCode,
 	mapSignInErrorCode,
+	describeAuthError,
+	isUnexpectedAuthError,
 	EMAIL_FORMAT_MESSAGE,
 	PASSWORD_LENGTH_MESSAGE,
 	PASSWORD_TOO_LONG_MESSAGE,
@@ -135,4 +137,30 @@ describe('mapSignInErrorCode', () => {
 			expect(mapSignInErrorCode(code)).toBe(LOGIN_FAILURE_MESSAGE);
 		}
 	);
+});
+
+describe('isUnexpectedAuthError / describeAuthError', () => {
+	it.each([
+		[{ name: 'AuthRetryableFetchError', status: 0 }],
+		[{ name: 'AuthApiError', code: 'over_request_rate_limit', status: 429 }],
+		[{ name: 'AuthApiError', code: 'over_email_send_rate_limit', status: 429 }],
+		[{ name: 'AuthApiError', status: 503 }]
+	])('障害・回数制限・5xx は想定外（ログ対象）', (error) => {
+		expect(isUnexpectedAuthError(error)).toBe(true);
+	});
+
+	it.each([
+		[{ name: 'AuthSessionMissingError' }],
+		[{ name: 'AuthApiError', code: 'session_not_found', status: 403 }],
+		[{ name: 'AuthApiError', code: 'invalid_credentials', status: 400 }],
+		[{ name: 'AuthApiError', code: 'user_already_exists', status: 422 }]
+	])('通常の失敗・セッション無しは想定内（ログ対象外）', (error) => {
+		expect(isUnexpectedAuthError(error)).toBe(false);
+	});
+
+	it('describeAuthError は name/code/status だけを返す', () => {
+		expect(
+			describeAuthError({ name: 'X', code: 'c', status: 1, message: 'secret' } as never)
+		).toEqual({ name: 'X', code: 'c', status: 1 });
+	});
 });
