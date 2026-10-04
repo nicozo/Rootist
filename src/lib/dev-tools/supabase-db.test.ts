@@ -191,6 +191,11 @@ describe('db:migrate の流れ', () => {
 		expect(errors.join('')).toContain('TTY');
 	});
 
+	it('拒否の案内は新方式の位置づけ（通常はマージで自動適用・復旧時のみ）を伝える（#138）', () => {
+		expect(MESSAGES.notInteractive).toContain('マージで自動適用');
+		expect(MESSAGES.notInteractive).toContain('復旧');
+	});
+
 	it('TTY でなければ CLI を起動せず拒否する（stdout 非TTY）', async () => {
 		const { deps, runCli } = makeDeps({ stdoutIsTTY: false });
 		expect(await main(['migrate'], deps)).not.toBe(0);
