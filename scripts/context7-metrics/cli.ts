@@ -1,5 +1,6 @@
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { aggregate } from './aggregate.ts';
 import { extractFacts, mergeFacts } from './facts.ts';
@@ -123,7 +124,21 @@ export function main(argv: string[]): number {
 	}
 }
 
+/**
+ * このファイルが `node cli.ts` で直接実行されたか。
+ * `import.meta.main` は Node 22.18 / 24.2 以降にしか無く、無い版では何も出力せず exit 0 になってしまうため、
+ * `process.argv[1]` と自身のパスを（シンボリックリンクを解決して）比べる。
+ */
+export function isDirectRun(argv1: string | undefined, metaUrl: string): boolean {
+	if (!argv1) return false;
+	try {
+		return realpathSync(argv1) === realpathSync(fileURLToPath(metaUrl));
+	} catch {
+		return false;
+	}
+}
+
 // 直接実行されたときだけ動く（テストから import しても副作用なし）
-if (import.meta.main) {
+if (isDirectRun(process.argv[1], import.meta.url)) {
 	process.exitCode = main(process.argv.slice(2));
 }

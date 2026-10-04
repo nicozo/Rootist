@@ -16,4 +16,22 @@ describe('classifyFailure', () => {
 		const head = `${'x'.repeat(400)} rate limit Invalid API key`;
 		expect(classifyFailure({ isError: false, head })).toBeNull();
 	});
+	it('成功したドキュメントの見出しや先頭の語（Rate limits / Unauthorized）を障害として拾わない', () => {
+		const longDoc = (first: string) => `${first}\n${'説明 '.repeat(200)}`;
+		expect(classifyFailure({ isError: false, head: longDoc('Rate limits') })).toBeNull();
+		expect(
+			classifyFailure({ isError: false, head: longDoc('Unauthorized access handling') })
+		).toBeNull();
+		expect(
+			classifyFailure({ isError: false, head: longDoc('### Auth rate limit settings') })
+		).toBeNull();
+	});
+	it('短い本文でも行頭が障害文言でなければ障害にしない', () => {
+		expect(classifyFailure({ isError: false, head: 'Title: Rate limit guide' })).toBeNull();
+	});
+	it('is_error が付いていれば長い本文でも行頭の障害文言で区分する', () => {
+		expect(
+			classifyFailure({ isError: true, head: `Unauthorized: bad key\n${'x'.repeat(500)}` })
+		).toBe('キー失効・認証エラー');
+	});
 });

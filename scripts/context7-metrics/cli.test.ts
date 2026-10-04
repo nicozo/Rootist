@@ -2,7 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { main, parseCliArgs, run, stripLeadingDashes } from './cli.ts';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { isDirectRun, main, parseCliArgs, run, stripLeadingDashes } from './cli.ts';
 import { collectSources, normalizeAgent, readJsonl, UserError } from './io.ts';
 import { queryCall, resolveCall } from './fixtures/builders.ts';
 
@@ -99,5 +101,36 @@ describe('ファイル入出力', () => {
 		expect(json.issues).toHaveLength(1);
 		const empty = run({ dirs: [d], format: 'md', calls: false, devLoop: tmp(), issue: 999 });
 		expect(empty).toContain('（該当なし）');
+	});
+});
+
+describe('直接実行の判定（import.meta.main に依存しない）', () => {
+	const cliPath = fileURLToPath(new URL('./cli.ts', import.meta.url));
+
+	it('自身のパスで起動されたときだけ true', () => {
+		expect(isDirectRun(cliPath, import.meta.url.replace('cli.test.ts', 'cli.ts'))).toBe(true);
+		expect(isDirectRun('/some/other.ts', import.meta.url.replace('cli.test.ts', 'cli.ts'))).toBe(
+			false
+		);
+		expect(isDirectRun(undefined, import.meta.url)).toBe(false);
+		expect(isDirectRun('/no/such/file.ts', import.meta.url)).toBe(false);
+	});
+
+	it('実際に node で起動すると出力が出る（無出力で exit 0 にならない）', () => {
+		const d = tmp();
+		writeFileSync(
+			join(d, 's.jsonl'),
+			JSON.stringify(queryCall({ id: 'a', branch: BRANCH })) + '\n'
+		);
+		const ok = spawnSync(process.execPath, [cliPath, '--', '--dir', d, '--dev-loop', tmp()], {
+			encoding: 'utf8'
+		});
+		expect(ok.status).toBe(0);
+		expect(ok.stdout).toContain('## issue 別');
+		const bad = spawnSync(process.execPath, [cliPath, '--dir', '/no/such/dir-xyz'], {
+			encoding: 'utf8'
+		});
+		expect(bad.status).toBe(2);
+		expect(bad.stderr).toContain('見つかりません');
 	});
 });

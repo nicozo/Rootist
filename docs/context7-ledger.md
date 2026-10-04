@@ -14,7 +14,7 @@ issue 別の Context7 使用実績と QA 差し戻し回数の 1 行サマリを
 - 作成: 2026-10-04。issue #127 の実装時点で現存するセッション記録から集計できた全 issue。出力は上のコマンド（`--issue` 無し）の issue 別表そのまま。
 - 導入前/後の境界: UTC `2026-10-03T07:29:49Z`（PR #100 の merged_at。確認元 https://api.github.com/repos/nicozo/Rootist/pulls/100 ）。issue の最初のタイムスタンプ（UTC）が境界より前なら導入前。
 - 使用場面ルールの版: 初期データはすべて **v0**（generator.md が「API・設定で迷ったら」の主観的な条件だった時期）。#127 のマージ以降の issue は **v1**（判定可能な必須条件。備考に `v1` と書く）。
-- #127 自身の行は、実装中のため初期データには含めない（dev-loop の Step 6 で追記する）。
+- #127 自身の行は、QA 評価中のスナップショット（2026-10-05）を末尾に置いた。最終 QA の後に dev-loop の Step 6 で再集計して置き換える。
 - 導入前の issue は QA レポートを iter 番号なしの `qa_report.md` に書いていたため、QA イテレーション・FAIL は `不明（旧形式）` または `—`（書き込みが記録に無い）。0 回（差し戻し無し）という意味ではない。
 - `generator トークン` と `所要時間` は generator サブエージェントの記録からの値で、QA 待ち・夜間の空き時間を含む（作業時間ではない）。
 
@@ -55,4 +55,5 @@ issue 別の Context7 使用実績と QA 差し戻し回数の 1 行サマリを
 | 131 | 導入後 | 2026-10-04 | 0 | 0 | — | 0 | 0 | — | — | 紐付け不能 | — | — | — | 使用場面ルール v0 |
 | issue 不明 | — | 2026-08-25〜2026-10-04 | 8 | 6 | /better-auth/better-auth, /drizzle-team/drizzle-orm-docs, /supabase/supabase-js, /websites/bits-ui, /websites/tailwindcss, Better Auth, Drizzle ORM, Supabase JS, Tailwind CSS, bits-ui | 2 | 10 | — | — | 紐付け不能 | — | 12981280 | 25m08.744s | ブランチに issue 番号が無い行（main 等）。Context7 導入作業の一部を含む。導入前後は判定しない |
 | issue 不明（要確認） | — | — | 0 | 0 | — | 0 | 0 | 不明（旧形式） | 不明（旧形式） | 紐付け不能 | — | — | — | QA レポートの書き込み先ワークスペースとブランチのスラッグが不一致（20260901-docker-mcp-toolkit の旧形式 QA レポート）。導入前後は判定しない |
+| 127 | 導入後 | 2026-10-04 | 0 | 0 | — | 0 | 0 | 1 | 1 | 節あり | あり | 2260197 | 1h31m37.492s | 使用場面ルール v1 の初回適用。**gitBranch のずれ**: generator サブエージェントの cwd がメインだったため gitBranch が main になり、実際には使った Context7 の 8 回（resolve 4・query-docs 4）が「issue 不明」に入り、この行の実績は 0 に見える（自己評価の申告は使用あり。申告との不一致は見かけ）。QA レポートは最終 QA 後に Step 6 で再集計して置き換える（実装中のスナップショット） |
 ```
