@@ -106,7 +106,7 @@ Planner（`planner`）を起動。promptに含めるもの:
 
 1. devサーバーを停止（バックグラウンドタスクをkill）。issue 環境の Compose プロジェクトは残してよい（マージ後の `cleanup` が worktree 削除前に削除する）
 2. `pnpm test:unit -- --run` を実行。失敗したらStep 5のFAIL扱いでGeneratorに差し戻し
-3. **コードレビュー**: Skillツールで `code-review` を実行（ブランチの変更差分が対象。QAの静的レビューはSOLID/規約準拠が中心なので、バグハントはここで補完する）
+3. **コードレビュー**: Skillツールで `code-review` を `args: "high"`（effort は high 固定）で実行（ブランチの変更差分が対象。QAの静的レビューはSOLID/規約準拠が中心なので、バグハントはここで補完する）
 4. **セキュリティレビュー**: Skillツールで `security-review` を実行
 5. レビュー指摘の扱い:
    - 正当性バグ・セキュリティ脆弱性（CRITICAL/HIGH相当）→ 指摘をワークスペースの `review_findings_iter<N>.md` に書き出し、Generatorに **SendMessage** で修正依頼 → 修正後にStep 3の裏取り・ユニットテスト・レビューを再実行（この差し戻しもイテレーション上限3回に含める）
