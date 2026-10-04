@@ -11,7 +11,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## コーディング規約
 
 - SOLIDの原則に従うこと（過剰に従わなくても良い）
-- Single Source of Truth（SSoT）に従うこと（次の節）
 
 ## Single Source of Truth（SSoT）
 
@@ -32,15 +31,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |                        | `docs/`           | コードや環境設定と一緒に変わる詳細手順（セットアップなど）                   |
 
 - 新しいドキュメントは、上表で役割が合う既存の場所に追加する。別の場所に作らない
-- 迷いやすい `docs/` と Notion の境目: コードや環境設定と一緒に変わる手順は `docs/`、「なぜそうしたか」の意思決定と仕様は Notion
+- 迷いやすい `docs/` と Notion の境目: コードや環境設定と一緒に変わる手順は `docs/`、サービス全体に関わる意思決定と仕様は Notion。`docs/` の手順に添える、その手順が成り立つ前提の短い理由（例: `docs/supabase-setup.md` の方式の理由）は `docs/` に置いてよい
+- Notion の入口は「🧭 Rootist」ハブページ（親は「個人開発」。配下に Docs DB / Roadmap DB）。https://app.notion.com/p/339e07f1f4f680daa01bc51666f2b6bb
 - 同じ説明を複数の文書に書かない。正となる文書を決め、他はリンクで参照する
 
 ### コード・設計
 
-- 型は DB スキーマ（`src/lib/server/db/schema.ts`）や zod スキーマなど元の定義から導出し、同じ形を手書きで再定義しない
+- 型は DB スキーマ（`src/lib/server/db/schema.ts`）など元の定義から導出し（Drizzle の `$inferSelect` / `$inferInsert` など）、同じ形を手書きで再定義しない
 - 定数・設定値・文言・環境変数名を複数ファイルにコピーせず、共通化して import する。環境変数は `.env.example` を正とする
 - 導出できる値を別に保持しない。状態は元データから計算する
-- DB スキーマの変更は `schema.ts` を正とし、マイグレーション経由で反映する
 
 ### 例外
 
