@@ -27,7 +27,6 @@ SvelteKit と PostgreSQL（Supabase）を使用したフルスタック Web ア�
 - マルチステージビルド対応 Dockerfile
 - 開発環境と本番環境の分離
 - ホットリロード対応
-- 名前付きボリュームによるデータ永続化
 
 ## 🚀 Docker での起動
 
@@ -53,13 +52,12 @@ docker compose logs -f dev
 
 ### issue 単位で並行起動する（worktree 開発）
 
-従来の手順（上記）はそのまま既定ポート（アプリ 5173 / MySQL 3306）で動きます。git worktree で issue ごとに並行開発する場合は、worktree の `.env` に次の 3 キーを設定すると、`rootist-issue-<N>` という別環境（コンテナ・ボリューム・ポートが issue ごとに分離）として起動できます。
+従来の手順（上記）はそのまま既定ポート（アプリ 5173）で動きます。git worktree で issue ごとに並行開発する場合は、worktree の `.env` に次の 2 キーを設定すると、`rootist-issue-<N>` という別環境（コンテナ・ネットワーク・ポートが issue ごとに分離）として起動できます。
 
 | キー                   | 値（例: issue #112。クォートしない） |
 | ---------------------- | ------------------------------------ |
 | `COMPOSE_PROJECT_NAME` | `rootist-issue-112`                  |
 | `DEV_PORT`             | `20112`（`20000 + 番号`）            |
-| `MYSQL_PORT`           | `30112`（`30000 + 番号`）            |
 
 ```bash
 # worktree 内で。DB は Supabase 開発用クラウドに直結（DATABASE_URL はメインと同じ値のまま）。アプリはホストで動かす

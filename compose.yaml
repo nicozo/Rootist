@@ -20,9 +20,6 @@ services:
       - NODE_ENV=development
     stdin_open: true
     tty: true
-    depends_on:
-      mysql:
-        condition: service_healthy
     networks:
       - app-network
 
@@ -40,15 +37,17 @@ services:
       - '3000:3000'
     environment:
       - NODE_ENV=production
-      # Supabase の Session pooler 接続文字列。.env の DATABASE_URL を受け渡す（未設定ならアプリが起動時に DATABASE_URL is not set で失敗する）
+      # Supabase 接続情報など。.env の値を受け渡す（DATABASE_URL が未設定ならアプリが起動時に DATABASE_URL is not set で失敗する）
       - DATABASE_URL=${DATABASE_URL:-}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-}
+      - GOOGLE_AUTH_ENABLED=${GOOGLE_AUTH_ENABLED:-}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       # 本番環境用の環境変数
       - ORIGIN=https://yourdomain.com
       - BODY_SIZE_LIMIT=10485760
     restart: unless-stopped
-    depends_on:
-      mysql:
-        condition: service_healthy
     networks:
       - app-network
     # ヘルスチェック
@@ -65,45 +64,9 @@ services:
       retries: 3
       start_period: 40s
 
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # MySQL
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  mysql:
-    image: mysql:8.0
-    restart: always
-    ports:
-      # ホスト側ポートは MYSQL_PORT で変更可（未設定・空なら 3306）。命名規則は CLAUDE.md「Docker 開発環境」参照
-      - '${MYSQL_PORT:-3306}:3306'
-    environment:
-      - TZ=Asia/Tokyo
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${DB_NAME}
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASSWORD}
-      # パフォーマンス設定
-      - MYSQL_INNODB_BUFFER_POOL_SIZE=256M
-    volumes:
-      - mysql-data:/var/lib/mysql
-      # 初期化SQLがある場合
-      # - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      # - --general-log=1 # SQLログを有効化
-      # - --general-log-file=/var/lib/mysql/general.log # ログの出力先
-    healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p$MYSQL_ROOT_PASSWORD']
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 30s
-    networks:
-      - app-network
-
 volumes:
   pnpm_store:
   node_modules:
-  mysql-data:
 
 networks:
   app-network:

@@ -67,7 +67,7 @@ test.describe('/register の事前チェック（Supabaseに到達しない）',
 
 test.describe('壊れた・古い認証Cookieでも500にならず未ログイン表示になる', () => {
 	const cases: [string, { name: string; value: string }][] = [
-		['旧認証ライブラリのCookie', { name: 'better-' + 'auth.session_token', value: 'dummy' }],
+		['名前が sb- で始まらないCookie', { name: 'session_token', value: 'dummy' }],
 		['名前が sb- で始まる壊れた値', { name: 'sb-abc-auth-token', value: 'garbage' }],
 		[
 			// ダミーURL(127.0.0.1)から作られるストレージキーに一致する、形式有効・期限内のセッション。

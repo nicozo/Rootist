@@ -23,7 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 開発作業（機能追加・修正など、ファイル変更を伴う作業）を始めるときは、必ず git worktree を切って作業すること。メインのワーキングツリー（`main`）で直接ブランチを切り替えたり変更したりしない
   - 作業ブランチごとに worktree を作成し（`git worktree add -b <branch> .claude/worktrees/<name> main`）、その中で実装・コミット・push を行う
   - worktree には gitignore 対象の `.env` と `node_modules/` が無いので、作成直後にメインのワーキングツリーから `.env` をコピーし `pnpm install` する
-  - issue 番号 N の worktree では、`.env` をコピーした直後に `COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT` の 3 キーを設定する（`DATABASE_URL` は書き換えない。メインの Supabase 接続をそのまま使う）（値と手順は「Docker 開発環境（issue 単位の分離）」の節）
+  - issue 番号 N の worktree では、`.env` をコピーした直後に `COMPOSE_PROJECT_NAME` / `DEV_PORT` の 2 キーを設定する（`DATABASE_URL` は書き換えない。メインの Supabase 接続をそのまま使う）（値と手順は「Docker 開発環境（issue 単位の分離）」の節）
   - PRマージ後は worktree も削除して片付ける（`cleanup` スキルが worktree とブランチをまとめて削除する）
 - Claude Code（オーケストレーター本体・generator等のサブエージェントを問わず）が作成するコミットには、コミット履歴の透明性を保つため必ず以下のトレーラーを含めること
 
@@ -54,7 +54,7 @@ pnpm test:unit -- --run   # 単発実行
 pnpm test:e2e      # Playwright E2E
 pnpm test          # 全テスト一括
 
-# DB操作（Supabase 開発用クラウドに直結。docs/supabase-setup.md 参照。MySQL コンテナは不要）
+# DB操作（Supabase 開発用クラウドに直結。docs/supabase-setup.md 参照）
 # スキーマ変更の正式手順: pnpm db:generate → 生成 SQL をレビュー → pnpm db:migrate（db:push は使わない）
 pnpm db:generate   # マイグレーションファイル生成
 pnpm db:migrate    # マイグレーション実行
@@ -64,11 +64,10 @@ pnpm db:studio     # Drizzle Studio（DBブラウザ）
 pnpm storybook     # localhost:6006 で起動
 
 # Docker
-docker compose --profile dev up -d    # MySQL + dev コンテナ起動
-docker compose --profile prod up -d   # MySQL + prod コンテナ起動
+docker compose --profile dev up -d    # dev コンテナ起動
+docker compose --profile prod up -d   # prod コンテナ起動
 
-# Docker（issue 用 worktree。.env の COMPOSE_PROJECT_NAME / ポート設定が自動で効く）
-docker compose up -d mysql            # 自 issue の MySQL だけ起動（アプリはホストの pnpm dev）
+# Docker（issue 用 worktree。.env の COMPOSE_PROJECT_NAME / DEV_PORT が自動で効く）
 docker compose ps                     # 自 issue のコンテナと公開ポートを確認
 ```
 
@@ -78,12 +77,12 @@ git worktree 1つ = issue 1つ = Compose プロジェクト 1つとして扱い�
 
 ### 命名規則
 
-| 起動のしかた                                   | Compose プロジェクト名 | コンテナ名                                              |
-| ---------------------------------------------- | ---------------------- | ------------------------------------------------------- |
-| issue 用 worktree（issue 番号 N）              | `rootist-issue-<N>`    | `rootist-issue-<N>-dev-1` / `rootist-issue-<N>-mysql-1` |
-| 従来起動（メインのワーキングツリー、番号なし） | `rootist`              | `rootist-dev-1` / `rootist-mysql-1`                     |
+| 起動のしかた                                   | Compose プロジェクト名 | コンテナ名                |
+| ---------------------------------------------- | ---------------------- | ------------------------- |
+| issue 用 worktree（issue 番号 N）              | `rootist-issue-<N>`    | `rootist-issue-<N>-dev-1` |
+| 従来起動（メインのワーキングツリー、番号なし） | `rootist`              | `rootist-dev-1`           |
 
-- `<N>` は issue 番号そのまま（例: issue #112 → `rootist-issue-112-mysql-1`、ボリューム `rootist-issue-112_mysql-data`）
+- `<N>` は issue 番号そのまま（例: issue #112 → `rootist-issue-112-dev-1`）
 - プロジェクト名は worktree の `.env` の `COMPOSE_PROJECT_NAME` で決まる（Compose 標準。`compose.yaml` に `name:` / `container_name` は書かない。固定するとメインの環境と同名になり壊すため）
 
 ### ポート割当
@@ -91,13 +90,12 @@ git worktree 1つ = issue 1つ = Compose プロジェクト 1つとして扱い�
 | 用途                        | 従来起動 | issue N の環境 | 例: issue #112 |
 | --------------------------- | -------- | -------------- | -------------- |
 | アプリ（dev）のホストポート | 5173     | `20000 + N`    | 20112          |
-| MySQL のホストポート        | 3306     | `30000 + N`    | 30112          |
 
-- `compose.yaml` は `DEV_PORT` / `MYSQL_PORT` があればそれを、無ければ（未定義・空文字とも）5173 / 3306 を使う。コンテナ内部のポートは変わらない
+- `compose.yaml` は `DEV_PORT` があればそれを、無ければ（未定義・空文字とも）5173 を使う。コンテナ内部のポートは変わらない
 - `DEV_PORT` は、dev コンテナで動かす場合もホストの `pnpm dev` で動かす場合も、その issue のアプリ用ポートとして共通で使う（同時には使わない）
 - issue 番号 10000 以上は対象外（到達時に方式を見直す）
 
-### worktree の `.env` に設定する 3 キー（issue N の場合）
+### worktree の `.env` に設定する 2 キー（issue N の場合）
 
 `.env` をメインからコピーした直後に設定する。既存キーは置き換え、未定義キーは追加し、各キーがちょうど 1 回だけ現れる状態にする。**値はクォートしない**（`KEY=value` 形式）。`DATABASE_URL` は書き換えない（全 worktree でメインと同じ Supabase の値を使う）。メインの `.env` は変更しない。
 
@@ -105,18 +103,17 @@ git worktree 1つ = issue 1つ = Compose プロジェクト 1つとして扱い�
 | ---------------------- | ------------------- |
 | `COMPOSE_PROJECT_NAME` | `rootist-issue-<N>` |
 | `DEV_PORT`             | `20000+N`           |
-| `MYSQL_PORT`           | `30000+N`           |
 
 ### アプリの DB は Supabase 共有（issue 別の分離なし）
 
-アプリの DB は Supabase の開発用クラウドプロジェクトで、**全 worktree が同じ DB に直結する**（issue 別の分離はしない。理由は `docs/supabase-setup.md`）。issue 環境の Compose プロジェクトで分離するのはアプリ（dev コンテナ）のポートだけで、MySQL コンテナはアプリから使われない（compose の mysql サービス・`MYSQL_PORT` は #119 で削除予定）。
+アプリの DB は Supabase の開発用クラウドプロジェクトで、**全 worktree が同じ DB に直結する**（issue 別の分離はしない。理由は `docs/supabase-setup.md`）。issue 環境の Compose プロジェクトで分離するのはアプリ（dev コンテナ）のポートだけ。
 
 - スキーマ変更は `pnpm db:generate` → 生成 SQL をレビュー → `pnpm db:migrate`。共有 DB なので同時に複数 issue から流さない。`db:push` は使わない（履歴なしで破壊的変更を流し得るため）
 - 検証で作ったテストデータは、検証後に削除する
 
 ### ポートの確認方法
 
-- その worktree の設定値: worktree の `.env` の `COMPOSE_PROJECT_NAME` / `DEV_PORT` / `MYSQL_PORT`
+- その worktree の設定値: worktree の `.env` の `COMPOSE_PROJECT_NAME` / `DEV_PORT`
 - 起動中の実ポート（worktree 内で）: `docker compose ps`（PORTS 列に `0.0.0.0:20112->5173/tcp` のように出る）
 - 全 issue 環境の一覧: `docker compose ls`（プロジェクト名）、`docker ps --filter name=rootist-issue-`（コンテナ名・ポート）
 - dev-loop のオーケストレーターは worktree の `.env` から `DEV_PORT` を読み、QA への依頼文に `http://localhost:<DEV_PORT>` を明記する
@@ -129,7 +126,7 @@ git worktree 1つ = issue 1つ = Compose プロジェクト 1つとして扱い�
 
 ## Supabase 環境
 
-DB は Supabase の Postgres へ移行済み（#115。`DATABASE_URL` は Session pooler の接続文字列）。email/password 認証も Supabase Auth へ移行済み（#116。Better Auth は撤去）。Google ログインは #117 で Supabase 経由にするまで停止中（親 issue #113）。ローカル開発は開発用クラウドプロジェクトへの直結で、`supabase start` は使わない。環境変数は `.env.example`、方式の理由と手順は `docs/supabase-setup.md` を参照。
+DB は Supabase の Postgres へ移行済み（`DATABASE_URL` は Session pooler の接続文字列）。認証（email/password・Google ログイン）も Supabase Auth を使う。ローカル開発は開発用クラウドプロジェクトへの直結で、`supabase start` は使わない。環境変数は `.env.example`、方式の理由と手順は `docs/supabase-setup.md` を参照。
 
 ## アーキテクチャ概要
 
