@@ -14,6 +14,13 @@ const config = {
 		adapter: adapter(),
 		alias: {
 			'@/*': './path/to/lib/*'
+		},
+		typescript: {
+			// scripts/ 配下（開発基盤のスクリプト）も svelte-check の型検査対象にする
+			config: (config) => {
+				config.include.push('../scripts/**/*.ts');
+				return config;
+			}
 		}
 	}
 };
