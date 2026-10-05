@@ -1,5 +1,6 @@
 // issue #128: `pnpm db:new` / `db:migrate` / `db:status` の入口。判定ロジックは
 // src/lib/dev-tools/supabase-db.ts（単体テスト済み）にあり、ここは副作用（子プロセス・入出力）だけを持つ。
+// 位置づけ（#138）: 共有 DB への通常の適用は main へのマージ（GitHub 連携）。`migrate` は復旧時にユーザーが判断して使う。
 // 子プロセスは shell を介さず、引数を配列で渡す。接続文字列はログに出さない。
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';

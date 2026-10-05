@@ -73,7 +73,7 @@ docker compose --profile dev up -d    # dev コンテナ起動（prod は --prof
 
 - 完了とみなす前に `pnpm check` / `pnpm lint` / `pnpm test:unit -- --run` を通す
 - DB 操作（`pnpm db:new` / `db:status` / `db:migrate`）の手順は `.claude/rules/database.md`
-- IMPORTANT: `pnpm db:migrate` はエージェントが実行せず、ユーザーに依頼する（共有 DB への適用のため）
+- IMPORTANT: エージェントは共有 DB に書き込まない（`pnpm db:migrate` / `supabase db push` / `migration repair` を実行せず、必要ならユーザーに依頼する）。共有 DB への適用は main へのマージ時の自動適用（Supabase の GitHub 連携）が通常経路で、`pnpm db:migrate` は復旧専用
 
 ## アーキテクチャ概要
 

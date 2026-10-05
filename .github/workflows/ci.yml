@@ -3,6 +3,10 @@ name: CI
 on:
   pull_request:
 
+# GITHUB_TOKEN は読み取りのみ（全ジョブ共通。CodeQL の「permissions が未指定」の指摘への対応）
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -45,3 +49,26 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test
+
+  # issue #138: マイグレーション検査。main へのマージ＝共有 DB への自動適用なので、このチェックを必須にする（docs/supabase-setup.md）。
+  # チェック名はジョブのキー `migrations`。`name:` と `paths:` は付けない（付けるとチェック名が変わる／マイグレーション無しの PR で報告されず保留になる）。
+  # Supabase には接続しない。
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # base ブランチとの差分・一覧を取るため全履歴が要る
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # RLS の有効化漏れ・ポリシー混入の静的検査
+      - run: pnpm test:unit -- --run src/lib/dev-tools/migration-rls.test.ts
+      # 追加のみ・ファイル名形式・タイムスタンプ順（git の失敗は失敗として終わる。パイプは使わない）
+      - run: node scripts/check-migrations.mjs "$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}

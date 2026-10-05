@@ -1,5 +1,9 @@
 // issue #128: Supabase CLI（マイグレーション）を安全に呼ぶ wrapper のロジック。入口は scripts/supabase-db.mjs。
 //
+// issue #138 以降の位置づけ: 共有 DB へのスキーマ変更の通常経路は「main へのマージ（Supabase の GitHub 連携が自動適用）」だけ。
+// `new`（ファイル作成）と `status`（読み取り）は日常で使う。`migrate` は通常は使わず、連携が使えない・DB を作り直した等の
+// 復旧時に、ユーザーが判断して実行する（マージ前に開発用 DB へ流す使い方は推奨しない。docs/supabase-setup.md）。
+//
 // 制約:
 // - SvelteKit の仮想モジュール（$lib / $env / $app）を import しない。scripts/supabase-db.mjs から
 //   Node の型除去でそのまま実行できる構文（enum / parameter properties / namespace を使わない）だけで書く。
@@ -155,7 +159,7 @@ export const MESSAGES = {
 	approved: '承認されました。supabase db push を実行します。',
 	upToDate: '適用対象のマイグレーションはありません。何も実行しません。',
 	notInteractive:
-		'db:migrate は対話端末（TTY）でのみ実行できます。ユーザー自身の端末で実行してください（エージェントからは実行しない）。'
+		'db:migrate は対話端末（TTY）でのみ実行できます。通常は不要です（main へのマージで自動適用されます）。連携が使えない等の復旧時に、ユーザーが判断して実行するコマンドで、エージェントからは実行しません。'
 } as const;
 
 /** 終了コードを返す。 */
