@@ -3,6 +3,10 @@ name: CI
 on:
   pull_request:
 
+# GITHUB_TOKEN は読み取りのみ（全ジョブ共通。CodeQL の「permissions が未指定」の指摘への対応）
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
