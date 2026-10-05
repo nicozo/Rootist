@@ -113,9 +113,10 @@ pnpm db:status              # 5. マージ後、Local と Remote が一致した
 ### RLS チェックリスト（表を作る SQL を書くとき）
 
 1. 表を作る SQL と**同じファイル**で `alter table public.<表> enable row level security;` を書く。
-2. **ポリシー（`create policy`）は作らない**（Data API から publishable key で読めない状態を保つ。アプリは DB 所有者ロールで直結するため影響を受けない）。
-3. 適用後に「7. テーブルの公開範囲（RLS）」の curl で、Data API から読めない（`[]` または権限エラー）ことを確認する。
-4. `pnpm test:unit` の静的検査（`src/lib/dev-tools/migration-rls.test.ts`）が、`supabase/migrations/*.sql` の全表について RLS 有効化漏れとポリシーの混入を検出します（CI の `pnpm test` でも走るため、マージ前に漏れが止まります）。限界は検査コード冒頭のコメント参照（`$$` 内の `;`、コメントや文字列内の SQL など）。
+2. **ポリシー（`create policy`）は作らない**。
+3. 同じファイルで `revoke all on table public.<表> from anon, authenticated, service_role, public;` を書く（identity / serial のシーケンスも同様。理由と全体の方針は「7. アクセス制御の方針」）。
+4. 適用後に「7. アクセス制御の方針」の B 手順で、権限が実際に無いこと・Data API から読めないこと（権限エラーになること）を確認する。
+5. `pnpm test:unit` の静的検査（`src/lib/dev-tools/migration-rls.test.ts`）が、`supabase/migrations/*.sql` の全表について RLS 有効化漏れ・ポリシーの混入・権限の取り消し漏れ・Data API 用ロールへの `grant` を検出します（CI の `pnpm test` でも走るため、マージ前に漏れが止まります）。限界は検査コード冒頭のコメント参照（`$$` 内の `;`、コメントや文字列内の SQL、シーケンスの取り消し漏れは見ない、など）。
 
 ### その他
 
@@ -126,13 +127,74 @@ pnpm db:status              # 5. マージ後、Local と Remote が一致した
 - DB の閲覧・編集は Supabase ダッシュボードの Table Editor / SQL Editor を使います（専用の DB ブラウザコマンドはありません）。
 - 旧認証の 4 テーブル（user / session / account / verification）は #116 で削除済みです。ユーザーは Supabase Auth の `auth.users` が管理し、`auth` / `storage` などの Supabase 管理スキーマにはマイグレーションから触れません。
 
-## 7. テーブルの公開範囲（RLS）
+## 7. アクセス制御の方針
 
-Supabase は `public` スキーマのテーブルを Data API（REST）で公開し得ます。RLS が無効だと、`.env` の publishable key（公開前提のキー）だけで全行が読めてしまいます。
+Supabase は `public` スキーマのテーブルを Data API（REST / GraphQL）で公開し得ます。RLS も権限も無いテーブルは、`.env` の publishable key（公開前提のキー）だけで全行が読めてしまいます。ここが `plans` などの表の**アクセス制御の方針の正**です（他の文書は要点だけを書き、この節を参照します）。
 
-- **作成する全テーブルで RLS を有効にし、ポリシーは作りません**（マイグレーションで `create table` するときは、同じファイルで `alter table ... enable row level security` を書きます。「6. スキーマの反映」の RLS チェックリスト）。アプリはサーバーから DB 所有者ロールで直結するため影響を受けません。
-- **テーブルを追加するときも必ず RLS を有効化してください。** 漏れは静的検査テストが検出します。
-- Data API から読めないことの確認（`plans` の例。`[]` または権限エラーが返れば OK。行が返れば NG）:
+### 原則
+
+**表への経路は「アプリのサーバーが DB に直結する経路」の 1 本だけ。Data API（REST / GraphQL）からは、どのキーでも、ログインしていても、読み書きできません。** 共有 URL の閲覧可否（shareId を知っているか）の判断はサーバーが行います。
+
+### 主体ごとの許可（`plans`）
+
+| 主体                                              | 経路                        | 参照                          | 保存             | 変更・削除                         | 理由                                                     |
+| ------------------------------------------------- | --------------------------- | ----------------------------- | ---------------- | ---------------------------------- | -------------------------------------------------------- |
+| 未ログインの利用者                                | ブラウザ → アプリのサーバー | shareId を知っている 1 件だけ | 可（プラン共有） | 不可（経路が無い）                 | 共有 URL は未ログインで見られる仕様                      |
+| ログイン済みの利用者                              | 同上                        | 同上                          | 同上             | 同上                               | `plans` はユーザーと紐付かない。ログインで権限は増えない |
+| publishable key（anon ロール）                    | Data API                    | 不可（権限エラー）            | 不可             | 不可                               | 公開前提のキー。持っていれば誰でも叩ける                 |
+| ログインユーザーの JWT（authenticated ロール）    | Data API                    | 不可                          | 不可             | 不可                               | 所有者の概念が無く、許可する理由が無い                   |
+| secret key（service_role）                        | Data API                    | 不可                          | 不可             | 不可                               | アプリは使わない。漏えい時に一括取得されないようにする   |
+| アプリのサーバー（`postgres` ロール、表の所有者） | Session pooler 直結         | 可                            | 可               | 可（コードは参照と追加しかしない） | 唯一の正規経路                                           |
+| 開発者（Table Editor / SQL Editor）               | ダッシュボード              | 可                            | 可               | 可                                 | 管理作業。検証データの削除に使う                         |
+
+「shareId を知る人だけが閲覧できる」は、次の 3 点で成り立ちます: shareId はサーバーが発行する推測困難な UUID / サーバーは完全一致の 1 件取得しか提供しない（一覧・検索の経路が無い）/ Data API から表を列挙できない。
+
+### 防御の層
+
+1. **権限が無い**: anon / authenticated / service_role / PUBLIC は表にもシーケンスにも権限を持たない（マイグレーションで `revoke all`）。Data API からのリクエストは「0 件」ではなく**権限エラー（42501）**になる。
+2. **RLS 有効・ポリシー無し**: 権限が誤って付与されても行は見えない。ポリシーは作らない。`FORCE ROW LEVEL SECURITY` は付けない（アプリは表の所有者として RLS の対象外で動くため。付けると所有者の接続が止まり得る）。
+3. **静的検査**: マイグレーションに `create policy`・Data API 用ロールへの `grant`・取り消し漏れ・RLS 有効化漏れがあると CI（`pnpm test`）で止まる（`src/lib/dev-tools/migration-rls.test.ts`）。
+
+アプリの動作は「表の所有者であること」だけで成り立ち、`BYPASSRLS` の有無に依存しません。
+
+### 表を追加するとき
+
+[「6. スキーマの反映」の RLS チェックリスト](#rls-チェックリスト表を作る-sql-を書くとき)に従い、**同じファイルで** RLS の有効化と `revoke all on table public.<表> from anon, authenticated, service_role, public;` を書きます。`serial` / identity の列があればシーケンスも同様に取り消します。今後作られる表への自動付与（`alter default privileges`）そのものは変えていません（別 issue 候補）。
+
+### 確認手順
+
+ローカルの再現（マージ前）は PR 本文と `.dev-loop/` の記録を参照してください。以下は**マージ後にユーザーが共有 DB で行う**手順です。すべて読み取り、または「拒否されること」を確かめる操作です。
+
+**B-0（マージ前のゲート）**: ダッシュボードの SQL Editor で現状を読む。次の場合は**マージしません**。
+
+```sql
+select version();
+select rolname, rolsuper, rolbypassrls from pg_roles where rolname = current_user;
+select pg_get_serial_sequence('public.plans', 'id');   -- public.plans_id_seq でなければマージしない（後続のクエリは does not exist で失敗する。そこで止める）
+select relname, relowner::regrole from pg_class where oid in ('public.plans'::regclass, 'public.plans_id_seq'::regclass);   -- 所有者が postgres でなければマージしない
+```
+
+さらに下の「権限の読み取り」を実行し、grantor に `postgres` 以外が現れたら方針を見直します（取り消しは自分が付与した権限にしか効かないため）。`version()` のメジャー版がローカル検証の 17 と違えば PR 本文に記録します。
+
+**権限の読み取り（B-0 / B-2 共通）**:
+
+```sql
+select a.grantee::regrole as grantee, a.grantor::regrole as grantor, a.privilege_type
+from pg_class c, aclexplode(c.relacl) a
+where c.oid in ('public.plans'::regclass, 'public.plans_id_seq'::regclass)
+order by 1, 3;
+select attname, attacl from pg_attribute where attrelid = 'public.plans'::regclass and attacl is not null;
+select relname, relowner::regrole, relrowsecurity, relforcerowsecurity from pg_class where oid in ('public.plans'::regclass, 'public.plans_id_seq'::regclass);
+select count(*) as policies from pg_policies where schemaname = 'public' and tablename = 'plans';
+```
+
+grantee が PUBLIC の行は `-` と表示されます。
+
+**B-1（適用）**: マージ後、手元で何も流さずに `pnpm db:status` の Local と Remote が一致する。
+
+**B-2（権限が実際に無い）**: 上の「権限の読み取り」で、grantee が表の所有者（`postgres`）だけ、`attacl` が 0 行、`relrowsecurity = t` / `relforcerowsecurity = f` / `policies = 0`。**「マイグレーションが成功した」ではなく、この読み取り結果で合格とします**（取り消しが黙って効かない可能性があるため）。
+
+**B-3（Data API から拒否される）**:
 
 ```bash
 set -a; . ./.env; set +a
@@ -140,7 +202,21 @@ set -a; . ./.env; set +a
 curl -s -w '\nHTTP %{http_code}\n' "$SUPABASE_URL/rest/v1/nonexistent_table" -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
 # 本体: select=id で行の内容を出さずに確認する
 curl -s -D - "$SUPABASE_URL/rest/v1/plans?select=id" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -H 'Prefer: count=exact'
+# 追加・更新・削除の試行（更新・削除は存在しない share_id で条件を付ける）
+curl -s -w '\nHTTP %{http_code}\n' -X POST "$SUPABASE_URL/rest/v1/plans" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -H 'Content-Type: application/json' -d '{"share_id":"b3-probe","data":{}}'
+curl -s -w '\nHTTP %{http_code}\n' -X PATCH "$SUPABASE_URL/rest/v1/plans?share_id=eq.b3-nonexistent" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -H 'Content-Type: application/json' -d '{"data":{}}'
+curl -s -w '\nHTTP %{http_code}\n' -X DELETE "$SUPABASE_URL/rest/v1/plans?share_id=eq.b3-nonexistent" -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
 ```
+
+- 参照は **2xx 以外**で行が返らない。本文が権限エラー（`42501`）なら期待どおり（PostgREST が表を見つけられない扱い `PGRST205` でも行は返らないので可）。**`200` と `[]`（空配列）が返ったら不合格**です（権限の取り消しが効いていない。`[]` は「守られている」場合と「たまたま行が無い」場合を区別できない）。
+- 追加・更新・削除の試行はすべて 2xx 以外。万一追加が成功したら、ダッシュボードで該当行（`share_id = 'b3-probe'`）を削除してから報告する。
+- （任意）GraphQL（`/graphql/v1`）でも `plans` が見えない。
+
+**B-4（アプリは従来どおり）**: ログアウト状態でプランを作って共有 URL を発行し、別のブラウザ（シークレットウィンドウ）で開くと表示される。ログイン状態でも同様。確認に使ったプランはダッシュボードで削除する。
+
+**B-5（認証の公開設定が従来どおり）**: 「9. 認証の設定」の確認コマンドを実行する。
+
+B-2 で権限が残っていた場合は、新しいマイグレーションで直す（「16. 失敗時の検知と復旧」の「前に進めて直す」）前に、連携が流したロールを View logs 等で確認します。issue のクローズは B-0〜B-3 の完了後です。
 
 ## 8. 開発者向け移行手順（#115 のマージ後）
 

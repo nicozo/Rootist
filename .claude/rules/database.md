@@ -19,7 +19,7 @@ DB は Supabase の Postgres、認証は Supabase Auth。ローカル開発は�
 スキーマの正は `supabase/migrations/*.sql`（SQL を手で書く。TS のスキーマ定義は無い）。
 
 1. `pnpm db:new <名前>` で空のマイグレーションを作る（DB には触れない）
-2. SQL を書く。新しい表は同じファイルで RLS を有効化し、ポリシーは作らない（静的検査テストが漏れを止める）
+2. SQL を書く。新しい表は同じファイルで RLS を有効化し、ポリシーは作らず、anon / authenticated / service_role / PUBLIC の権限を `revoke all` する（方針は `docs/supabase-setup.md` の「7. アクセス制御の方針」。静的検査テストが漏れを止める）
 3. PR を出して main へマージする。**Supabase の GitHub 連携が自動適用する**（共有 DB への通常の適用経路はこれだけ。CI の `migrations` チェックが RLS 漏れ・既存ファイルの変更・タイムスタンプ順を検査する）。マージ順＝適用順で、追加するマイグレーションのタイムスタンプは main の最新より新しくする
 4. マージ後に `pnpm db:status` で Local と Remote の一致を確認する
 
