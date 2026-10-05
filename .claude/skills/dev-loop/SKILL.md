@@ -91,7 +91,7 @@ Planner（`planner`）を起動。promptに含めるもの:
 
 1. **devサーバー起動（オーケストレーターの仕事）**:
    - worktree 内で実行する（`.env` の `COMPOSE_PROJECT_NAME` / `DEV_PORT` がそのまま効く。シェルで環境変数を上書きしない）。`DEV_PORT` は `sed -n 's/^DEV_PORT=//p' .env | tail -n1` で読む（issue 番号なし＝未設定なら 5173）
-   - DB は Supabase 開発用クラウドに直結する（ローカルの DB コンテナは起動しない。`.env` の `DATABASE_URL` はメインと同じ値）。スキーマ変更（`supabase/migrations/` に新しいマイグレーション）を含む issue は、マイグレーションの適用を**ユーザーに依頼する**（共有 DB を書き換えるため。**ユーザーが自分の端末で** `pnpm db:migrate` を実行する。`pnpm db:migrate` は TTY 必須で、エージェントからは実行できない・実行しない。`supabase db push` を直接叩く・`--yes` で迂回することも禁止）。`db:push` 相当の履歴なし適用はしない
+   - DB は Supabase 開発用クラウドに直結する（ローカルの DB コンテナは起動しない。`.env` の `DATABASE_URL` はメインと同じ値）。共有 DB へのスキーマ変更（`supabase/migrations/` の新しいマイグレーション）の適用は、**main へのマージ時の自動適用（Supabase の GitHub 連携）だけ**。マージ前の SQL の確認は使い捨てのローカル Postgres（Docker）で行い、共有 DB には流さない。共有 DB 上のスキーマに依存する受け入れ基準は、spec・契約で「マージ後にユーザーが確認する B 項目」に分ける。エージェントは共有 DB に書き込まない（`pnpm db:migrate` / `supabase db push` / `migration repair` の実行、`db push` の直接実行や `--yes` での迂回は禁止。`db:push` 相当の履歴なし適用もしない）。復旧が必要ならユーザーに依頼する（詳細は `docs/supabase-setup.md`）
    - `pnpm dev --port <DEV_PORT> --strictPort` を `run_in_background: true` で起動する。起動前に `lsof -iTCP:<DEV_PORT> -sTCP:LISTEN -P` が**空であることを確認し、空でなければ中断して報告する**。`--strictPort` は別ポートへのずれを防ぐが、ワイルドカードアドレス（Docker の公開ポート等）で LISTEN しているプロセスとの衝突は検知しないことがある（macOS で確認）ため、事前の空き確認が必要。`curl -s -o /dev/null -w "%{http_code}" http://localhost:<DEV_PORT>/` が200を返すまで待つ
 2. QAに **SendMessage**: 「`handoff.md` を読み、http://localhost:<DEV_PORT> でPlaywright動的テストを実施し、評価レポートを `qa_report_iter<N>.md` に書け」（`<DEV_PORT>` は実際の数値に置き換えて URL を明記する。issue 番号なしの場合は 5173）
 3. レポートの総合判定（PASS/FAIL）を読み取る

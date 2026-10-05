@@ -103,9 +103,11 @@ pnpm run db:new <名前>
 # 2. 適用状況の確認（読み取りのみ）
 pnpm run db:status
 
-# 3. 適用（ユーザー自身の端末で実行。TTY 必須。dry-run を見て y/N で確認する）
-pnpm run db:migrate
+# 3. PR を出して main へマージする。Supabase の GitHub 連携が未適用分を自動で適用する（手元で流す必要は無い）
+#    マージ後に pnpm run db:status で Local と Remote が一致したことを確認する
 ```
+
+`pnpm run db:migrate` は復旧専用です（通常は使いません）。連携の設定・ブランチ保護・失敗時の復旧は [`docs/supabase-setup.md`](docs/supabase-setup.md) の「14. GitHub 連携」以降を参照してください。
 
 データベースの確認・編集は Supabase ダッシュボードの Table Editor / SQL Editor を使います。
 
