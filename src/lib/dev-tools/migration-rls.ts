@@ -7,6 +7,13 @@
 // - "public"."x" のようなクォート付き識別子と public. 省略（public 扱い）には対応する
 // - public 以外のスキーマの表は対象外（auth など Supabase 管理側のスキーマは触らない方針）
 // - ALTER TABLE ... ENABLE/DISABLE ROW LEVEL SECURITY と DROP TABLE だけを状態遷移として扱う
+// 権限の検査（checkPrivileges。issue #118）の限界:
+// - 取り消し済みと認める形は `revoke all [privileges] on [table] [public.]<表> from <ロール,...>` だけ
+//   （`revoke select` のような一部の権限、`on all tables in schema public` は認めない=違反になる）
+// - シーケンスの取り消し漏れは検査しない（identity シーケンスの暗黙の名前を追跡しないため）。
+//   シーケンスへの grant は「禁止ロールへの grant」の検査で止まる
+// - 禁止ロール（anon / authenticated / service_role / public）への grant は、対象を問わず（schema への grant も）違反にする
+// - 実 DB の付与者（grantor）の違いは見えない。実機の確認は docs/supabase-setup.md の B 手順で行う
 // このファイルは SvelteKit の仮想モジュールを import しない（単体テストと同じ検査を Node から実行できる）。
 
 export type MigrationFile = { name: string; sql: string };
@@ -104,4 +111,81 @@ export function createdPublicTables(files: MigrationFile[]): string[] {
 		}
 	}
 	return [...tables];
+}
+
+// issue #118: plans のように Data API（REST / GraphQL）に公開させない表は、RLS に加えて権限そのものを取り消す。
+const DATA_API_ROLES = ['anon', 'authenticated', 'service_role', 'public'] as const;
+const REVOKE_ALL_ON_TABLE = new RegExp(
+	String.raw`^revoke\s+all(?:\s+privileges)?\s+on\s+(?:table\s+)?${QUALIFIED}\s+from\s+(.+)$`
+);
+const GRANT_STATEMENT = /^grant\s+.+?\s+on\s+.+?\s+to\s+(.+)$/;
+const ALTER_DEFAULT_GRANT = /^alter\s+default\s+privileges\b.*?\bgrant\b.+?\bto\s+(.+)$/;
+
+/** `a, "b" with grant option` のようなロール列から、ロール名（小文字・クォート除去）の一覧を返す。 */
+function parseRoles(list: string): string[] {
+	return list
+		.replace(/\s+(?:with\s+grant\s+option|granted\s+by\s+.*|cascade|restrict)$/, '')
+		.split(',')
+		.map((r) => unquote(r.trim().split(/\s+/)[0] ?? ''))
+		.filter((r) => r.length > 0);
+}
+
+/**
+ * 全マイグレーションを名前順に走査し、権限に関する違反メッセージを返す（空配列なら合格）。
+ * - public の表それぞれについて、最後の作成（drop 後の再作成を含む）より後に、
+ *   anon / authenticated / service_role / public の全てから `revoke all` していること
+ * - anon / authenticated / service_role / public への grant が1件も無いこと（取り消し後の付け直しも検出する）
+ */
+export function checkPrivileges(files: MigrationFile[]): string[] {
+	const violations: string[] = [];
+	const revoked = new Map<string, Set<string>>(); // 表名 -> 取り消し済みのロール
+	const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
+
+	for (const file of sorted) {
+		for (const statement of splitStatements(file.sql)) {
+			const grant = GRANT_STATEMENT.exec(statement) ?? ALTER_DEFAULT_GRANT.exec(statement);
+			if (grant) {
+				const hit = parseRoles(grant[1]).filter((r) =>
+					(DATA_API_ROLES as readonly string[]).includes(r)
+				);
+				if (hit.length > 0) {
+					violations.push(
+						`${file.name}: ${hit.join(', ')} への grant は禁止（Data API 用ロールに権限を持たせない方針。docs/supabase-setup.md）`
+					);
+				}
+				continue;
+			}
+			const created = CREATE_TABLE.exec(statement);
+			if (created) {
+				const table = publicTable(created[1], created[2]);
+				// create table if not exists は既存の表を作り直さないので、取り消しの記録を消さない
+				if (table !== null && !(statement.includes(' if not exists ') && revoked.has(table))) {
+					revoked.set(table, new Set());
+				}
+				continue;
+			}
+			const dropped = DROP_TABLE.exec(statement);
+			if (dropped) {
+				const table = publicTable(dropped[1], dropped[2]);
+				if (table !== null) revoked.delete(table);
+				continue;
+			}
+			const revoke = REVOKE_ALL_ON_TABLE.exec(statement);
+			if (revoke) {
+				const table = publicTable(revoke[1], revoke[2]);
+				const set = table === null ? undefined : revoked.get(table);
+				if (set) for (const r of parseRoles(revoke[3])) set.add(r);
+			}
+		}
+	}
+
+	for (const [table, set] of revoked) {
+		const missing = DATA_API_ROLES.filter((r) => !set.has(r));
+		if (missing.length > 0) {
+			violations.push(
+				`権限が取り消されていないテーブル: public.${table}（${missing.join(', ')}。同じマイグレーションまでに revoke all on table public.${table} from anon, authenticated, service_role, public を書く）`
+			);
+		}
+	}
+	return violations;
 }
