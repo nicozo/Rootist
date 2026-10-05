@@ -219,7 +219,7 @@ Supabase Auth の既定どおり、**同じメールアドレスの identity は
 
 ## 13. 開発者向け移行手順（#128 のマージ後）
 
-（#128 当時の手順を記録したものです。現在のスキーマ反映は「6. スキーマの反映」と「14. GitHub 連携」が正で、1・3 の `db:migrate` は当時の手順のままです。）
+（#128 当時の手順を記録したものです。現在のスキーマ反映は「6. スキーマの反映」と「14. GitHub 連携」が正で、1・2・4 の `db:migrate` は当時の手順のままです。）
 
 ORM（drizzle-orm）とそのマイグレーション基盤（drizzle-kit）を依存から外し、スキーマの正を `supabase/migrations` に移しました。アプリの DB アクセス経路（Session pooler へ DB 所有者ロールで直結）と public スキーマ（表・列・制約・RLS）は変わりません。
 
@@ -294,18 +294,21 @@ Project Settings > Integrations の GitHub Integration で、Deploy to productio
 
 ## 15. ブランチ保護（GitHub。ユーザーが設定）
 
-連携は main への push でも動くため、「CI を通らないとマージできない」を保つ関門は GitHub のブランチ保護だけです。main に次の **3 点を必須**で設定します（classic のブランチ保護、またはルールセット。ルールセットでは同じ意味の項目）。
+連携は main への push でも動くため、「CI を通らないとマージできない」を保つ関門は GitHub のブランチ保護だけです。main に次の **4 点を必須**で設定します（classic のブランチ保護、またはルールセット。ルールセットでは同じ意味の項目）。
 
 1. **Require status checks to pass before merging** で、必須チェックに **`migrations`**（CI のマイグレーション検査ジョブ。RLS 漏れ・ポリシー混入・既存ファイルの変更・ファイル名形式・タイムスタンプ順を検査する）を指定する。`check` / `lint` / `test` も必須にしてよい。
 2. **Require branches to be up to date before merging**（classic の `strict: true`）。**理由**: タイムスタンプ順の検査は「その PR の CI が走った時点の main」としか比べません。strict が無いと、PR-A（T1）と PR-B（T2 > T1）がどちらも成功し、B が先にマージされた後に A がそのままマージされて、T1 < T2 の逆順で適用されてしまいます。strict なら、A は main を取り込み直して再検査されます。
 3. **管理者もバイパスできない**（classic の `enforce_admins`。ルールセットではバイパス対象を空にする）。バイパスできると、検査を通らない変更や直接 push も連携が適用します。
+4. **Require a pull request before merging**（main への直接 push の禁止）。連携は push でも適用するため、直接 push を禁じないと上の 1〜3 の関門を通らずに共有 DB へ入ります。**承認（approval）の必要数は 0 でよい**（個人開発のため。PR 経由であることだけを強制する）。
 
 確認（読み取りのみ。classic のブランチ保護の場合。ルールセットなら `gh api repos/nicozo/Rootist/rulesets` 系で同等の項目を確認する）:
 
 ```bash
-gh api repos/nicozo/Rootist/branches/main/protection --jq '{strict: .required_status_checks.strict, contexts: .required_status_checks.contexts, enforce_admins: .enforce_admins.enabled}'
-# 期待: strict が true、contexts に "migrations" がある、enforce_admins が true
+gh api repos/nicozo/Rootist/branches/main/protection --jq '{strict: .required_status_checks.strict, contexts: .required_status_checks.contexts, enforce_admins: .enforce_admins.enabled, pr_required: (.required_pull_request_reviews != null)}'
+# 期待: strict が true、contexts に "migrations" がある、enforce_admins が true、pr_required が true
 ```
+
+ルールセットの場合は `gh api repos/nicozo/Rootist/rulesets` 系で、`pull_request` ルール（直接 push の禁止）、`required_status_checks` ルール（`migrations`・strict）、バイパス対象が空であることを確認する。
 
 Supabase 側のチェックが GitHub に現れる場合は、それも必須に加えてよい（現れるかは**未確認**）。
 
@@ -336,13 +339,15 @@ Supabase のマイグレーションには自動の巻き戻しがありませ�
 1. `pnpm db:status` で Local と Remote の差を確認し、DB に実際に何が入ったかを、ダッシュボードの読み取り（Table Editor / SQL Editor の select）で確認する。マイグレーションは 1 ファイル 1 トランザクションなので、失敗したファイルの SQL は**一度も流れていない**（途中まで入ることは無い。確認して違っていたら次の手順に進まず相談する）。
 2. 履歴を整える。失敗したファイル `<ts>_x.sql` を適用済み扱いにする（`migration repair` は**履歴表だけを更新し、SQL は流さない**。公式の Database migrations）。**共有 DB への書き込みなので、ユーザーが判断して実行します（エージェントは実行しない）**:
 
-```bash
-cd <リポジトリ>; set -a; . ./.env; set +a
-pnpm dlx supabase@2.119.0 migration repair <ts> --status applied --db-url "$DATABASE_URL"
-pnpm db:status    # Local と Remote が一致していること
-```
+   ```bash
+   cd <リポジトリ>; set -a; . ./.env; set +a
+   pnpm dlx supabase@2.119.0 migration repair <ts> --status applied --db-url "$DATABASE_URL"
+   pnpm db:status    # Local と Remote が一致していること
+   ```
 
-（`2.119.0` は wrapper が使う版。`src/lib/dev-tools/supabase-db.ts` の `SUPABASE_CLI` と同じにする。）失敗したファイルは main に**残りますが、その SQL は流れていません**。3. 修正は**新しいマイグレーション**として PR で出し、マージで適用させる。**失敗したファイルの SQL は一度も流れていないので、新しいマイグレーションには「本来行いたかった変更の全体」（修正後の SQL）を書く**（直した差分だけを書くと、意図した変更が欠ける）。失敗したファイルは変更・削除しない（CI の検査が止める）。PR 本文に「失敗した `<ts>_x.sql` は repair で適用済み扱いにした。その SQL は流れていない」と書く。
+   （`2.119.0` は wrapper が使う版。`src/lib/dev-tools/supabase-db.ts` の `SUPABASE_CLI` と同じにする。）失敗したファイルは main に**残りますが、その SQL は流れていません**。
+
+3. 修正は**新しいマイグレーション**として PR で出し、マージで適用させる。**失敗したファイルの SQL は一度も流れていないので、新しいマイグレーションには「本来行いたかった変更の全体」（修正後の SQL）を書く**（直した差分だけを書くと、意図した変更が欠ける）。失敗したファイルは変更・削除しない（CI の検査が止める）。PR 本文に「失敗した `<ts>_x.sql` は repair で適用済み扱いにした。その SQL は流れていない」と書く。
 
 - 途中まで適用されて履歴と実際がずれた場合: `pnpm db:status` と上記の読み取りで差を確認し、履歴だけを直すときは同じ `migration repair`（`--status applied` か `--status reverted`）を、実際の DB の状態に合わせてユーザーが判断して実行する。公式の注意: repair は**履歴表だけを更新する**。
 - 連携が使えない間の逃げ道: `pnpm db:migrate`（復旧専用。dry-run → wrapper の `[y/N]` 確認 → 適用。TTY 必須）。
