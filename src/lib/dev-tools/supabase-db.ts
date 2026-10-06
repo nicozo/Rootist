@@ -5,7 +5,7 @@
 // 復旧時に、ユーザーが判断して実行する（マージ前に開発用 DB へ流す使い方は推奨しない。docs/supabase-setup.md）。
 //
 // 制約:
-// - SvelteKit の仮想モジュール（$lib / $env / $app）を import しない。scripts/supabase-db.mjs から
+// - SvelteKit の仮想モジュール（$app/* など）や #lib エイリアスを import しない。scripts/supabase-db.mjs から
 //   Node の型除去でそのまま実行できる構文（enum / parameter properties / namespace を使わない）だけで書く。
 // - 副作用（子プロセス起動・標準入出力・ファイル読み込み）は Deps として注入する（テストでモックする）。
 //

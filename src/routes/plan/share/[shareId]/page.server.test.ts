@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 
 // issue #62: 共有プラン閲覧ページのload単体テスト。DBへは実接続せず取得関数(findPlanByShareId)をモックする。
-// issue #128: ORMをやめ、plansの取得は $lib/server/db/plans に集約した。
+// issue #128: ORMをやめ、plansの取得は #lib/server/db/plans に集約した。
 // issue #115: shareIdのUUID形式チェック（不正形式はDBを呼ばず404）を追加。
 
 const VALID_ID = '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b';
