@@ -1,9 +1,9 @@
 import { json, error } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
+import { GEMINI_API_KEY } from '$app/env/private';
 import type { RequestHandler } from './$types';
-import { isStayMinutesPreset, formatStayMinutes } from '$lib/stay-minutes';
-import { isVisitTime, parseTimeToMinutes } from '$lib/visit-time';
-import { isPlanDate } from '$lib/plan-date';
+import { isStayMinutesPreset, formatStayMinutes } from '#lib/stay-minutes.js';
+import { isVisitTime, parseTimeToMinutes } from '#lib/visit-time.js';
+import { isPlanDate } from '#lib/plan-date.js';
 
 type TimeSlot = 'morning' | 'noon' | 'night';
 
@@ -175,7 +175,7 @@ ${locationList}
 ※ transitRoute は電車・公共交通を利用した区間のみ路線名と降車駅を記載し（例: "半蔵門線（押上駅下車）"）、徒歩・車の場合は null にしてください。移動手段が未指定の場合はモデルが公共交通を選んだ区間にのみ付与してください。実在が不確かな路線・駅名は記載せず省略してください。`;
 
 	const res = await fetch(
-		`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${env.GEMINI_API_KEY}`,
+		`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
 		{
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },

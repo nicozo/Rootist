@@ -2,7 +2,7 @@ import { page } from 'vite-plus/test/browser';
 import { describe, expect, it } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import PlanTimeline from './plan-timeline.svelte';
-import type { RouteDestination, RouteResult } from '$lib/stores/route';
+import type { RouteDestination, RouteResult } from '#lib/stores/route.js';
 
 // issue #62: プラン表示タイムラインのテスト。/plan/result と共有ページの両方で使われる。
 

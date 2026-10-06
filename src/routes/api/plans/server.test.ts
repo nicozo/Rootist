@@ -5,7 +5,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test'
 
 const { insertPlan } = vi.hoisted(() => ({ insertPlan: vi.fn() }));
 
-vi.mock('$lib/server/db/plans', () => ({ insertPlan }));
+vi.mock('#lib/server/db/plans.js', () => ({ insertPlan }));
 
 const { POST } = await import('./+server');
 

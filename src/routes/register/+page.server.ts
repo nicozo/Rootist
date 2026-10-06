@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { isGoogleAuthEnabled } from '$lib/server/supabase';
+import { isGoogleAuthEnabled } from '#lib/server/supabase.js';
 import {
 	normalizeEmail,
 	isValidEmailFormat,
@@ -11,7 +11,7 @@ import {
 	isUnexpectedAuthError,
 	EMAIL_FORMAT_MESSAGE,
 	REGISTER_FAILURE_MESSAGE
-} from '$lib/server/auth-errors';
+} from '#lib/server/auth-errors.js';
 
 // ログイン済みユーザーが /register にアクセスしたら /plan へリダイレクトする
 export const load: PageServerLoad = async ({ locals }) => {

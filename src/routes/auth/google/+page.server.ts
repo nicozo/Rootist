@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { isGoogleAuthEnabled } from '$lib/server/supabase';
+import { isGoogleAuthEnabled } from '#lib/server/supabase.js';
 
 // GETアクセスは /login へ戻す（Googleログインの開始はPOST専用）
 export const load: PageServerLoad = async () => {

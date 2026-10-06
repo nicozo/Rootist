@@ -7,7 +7,7 @@ const { signInWithOAuth, flag } = vi.hoisted(() => ({
 	flag: { enabled: true }
 }));
 
-vi.mock('$lib/server/supabase', () => ({
+vi.mock('#lib/server/supabase.js', () => ({
 	get isGoogleAuthEnabled() {
 		return flag.enabled;
 	}

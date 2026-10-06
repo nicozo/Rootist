@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
+import { GOOGLE_MAPS_API_KEY } from '$app/env/private';
 import type { RequestHandler } from './$types';
 
 const EXCLUDED_TYPES = new Set([
@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ suggestions: [] });
 	}
 
-	if (!env.GOOGLE_MAPS_API_KEY) {
+	if (!GOOGLE_MAPS_API_KEY) {
 		error(500, 'GOOGLE_MAPS_API_KEY is not set');
 	}
 
@@ -42,7 +42,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			'X-Goog-Api-Key': env.GOOGLE_MAPS_API_KEY
+			'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY
 		},
 		body: JSON.stringify({ input: query, languageCode: 'ja', regionCode: 'JP' })
 	});

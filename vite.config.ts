@@ -1,3 +1,5 @@
+import adapter from '@sveltejs/adapter-auto';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, lazyPlugins } from 'vite-plus';
 import { playwright } from 'vite-plus/test/browser-playwright';
@@ -27,7 +29,30 @@ export default defineConfig({
 			'/static/'
 		]
 	},
-	plugins: lazyPlugins(() => [tailwindcss(), sveltekit()]),
+
+	plugins: lazyPlugins(() => [
+		tailwindcss(),
+		sveltekit({
+			// Consult https://svelte.dev/docs/kit/integrations
+			// for more information about preprocessors
+			preprocess: vitePreprocess(),
+
+			// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
+			// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
+			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
+			adapter: adapter(),
+			alias: { '@/*': './path/to/lib/*' },
+			// @migration-task `typescript.config` is deprecated; configure TypeScript in tsconfig.json directly
+			typescript: {
+				// scripts/ 配下（開発基盤のスクリプト）も svelte-check の型検査対象にする
+				config: (config) => {
+					config.include.push('../scripts/**/*.ts');
+
+					return config;
+				}
+			}
+		})
+	]),
 
 	test: {
 		// Vitest v4 compatibility: preserve mock call history.

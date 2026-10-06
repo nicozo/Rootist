@@ -8,7 +8,7 @@ const VALID_ID = '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b';
 
 const { findPlanByShareId } = vi.hoisted(() => ({ findPlanByShareId: vi.fn() }));
 
-vi.mock('$lib/server/db/plans', () => ({ findPlanByShareId }));
+vi.mock('#lib/server/db/plans.js', () => ({ findPlanByShareId }));
 
 const { load } = await import('./+page.server');
 

@@ -1,7 +1,7 @@
 import postgres from 'postgres';
-import { env } from '$env/dynamic/private';
+import { DATABASE_URL } from '$app/env/private';
 
-if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
+if (!DATABASE_URL) throw new Error('DATABASE_URL is not set');
 
 // issue #115: Supabaseの Session pooler（ポート5432）に接続する。Transaction pooler（6543）は
 // プリペアドステートメントを使えないため使わない（docs/supabase-setup.md）。
@@ -16,4 +16,4 @@ export const POOL_OPTIONS = {
 
 // issue #128: ORMは使わず postgres.js で SQL を直接書く。クエリは必ずタグ付きテンプレートで
 // パラメータ化する（文字列連結・sql.unsafe は使わない）。スキーマの正は supabase/migrations。
-export const sql = postgres(env.DATABASE_URL, POOL_OPTIONS);
+export const sql = postgres(DATABASE_URL, POOL_OPTIONS);

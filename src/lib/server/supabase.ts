@@ -1,18 +1,18 @@
 import { createServerClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RequestEvent } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, GOOGLE_AUTH_ENABLED } from '$app/env/private';
 
-if (!env.SUPABASE_URL) throw new Error('SUPABASE_URL is not set');
-if (!env.SUPABASE_PUBLISHABLE_KEY) throw new Error('SUPABASE_PUBLISHABLE_KEY is not set');
+if (!SUPABASE_URL) throw new Error('SUPABASE_URL is not set');
+if (!SUPABASE_PUBLISHABLE_KEY) throw new Error('SUPABASE_PUBLISHABLE_KEY is not set');
 
-const supabaseUrl = env.SUPABASE_URL;
-const supabasePublishableKey = env.SUPABASE_PUBLISHABLE_KEY;
+const supabaseUrl = SUPABASE_URL;
+const supabasePublishableKey = SUPABASE_PUBLISHABLE_KEY;
 
 // /login・/registerのGoogleボタン表示フラグ（issue #117）。Googleの認証情報はSupabaseダッシュボード側に
 // 登録するためアプリからは設定の有無を判定できない。ダッシュボードで設定済みの環境だけ
 // GOOGLE_AUTH_ENABLED=true にする（未設定ならボタンを出さず、email/passwordは影響を受けない）。
-export const isGoogleAuthEnabled = env.GOOGLE_AUTH_ENABLED === 'true';
+export const isGoogleAuthEnabled = GOOGLE_AUTH_ENABLED === 'true';
 
 /** リクエストごとに作るSupabaseサーバー用クライアント（モジュール全体で共有しない） */
 export type SupabaseServerClient = SupabaseClient;
