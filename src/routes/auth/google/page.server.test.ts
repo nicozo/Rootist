@@ -8,6 +8,7 @@ const { signInWithOAuth, flag } = vi.hoisted(() => ({
 }));
 
 vi.mock('#lib/server/supabase.js', () => ({
+	supabaseOrigin: 'https://example.supabase.co',
 	get isGoogleAuthEnabled() {
 		return flag.enabled;
 	}
@@ -61,6 +62,35 @@ describe('/auth/google', () => {
 
 	it('Supabaseがエラーを返したら/login?error=googleへ戻す', async () => {
 		signInWithOAuth.mockResolvedValue({ data: { url: null }, error: { code: 'x' } });
+		await expect(actions.default(actionEvent())).rejects.toMatchObject({
+			status: 303,
+			location: '/login?error=google'
+		});
+	});
+
+	it('Supabase以外のoriginの認可URLが返ったら外部へ遷移せず/login?error=googleへ303で戻す', async () => {
+		signInWithOAuth.mockResolvedValue({
+			data: { url: 'https://evil.example.com/auth/v1/authorize?provider=google' },
+			error: null
+		});
+		await expect(actions.default(actionEvent())).rejects.toMatchObject({
+			status: 303,
+			location: '/login?error=google'
+		});
+		// 認可URLの値はログに出さない
+		expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('evil.example.com');
+	});
+
+	it('認可URLが解釈できない文字列でも500にせず/login?error=googleへ303で戻す', async () => {
+		signInWithOAuth.mockResolvedValue({ data: { url: 'not a url' }, error: null });
+		await expect(actions.default(actionEvent())).rejects.toMatchObject({
+			status: 303,
+			location: '/login?error=google'
+		});
+	});
+
+	it('認可URLが空なら/login?error=googleへ303で戻す', async () => {
+		signInWithOAuth.mockResolvedValue({ data: { url: null }, error: null });
 		await expect(actions.default(actionEvent())).rejects.toMatchObject({
 			status: 303,
 			location: '/login?error=google'
