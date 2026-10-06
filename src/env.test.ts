@@ -5,8 +5,7 @@ import { variables } from './env.js';
 // issue #146: .env.example（環境変数名の正）と src/env.ts の宣言の一致を機械的に検査する。
 
 // .env.example にあるが、アプリのコードからは使わない変数（手元の管理作業用。.claude/rules/database.md）。
-// 文字列そのものが src 内の grep 検証に掛からないよう分割して組み立てる。
-const EXAMPLE_ONLY = ['SUPABASE_SECRET' + '_KEY'];
+const EXAMPLE_ONLY = ['SUPABASE_SECRET_KEY'];
 
 /** .env.example の変数名を抜き出す。`# NAME=...` のコメント行は拾わない */
 function parseExampleNames(text: string): string[] {
