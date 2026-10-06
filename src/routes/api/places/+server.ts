@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { GOOGLE_MAPS_API_KEY } from '$app/env/private';
 import type { RequestHandler } from './$types';
 
@@ -31,7 +31,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const { query } = await request.json();
 
 	if (!query || query.trim().length < 2) {
-		return json({ suggestions: [] });
+		return Response.json({ suggestions: [] });
 	}
 
 	if (!GOOGLE_MAPS_API_KEY) {
@@ -63,5 +63,5 @@ export const POST: RequestHandler = async ({ request }) => {
 			displayAddress: p.structuredFormat.secondaryText.text
 		}));
 
-	return json({ suggestions });
+	return Response.json({ suggestions });
 };
