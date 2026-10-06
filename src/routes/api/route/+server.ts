@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { GEMINI_API_KEY } from '$app/env/private';
 import type { RequestHandler } from './$types';
 import { isStayMinutesPreset, formatStayMinutes } from '#lib/stay-minutes.js';
@@ -174,6 +174,11 @@ ${locationList}
 ※ 電車・公共交通の場合は「○○線で約X分（△△駅下車）」のように路線名と降車駅を含めてください。徒歩・車の場合は「徒歩で約X分」「車で約X分」の形式で記載してください。
 ※ transitRoute は電車・公共交通を利用した区間のみ路線名と降車駅を記載し（例: "半蔵門線（押上駅下車）"）、徒歩・車の場合は null にしてください。移動手段が未指定の場合はモデルが公共交通を選んだ区間にのみ付与してください。実在が不確かな路線・駅名は記載せず省略してください。`;
 
+	// 未設定のままキー無しで外部へ送らない（未定義・空文字は env.ts で undefined に揃う）
+	if (!GEMINI_API_KEY) {
+		error(500, 'GEMINI_API_KEY is not set');
+	}
+
 	const res = await fetch(
 		`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
 		{
@@ -266,7 +271,7 @@ ${locationList}
 		);
 	}
 
-	return json({
+	return Response.json({
 		...routeData,
 		origin,
 		transportMode: transportMode ?? null,

@@ -33,24 +33,9 @@ export default defineConfig({
 	plugins: lazyPlugins(() => [
 		tailwindcss(),
 		sveltekit({
-			// Consult https://svelte.dev/docs/kit/integrations
-			// for more information about preprocessors
 			preprocess: vitePreprocess(),
-
-			// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-			// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
-			adapter: adapter(),
-			alias: { '@/*': './path/to/lib/*' },
-			// @migration-task `typescript.config` is deprecated; configure TypeScript in tsconfig.json directly
-			typescript: {
-				// scripts/ 配下（開発基盤のスクリプト）も svelte-check の型検査対象にする
-				config: (config) => {
-					config.include.push('../scripts/**/*.ts');
-
-					return config;
-				}
-			}
+			// adapter-auto が対応する環境は https://svelte.dev/docs/kit/adapter-auto を参照
+			adapter: adapter()
 		})
 	]),
 
@@ -76,6 +61,8 @@ export default defineConfig({
 				'src/**/*.svelte.{test,spec}.{js,ts}',
 				// 実行可能コードを持たない型定義
 				'src/**/*.d.ts',
+				// テスト専用のヘルパー（環境変数モックなど）
+				'src/**/test-utils/**',
 				// shadcn-svelte CLIが生成するベンダーコード。自前のロジックではなく、
 				// アプリが使っていないパーツも含まれるため計測対象から外す
 				// （利用箇所はアプリ側のコンポーネント・ページのテストで通る）
