@@ -13,7 +13,7 @@
 		CalendarDays
 	} from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
-	import type { RouteResult } from '$lib/stores/route';
+	import { TIME_SLOT_LABELS, type RouteResult } from '$lib/stores/route';
 	import { isStayMinutesPreset, formatStayMinutes } from '$lib/stay-minutes';
 	import { isVisitTime } from '$lib/visit-time';
 	import { isPlanDate, formatPlanDate } from '$lib/plan-date';
@@ -24,11 +24,7 @@
 
 	let { result }: Props = $props();
 
-	const timeSlotLabels: Record<string, string> = {
-		morning: '朝',
-		noon: '昼',
-		night: '晩'
-	};
+	const timeSlotLabels: Record<string, string> = TIME_SLOT_LABELS;
 </script>
 
 <div in:fly={{ y: 10, duration: 500, delay: 100 }}>
@@ -147,11 +143,15 @@
 							</div>
 						</Card.Action>
 					</Card.Header>
-					<Card.Content>
-						<p class="border-t border-border/50 pt-2 text-xs leading-relaxed text-muted-foreground">
-							{dest.description}
-						</p>
-					</Card.Content>
+					{#if dest.description}
+						<Card.Content>
+							<p
+								class="border-t border-border/50 pt-2 text-xs leading-relaxed text-muted-foreground"
+							>
+								{dest.description}
+							</p>
+						</Card.Content>
+					{/if}
 				</Card.Root>
 			</div>
 		</div>

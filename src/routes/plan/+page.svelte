@@ -34,7 +34,7 @@
 	} from '@lucide/svelte';
 	import { fly, slide, fade } from 'svelte/transition';
 	import { get } from 'svelte/store';
-	import { routeResult, planDraft } from '$lib/stores/route';
+	import { routeResult, planDraft, type LatLng, type Place } from '$lib/stores/route';
 	import { STAY_MINUTES_PRESETS, formatStayMinutes } from '$lib/stay-minutes';
 
 	// issue #64: 「もう一度計画する」で戻ってきた場合のみ、直前の入力を1回だけ復元する。
@@ -48,9 +48,7 @@
 	let transportMode = $state<TransportMode>(restoredDraft?.transportMode ?? '');
 
 	// 出発地
-	let origin = $state<{ name: string; displayAddress: string } | null>(
-		restoredDraft?.origin ?? null
-	);
+	let origin = $state<Place | null>(restoredDraft?.origin ?? null);
 
 	// 出発時刻
 	let startTime = $state(restoredDraft?.startTime ?? '');
@@ -59,9 +57,7 @@
 	let planDate = $state(restoredDraft?.planDate ?? '');
 
 	// ゴール（宿泊先など）
-	let endDestination = $state<{ name: string; displayAddress: string } | null>(
-		restoredDraft?.endDestination ?? null
-	);
+	let endDestination = $state<Place | null>(restoredDraft?.endDestination ?? null);
 	// ゴール入力欄の展開状態
 	let isGoalOpen = $state(false);
 
@@ -89,6 +85,7 @@
 			timeSlot: TimeSlot;
 			stayMinutes: StayMinutes;
 			arriveAt: string;
+			location?: LatLng;
 		}[]
 	>(
 		(restoredDraft?.locations ?? []).map((loc) => ({
@@ -97,7 +94,8 @@
 			displayAddress: loc.displayAddress,
 			timeSlot: loc.timeSlot,
 			stayMinutes: loc.stayMinutes,
-			arriveAt: loc.arriveAt ?? ''
+			arriveAt: loc.arriveAt ?? '',
+			location: loc.location
 		}))
 	);
 	let isGenerating = $state(false);
@@ -141,12 +139,19 @@
 						displayAddress: l.displayAddress ?? '',
 						timeSlot: l.timeSlot || undefined,
 						stayMinutes: l.stayMinutes || undefined,
-						arriveAt: l.arriveAt || undefined
+						arriveAt: l.arriveAt || undefined,
+						location: l.location
 					}))
 				})
 			});
 			if (!res.ok) {
-				generateError = 'プランの作成に失敗しました。もう一度お試しください。';
+				// 入力起因の400（位置情報の欠落・件数超過など）は再試行しても直らないので理由をそのまま出す
+				const message =
+					res.status === 400 ? ((await res.json().catch(() => null))?.message as unknown) : null;
+				generateError =
+					typeof message === 'string'
+						? `${message}。場所を削除して選び直してください。`
+						: 'プランの作成に失敗しました。もう一度お試しください。';
 				return;
 			}
 			const data = await res.json();
@@ -182,7 +187,7 @@
 			<div>
 				<h1 class="text-2xl font-bold text-primary">旅行プランをつくる</h1>
 				<p class="text-xs font-medium text-muted-foreground">
-					行きたい場所を入れるだけ。順番と時間はAIが決めます
+					行きたい場所を入れるだけ。順番と時間は自動で決まります
 				</p>
 			</div>
 		</header>
@@ -241,7 +246,8 @@
 						label="出発地"
 						icon={Home}
 						placeholder="例：自宅最寄り駅、宿泊ホテル..."
-						onSelect={(s) => (origin = { name: s.name, displayAddress: s.displayAddress })}
+						onSelect={(s) =>
+							(origin = { name: s.name, displayAddress: s.displayAddress, location: s.location })}
 					/>
 				{/if}
 
@@ -319,7 +325,8 @@
 							displayAddress: s.displayAddress,
 							timeSlot: '',
 							stayMinutes: '',
-							arriveAt: ''
+							arriveAt: '',
+							location: s.location
 						})}
 				/>
 			</Field.Field>
@@ -480,7 +487,11 @@
 						icon={Flag}
 						placeholder="例：新宿グランドホテル..."
 						onSelect={(s) => {
-							endDestination = { name: s.name, displayAddress: s.displayAddress };
+							endDestination = {
+								name: s.name,
+								displayAddress: s.displayAddress,
+								location: s.location
+							};
 							isGoalOpen = false;
 						}}
 					/>

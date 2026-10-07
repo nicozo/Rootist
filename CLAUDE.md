@@ -82,4 +82,4 @@ docker compose --profile dev up -d    # dev コンテナ起動（prod は --prof
 **スタック**: SvelteKit (Svelte 5) + TypeScript + Tailwind CSS v4 + PostgreSQL（Supabase）+ postgres.js（SQL 直書き。ORM なし）
 
 - DB・認証は Supabase（Postgres + Supabase Auth）。方式・スキーマ変更の手順・サーバーサイド構成は `.claude/rules/database.md`
-- 外部 API: Google Places API (New)（住所検索）、Google Gemini API（プラン生成、REST 直叩き）
+- 外部 API: Google Places API (New)（住所検索・座標取得）。訪問順序とスケジュールは外部 API を使わず `src/lib/server/route-planner.ts` で計算する

@@ -31,13 +31,24 @@ function settle() {
 	return new Promise((r) => setTimeout(r, DEBOUNCE_MS + 150));
 }
 
-/** /api/places のレスポンスを返すfetchモックを立てる。 */
-function stubPlaces(suggestions: unknown) {
+const LOCATION = { lat: 35.7148, lng: 139.7967 };
+
+/** /api/places（候補）と /api/places/details（座標）のレスポンスを返すfetchモックを立てる。 */
+function stubPlaces(suggestions: unknown, detailsStatus = 200) {
 	const fetchSpy = vi
 		.fn()
-		.mockResolvedValue(new Response(JSON.stringify({ suggestions }), { status: 200 }));
+		.mockImplementation(async (url: string) =>
+			url === '/api/places/details'
+				? new Response(JSON.stringify({ location: LOCATION }), { status: detailsStatus })
+				: new Response(JSON.stringify({ suggestions }), { status: 200 })
+		);
 	vi.stubGlobal('fetch', fetchSpy);
 	return fetchSpy;
+}
+
+/** n番目のfetch呼び出しのボディ。 */
+function bodyOf(fetchSpy: ReturnType<typeof vi.fn>, n: number) {
+	return JSON.parse(fetchSpy.mock.calls[n][1].body);
 }
 
 /** 候補一覧が開いているか。 */
@@ -81,7 +92,7 @@ describe('place-combobox', () => {
 		await settle();
 
 		expect(fetchSpy).toHaveBeenCalledOnce();
-		expect(JSON.parse(fetchSpy.mock.calls[0][1].body)).toEqual({ query: '浅草' });
+		expect(bodyOf(fetchSpy, 0)).toEqual({ query: '浅草', sessionToken: expect.any(String) });
 		await expect.element(page.getByText('浅草寺')).toBeInTheDocument();
 		await expect.element(page.getByText('台東区浅草')).toBeInTheDocument();
 	});
@@ -97,7 +108,7 @@ describe('place-combobox', () => {
 		await settle();
 
 		expect(fetchSpy).toHaveBeenCalledOnce();
-		expect(JSON.parse(fetchSpy.mock.calls[0][1].body)).toEqual({ query: '浅草寺' });
+		expect(bodyOf(fetchSpy, 0)).toMatchObject({ query: '浅草寺' });
 	});
 
 	it('候補が0件なら一覧を開かない', async () => {
@@ -110,8 +121,8 @@ describe('place-combobox', () => {
 		expect(listOpen(container)).toBe(false);
 	});
 
-	it('候補を選ぶとonSelectへ渡し入力欄を空にする', async () => {
-		stubPlaces(SUGGESTIONS);
+	it('候補を選ぶと座標を取得してonSelectへ渡し入力欄を空にする', async () => {
+		const fetchSpy = stubPlaces(SUGGESTIONS);
 		const onSelect = vi.fn();
 		await renderCombobox(onSelect);
 
@@ -119,8 +130,46 @@ describe('place-combobox', () => {
 		await settle();
 		await page.getByText('浅草寺').click();
 
-		expect(onSelect).toHaveBeenCalledWith(SUGGESTIONS[0]);
+		await vi.waitFor(() =>
+			expect(onSelect).toHaveBeenCalledWith({ ...SUGGESTIONS[0], location: LOCATION })
+		);
 		await expect.element(page.getByPlaceholder('行き先を入力')).toHaveValue('');
+		// issue #149: 候補検索と座標取得は同じセッショントークンで呼ぶ（Autocomplete を無料にするため）
+		expect(fetchSpy.mock.calls[1][0]).toBe('/api/places/details');
+		expect(bodyOf(fetchSpy, 1)).toEqual({
+			placeId: 'id-1',
+			sessionToken: bodyOf(fetchSpy, 0).sessionToken
+		});
+	});
+
+	it('1件選んだら次の検索は新しいセッショントークンで行う', async () => {
+		const fetchSpy = stubPlaces(SUGGESTIONS);
+		await renderCombobox();
+
+		const input = page.getByPlaceholder('行き先を入力');
+		await input.fill('浅草');
+		await settle();
+		await page.getByText('浅草寺').click();
+		await expect.element(input).toHaveValue('');
+		await input.fill('上野');
+		await settle();
+
+		expect(bodyOf(fetchSpy, 2).sessionToken).not.toBe(bodyOf(fetchSpy, 0).sessionToken);
+	});
+
+	it('座標の取得に失敗したらonSelectを呼ばずエラーを表示する', async () => {
+		stubPlaces(SUGGESTIONS, 502);
+		const onSelect = vi.fn();
+		await renderCombobox(onSelect);
+
+		await page.getByPlaceholder('行き先を入力').fill('浅草');
+		await settle();
+		await page.getByText('浅草寺').click();
+
+		await expect
+			.element(page.getByRole('alert'))
+			.toHaveTextContent('場所の位置情報を取得できませんでした。もう一度選んでください。');
+		expect(onSelect).not.toHaveBeenCalled();
 	});
 
 	it('検索APIが失敗しても候補を出さず落ちない', async () => {

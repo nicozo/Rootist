@@ -3,6 +3,7 @@
 	import { Command as CommandPrimitive } from 'bits-ui';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { Component } from 'svelte';
+	import type { LatLng } from '$lib/stores/route';
 
 	interface Suggestion {
 		placeId: string;
@@ -21,26 +22,32 @@
 		label: string;
 		placeholder: string;
 		icon: Component;
-		onSelect: (s: Suggestion) => void;
+		onSelect: (s: Suggestion & { location: LatLng }) => void;
 	} = $props();
 
 	let query = $state('');
 	let suggestions = $state<Suggestion[]>([]);
 	let loading = $state(false);
 	let open = $state(false);
+	// 選んだ候補の座標を取得中か
+	let resolving = $state(false);
+	let selectError = $state<string | null>(null);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	// 候補検索〜1件選択までを1セッションとして同じトークンで呼ぶ（Autocomplete の課金をまとめるため。issue #149）
+	let sessionToken = crypto.randomUUID();
 
 	async function searchPlaces(q: string): Promise<Suggestion[]> {
 		const res = await fetch('/api/places', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ query: q })
+			body: JSON.stringify({ query: q, sessionToken })
 		});
 		const { suggestions: data } = await res.json();
 		return data;
 	}
 
 	function handleInput() {
+		selectError = null;
 		if (debounceTimer) clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(async () => {
 			if (query.trim().length < 2) {
@@ -61,11 +68,37 @@
 		}, 350);
 	}
 
-	function handleSelect(s: Suggestion) {
-		onSelect(s);
-		query = '';
-		suggestions = [];
+	async function fetchLocation(placeId: string): Promise<LatLng> {
+		const res = await fetch('/api/places/details', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ placeId, sessionToken })
+		});
+		if (!res.ok) throw new Error(`details ${res.status}`);
+		const { location } = await res.json();
+		return location;
+	}
+
+	async function handleSelect(s: Suggestion) {
+		if (resolving) return;
 		open = false;
+		resolving = true;
+		selectError = null;
+		const queryAtSelect = query;
+		try {
+			const location = await fetchLocation(s.placeId);
+			onSelect({ ...s, location });
+			// 座標の取得中に次の入力が始まっていたら、その入力は消さない
+			if (query === queryAtSelect) {
+				query = '';
+				suggestions = [];
+			}
+		} catch {
+			selectError = '場所の位置情報を取得できませんでした。もう一度選んでください。';
+		} finally {
+			resolving = false;
+			sessionToken = crypto.randomUUID();
+		}
 	}
 </script>
 
@@ -88,7 +121,7 @@
 			autocomplete="off"
 			class="w-full rounded-xl border border-primary/10 bg-card py-5 pr-10 pl-10 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-accent"
 		/>
-		{#if loading}
+		{#if loading || resolving}
 			<div class="absolute top-1/2 right-3 z-10 -translate-y-1/2">
 				<Spinner class="text-primary" />
 			</div>
@@ -111,5 +144,8 @@
 				{/each}
 			</Command.Group>
 		</Command.List>
+	{/if}
+	{#if selectError}
+		<p role="alert" class="mt-1 text-xs text-destructive">{selectError}</p>
 	{/if}
 </Command.Root>
