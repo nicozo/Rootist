@@ -1,8 +1,6 @@
 import postgres from 'postgres';
 import { DATABASE_URL } from '$app/env/private';
 
-if (!DATABASE_URL) throw new Error('DATABASE_URL is not set');
-
 // issue #115: Supabaseの Session pooler（ポート5432）に接続する。Transaction pooler（6543）は
 // プリペアドステートメントを使えないため使わない（docs/supabase-setup.md）。
 // postgres.jsは最初のクエリ時に接続する（import時には接続しない）。

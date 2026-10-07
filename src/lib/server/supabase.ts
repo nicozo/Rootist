@@ -3,9 +3,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RequestEvent } from '@sveltejs/kit';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, GOOGLE_AUTH_ENABLED } from '$app/env/private';
 
-if (!SUPABASE_URL) throw new Error('SUPABASE_URL is not set');
-if (!SUPABASE_PUBLISHABLE_KEY) throw new Error('SUPABASE_PUBLISHABLE_KEY is not set');
-
 const supabaseUrl = SUPABASE_URL;
 const supabasePublishableKey = SUPABASE_PUBLISHABLE_KEY;
 

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vite-plus/test';
 import { variables } from './env.js';
+import { validateEnvVar } from '#lib/server/test-utils/mock-env.js';
 
 // issue #146: .env.example（環境変数名の正）と src/env.ts の宣言の一致を機械的に検査する。
 
@@ -49,5 +50,28 @@ describe('.env.example と src/env.ts の変数名の一致', () => {
 	it('陽性対照: 除外リストの名前が .env.example から消えたら検出する', () => {
 		const r = compareNames(['A'], ['A'], ['GONE']);
 		expect(r.staleExampleOnly).toEqual(['GONE']);
+	});
+});
+
+// 必須 3 変数は schema が throw する（build 時・起動時の検証に当たる）。利用時必須と任意は undefined で通す
+describe('src/env.ts の schema', () => {
+	const REQUIRED = ['DATABASE_URL', 'SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY'] as const;
+	const NOT_REQUIRED = ['GOOGLE_MAPS_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_AUTH_ENABLED'] as const;
+
+	it.each(REQUIRED.flatMap((n) => [undefined, ''].map((v) => [n, v] as const)))(
+		'必須の %s は %j のとき変数名入りのエラーで throw する',
+		(name, value) => {
+			expect(() => validateEnvVar(name, value)).toThrow(`${name} is not set`);
+		}
+	);
+
+	it.each(REQUIRED)('必須の %s は値があればそのまま返す（値はエラーに含めない）', (name) => {
+		expect(validateEnvVar(name, 'v-123')).toBe('v-123');
+	});
+
+	it.each(NOT_REQUIRED)('%s は未定義・空文字でも throw せず undefined を返す', (name) => {
+		expect(validateEnvVar(name, undefined)).toBeUndefined();
+		expect(validateEnvVar(name, '')).toBeUndefined();
+		expect(validateEnvVar(name, 'x')).toBe('x');
 	});
 });

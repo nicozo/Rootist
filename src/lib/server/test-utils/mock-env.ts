@@ -21,16 +21,37 @@ export function clearMockEnv() {
 	for (const key of Object.keys(mockEnv)) delete mockEnv[key];
 }
 
+type StandardSchema = {
+	'~standard': {
+		validate(value: string | undefined): {
+			value?: unknown;
+			issues?: readonly { message: string }[];
+		};
+	};
+};
+
+/**
+ * src/env.ts の schema（defineEnvVars が標準スキーマに正規化したもの）で値を検証する。
+ * 不正（必須の未設定など）なら、実機の起動時 / build 時の検証と同じ内容の Error を投げる。
+ */
+export function validateEnvVar(name: string, value: string | undefined) {
+	const schema = (variables as unknown as Record<string, { schema: StandardSchema }>)[name].schema;
+	const result = schema['~standard'].validate(value);
+	if (result.issues) throw new Error(result.issues.map((i) => i.message).join('; '));
+	return result.value;
+}
+
 /**
  * `$app/env/private` の代わりになるモジュールを作る。公開する変数名は src/env.ts の宣言から導出し、
- * 値は読むたびに mockEnv から取る。空文字は未設定（undefined）として扱う（env.ts の schema と同じ規則）。
+ * 値は読むたびに mockEnv から取り、src/env.ts の schema を通す（空文字は未設定の扱い。必須変数の未設定は schema が
+ * throw するので、読んだ時点＝それを使うモジュールの読み込み時に失敗する。実機では起動時 / build 時の検証に当たる）。
  */
 export function createEnvModule() {
 	const mod: Record<string, string | undefined> = {};
 	for (const name of Object.keys(variables)) {
 		Object.defineProperty(mod, name, {
 			enumerable: true,
-			get: () => mockEnv[name] || undefined
+			get: () => validateEnvVar(name, mockEnv[name]) as string | undefined
 		});
 	}
 	return mod;
