@@ -43,7 +43,6 @@ services:
       - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-}
       - GOOGLE_AUTH_ENABLED=${GOOGLE_AUTH_ENABLED:-}
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       # 本番環境用の環境変数
       - ORIGIN=https://yourdomain.com
       - BODY_SIZE_LIMIT=10485760

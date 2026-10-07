@@ -125,6 +125,25 @@ describe('POST /api/places', () => {
 		});
 	});
 
+	it.each([
+		['有効なセッショントークンは転送する', 'token-1', { sessionToken: 'token-1' }],
+		['形式外のセッショントークンは転送しない', 'a b&c', {}]
+	])('%s（issue #149）', async (_label, sessionToken, expected) => {
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValue(new Response(JSON.stringify({ suggestions: [] }), { status: 200 }));
+		vi.stubGlobal('fetch', fetchSpy);
+
+		await POST(eventWith({ query: '東京駅', sessionToken }));
+
+		expect(JSON.parse(fetchSpy.mock.calls[0][1].body)).toEqual({
+			input: '東京駅',
+			languageCode: 'ja',
+			regionCode: 'JP',
+			...expected
+		});
+	});
+
 	it('行政区画など除外対象のtypesを持つ候補を取り除く', async () => {
 		vi.stubGlobal(
 			'fetch',

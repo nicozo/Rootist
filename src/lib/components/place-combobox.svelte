@@ -3,6 +3,7 @@
 	import { Command as CommandPrimitive } from 'bits-ui';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { Component } from 'svelte';
+	import type { LatLng } from '$lib/stores/route';
 
 	interface Suggestion {
 		placeId: string;
@@ -21,20 +22,23 @@
 		label: string;
 		placeholder: string;
 		icon: Component;
-		onSelect: (s: Suggestion) => void;
+		onSelect: (s: Suggestion & { location: LatLng }) => void;
 	} = $props();
 
 	let query = $state('');
 	let suggestions = $state<Suggestion[]>([]);
 	let loading = $state(false);
 	let open = $state(false);
+	let selectError = $state<string | null>(null);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	// 候補検索〜1件選択までを1セッションとして同じトークンで呼ぶ（Autocomplete の課金をまとめるため。issue #149）
+	let sessionToken = crypto.randomUUID();
 
 	async function searchPlaces(q: string): Promise<Suggestion[]> {
 		const res = await fetch('/api/places', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ query: q })
+			body: JSON.stringify({ query: q, sessionToken })
 		});
 		const { suggestions: data } = await res.json();
 		return data;
@@ -61,11 +65,32 @@
 		}, 350);
 	}
 
-	function handleSelect(s: Suggestion) {
-		onSelect(s);
-		query = '';
-		suggestions = [];
+	async function fetchLocation(placeId: string): Promise<LatLng> {
+		const res = await fetch('/api/places/details', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ placeId, sessionToken })
+		});
+		if (!res.ok) throw new Error(`details ${res.status}`);
+		const { location } = await res.json();
+		return location;
+	}
+
+	async function handleSelect(s: Suggestion) {
 		open = false;
+		loading = true;
+		selectError = null;
+		try {
+			const location = await fetchLocation(s.placeId);
+			onSelect({ ...s, location });
+			query = '';
+			suggestions = [];
+		} catch {
+			selectError = '場所の位置情報を取得できませんでした。もう一度選んでください。';
+		} finally {
+			loading = false;
+			sessionToken = crypto.randomUUID();
+		}
 	}
 </script>
 
@@ -111,5 +136,8 @@
 				{/each}
 			</Command.Group>
 		</Command.List>
+	{/if}
+	{#if selectError}
+		<p role="alert" class="mt-1 text-xs text-destructive">{selectError}</p>
 	{/if}
 </Command.Root>

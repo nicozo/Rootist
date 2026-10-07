@@ -5,7 +5,7 @@ import { get } from 'svelte/store';
 import { routeResult, planDraft, type PlanDraft } from '$lib/stores/route';
 
 // issue #62: プラン作成ページのテスト。
-// /api/places（Google Places）と /api/route（Gemini）は課金対象なのでfetchをモックし実接続しない。
+// /api/places（Google Places）と /api/route はサーバー側の処理なのでfetchをモックし実接続しない。
 
 const { goto } = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto }));
@@ -19,11 +19,19 @@ const PLACES = [
 	{ placeId: 'p2', name: '浅草寺', displayAddress: '台東区浅草' }
 ];
 
-/** /api/places と /api/route の両方に応答するfetchモックを立てる。 */
+/** /api/places/details が返す座標（全候補共通） */
+const LOCATION = { lat: 35.6586, lng: 139.7454 };
+
+/** /api/places・/api/places/details・/api/route に応答するfetchモックを立てる。 */
 function stubApis(routeResponse?: Response) {
 	const fetchSpy = vi
 		.fn<(url: string, init: { body: string }) => Promise<Response>>()
 		.mockImplementation((url) => {
+			if (String(url) === '/api/places/details') {
+				return Promise.resolve(
+					new Response(JSON.stringify({ location: LOCATION }), { status: 200 })
+				);
+			}
 			if (String(url).includes('/api/places')) {
 				return Promise.resolve(
 					new Response(JSON.stringify({ suggestions: PLACES }), { status: 200 })
@@ -538,7 +546,8 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
 		expect(JSON.parse(routeCall![1].body).origin).toEqual({
 			name: '東京タワー',
-			displayAddress: '港区芝公園'
+			displayAddress: '港区芝公園',
+			location: LOCATION
 		});
 	});
 
@@ -556,7 +565,8 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
 		expect(JSON.parse(routeCall![1].body).endDestination).toEqual({
 			name: '浅草寺',
-			displayAddress: '台東区浅草'
+			displayAddress: '台東区浅草',
+			location: LOCATION
 		});
 	});
 
@@ -654,9 +664,16 @@ describe('/plan +page.svelte プラン作成', () => {
 				name: '東京タワー',
 				displayAddress: '港区芝公園',
 				timeSlot: undefined,
-				stayMinutes: undefined
+				stayMinutes: undefined,
+				location: LOCATION
 			},
-			{ name: '浅草寺', displayAddress: '台東区浅草', timeSlot: undefined, stayMinutes: undefined }
+			{
+				name: '浅草寺',
+				displayAddress: '台東区浅草',
+				timeSlot: undefined,
+				stayMinutes: undefined,
+				location: LOCATION
+			}
 		]);
 		expect(get(routeResult)).toEqual({ destinations: [], summary: '生成された概要' });
 	});
@@ -708,25 +725,35 @@ describe('/plan +page.svelte プラン作成', () => {
 // issue #64: 「もう一度計画する」経由でのみ入力を復元する挙動のテスト。
 describe('/plan +page.svelte 入力の復元（もう一度計画する）', () => {
 	const DRAFT: PlanDraft = {
-		origin: { name: '東京駅', displayAddress: '千代田区丸の内' },
+		origin: {
+			name: '東京駅',
+			displayAddress: '千代田区丸の内',
+			location: { lat: 35.6812, lng: 139.7671 }
+		},
 		transportMode: 'transit',
 		startTime: '09:30',
 		planDate: '2026-09-05',
-		endDestination: { name: '新宿グランドホテル', displayAddress: '新宿区西新宿' },
+		endDestination: {
+			name: '新宿グランドホテル',
+			displayAddress: '新宿区西新宿',
+			location: { lat: 35.6896, lng: 139.6917 }
+		},
 		locations: [
 			{
 				address: '浅草寺',
 				displayAddress: '台東区浅草',
 				timeSlot: 'morning',
 				stayMinutes: 90,
-				arriveAt: ''
+				arriveAt: '',
+				location: { lat: 35.7148, lng: 139.7967 }
 			},
 			{
 				address: '東京タワー',
 				displayAddress: '港区芝公園',
 				timeSlot: '',
 				stayMinutes: '',
-				arriveAt: '13:00'
+				arriveAt: '13:00',
+				location: { lat: 35.6586, lng: 139.7454 }
 			}
 		]
 	};
@@ -796,14 +823,16 @@ describe('/plan +page.svelte 入力の復元（もう一度計画する）', () 
 				displayAddress: '台東区浅草',
 				timeSlot: 'morning',
 				stayMinutes: 90,
-				arriveAt: undefined
+				arriveAt: undefined,
+				location: DRAFT.locations[0].location
 			},
 			{
 				name: '東京タワー',
 				displayAddress: '港区芝公園',
 				timeSlot: undefined,
 				stayMinutes: undefined,
-				arriveAt: '13:00'
+				arriveAt: '13:00',
+				location: DRAFT.locations[1].location
 			}
 		]);
 	});

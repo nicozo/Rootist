@@ -59,6 +59,16 @@ describe('plan-timeline', () => {
 		await expect.element(page.getByText('雷門が有名')).toBeInTheDocument();
 	});
 
+	it('説明が空の目的地は説明欄を描画しない（issue #149）', async () => {
+		const { container } = await renderTimeline(
+			result({ destinations: [destination(1, { description: '' })] })
+		);
+
+		await expect.element(page.getByText('場所1')).toBeInTheDocument();
+		// 概要カードの1つだけになる
+		expect(container.querySelectorAll('[data-slot="card-content"]').length).toBe(1);
+	});
+
 	it('目的地の順番を番号で表示する', async () => {
 		const { container } = await renderTimeline(
 			result({ destinations: [destination(1), destination(2)] })

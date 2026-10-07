@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
+import { isSessionToken } from '$lib/server/places';
 
 const EXCLUDED_TYPES = new Set([
 	'administrative_area_level_1',
@@ -28,7 +29,7 @@ interface AutocompleteResponse {
 }
 
 export const POST: RequestHandler = async ({ request }) => {
-	const { query } = await request.json();
+	const { query, sessionToken } = await request.json();
 
 	if (!query || query.trim().length < 2) {
 		return json({ suggestions: [] });
@@ -44,7 +45,12 @@ export const POST: RequestHandler = async ({ request }) => {
 			'Content-Type': 'application/json',
 			'X-Goog-Api-Key': env.GOOGLE_MAPS_API_KEY
 		},
-		body: JSON.stringify({ input: query, languageCode: 'ja', regionCode: 'JP' })
+		body: JSON.stringify({
+			input: query,
+			languageCode: 'ja',
+			regionCode: 'JP',
+			...(isSessionToken(sessionToken) ? { sessionToken } : {})
+		})
 	});
 
 	if (!res.ok) {
