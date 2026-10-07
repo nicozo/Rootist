@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { routeResult, planDraft, type PlanDraft } from '$lib/stores/route';
+	import { routeResult, planDraft, TRANSPORT_MODES, type PlanDraft } from '$lib/stores/route';
 	import { Button } from '$lib/components/ui/button';
 	import PlanTimeline from '$lib/components/plan-timeline.svelte';
 	import { Navigation, RotateCcw, Share2, Check, Loader2 } from '@lucide/svelte';
@@ -36,16 +36,14 @@
 		}
 	}
 
-	const KNOWN_TRANSPORT_MODES = ['transit', 'car', 'walking'] as const;
-
 	/**
 	 * 現在の result から入力復元用の下書きを組み立てて planDraft にセットし、/plan へ戻る。
 	 * 「もう一度計画する」ボタン押下時のみ実行される（issue #64）。
 	 */
 	function planAgain() {
 		if (result) {
-			const transportMode = KNOWN_TRANSPORT_MODES.includes(
-				result.transportMode as (typeof KNOWN_TRANSPORT_MODES)[number]
+			const transportMode = TRANSPORT_MODES.includes(
+				result.transportMode as (typeof TRANSPORT_MODES)[number]
 			)
 				? (result.transportMode as PlanDraft['transportMode'])
 				: '';

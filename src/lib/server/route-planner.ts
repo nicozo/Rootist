@@ -6,10 +6,7 @@
  * 制約が無ければ終了時刻の最小化は移動時間合計の最小化と一致する。
  * 目的地が少ないときは全順列を枝刈り付きで探索して厳密解を、多いときは最近傍法 + 2-opt / Or-opt の局所探索で近似解を求める。
  */
-import type { LatLng } from '$lib/stores/route';
-
-export type TravelMode = 'transit' | 'car' | 'walking';
-export type TimeSlot = 'morning' | 'noon' | 'night';
+import type { LatLng, TimeSlot, TransportMode as TravelMode } from '$lib/stores/route';
 
 export interface PlannerStop {
 	location: LatLng;

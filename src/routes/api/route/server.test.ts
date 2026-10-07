@@ -83,6 +83,14 @@ describe('POST /api/route 入力検証', () => {
 		});
 	});
 
+	it('目的地が上限（20件）を超えたら400を返す', async () => {
+		const many = Array.from({ length: 21 }, (_, i) => ({ ...SENSOJI, name: `場所${i}` }));
+		await expect(POST(eventWith({ locations: many }))).rejects.toMatchObject({
+			status: 400,
+			body: { message: '目的地は20件までです' }
+		});
+	});
+
 	it('出発地・終点に座標が無い場合も400を返す', async () => {
 		const noLocation = { name: '東京駅', displayAddress: '千代田区' };
 		await expect(
@@ -165,6 +173,17 @@ describe('POST /api/route スケジュール', () => {
 		const sensoji = data.destinations.find((d: { name: string }) => d.name === '浅草寺');
 		expect(sensoji.arrivalTime).toBe('13:00');
 		expect(sensoji.arriveAt).toBe('13:00');
+	});
+
+	it('日をまたぐ時刻は24時以降の表記にして時刻が戻らないようにする', async () => {
+		const data = await postJson({
+			locations: [
+				{ ...SENSOJI, stayMinutes: 120 },
+				{ ...SKYTREE, stayMinutes: 120 }
+			],
+			startTime: '22:00'
+		});
+		expect(data.destinations[1].departureTime >= '24:00').toBe(true);
 	});
 
 	it('間に合わない訪問時刻はsummaryで知らせる', async () => {

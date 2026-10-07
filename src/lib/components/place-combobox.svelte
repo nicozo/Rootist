@@ -29,6 +29,8 @@
 	let suggestions = $state<Suggestion[]>([]);
 	let loading = $state(false);
 	let open = $state(false);
+	// 選んだ候補の座標を取得中か
+	let resolving = $state(false);
 	let selectError = $state<string | null>(null);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	// 候補検索〜1件選択までを1セッションとして同じトークンで呼ぶ（Autocomplete の課金をまとめるため。issue #149）
@@ -45,6 +47,7 @@
 	}
 
 	function handleInput() {
+		selectError = null;
 		if (debounceTimer) clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(async () => {
 			if (query.trim().length < 2) {
@@ -77,18 +80,23 @@
 	}
 
 	async function handleSelect(s: Suggestion) {
+		if (resolving) return;
 		open = false;
-		loading = true;
+		resolving = true;
 		selectError = null;
+		const queryAtSelect = query;
 		try {
 			const location = await fetchLocation(s.placeId);
 			onSelect({ ...s, location });
-			query = '';
-			suggestions = [];
+			// 座標の取得中に次の入力が始まっていたら、その入力は消さない
+			if (query === queryAtSelect) {
+				query = '';
+				suggestions = [];
+			}
 		} catch {
 			selectError = '場所の位置情報を取得できませんでした。もう一度選んでください。';
 		} finally {
-			loading = false;
+			resolving = false;
 			sessionToken = crypto.randomUUID();
 		}
 	}
@@ -113,7 +121,7 @@
 			autocomplete="off"
 			class="w-full rounded-xl border border-primary/10 bg-card py-5 pr-10 pl-10 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-accent"
 		/>
-		{#if loading}
+		{#if loading || resolving}
 			<div class="absolute top-1/2 right-3 z-10 -translate-y-1/2">
 				<Spinner class="text-primary" />
 			</div>

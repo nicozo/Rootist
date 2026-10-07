@@ -708,6 +708,26 @@ describe('/plan +page.svelte プラン作成', () => {
 		expect(goto).not.toHaveBeenCalled();
 	});
 
+	it('入力起因の400ならサーバーの理由と選び直しの案内を表示する（issue #149）', async () => {
+		stubApis(
+			new Response(JSON.stringify({ message: '位置情報が取得できていない場所があります' }), {
+				status: 400
+			})
+		);
+		await ready();
+
+		await generateButton().click();
+
+		await expect
+			.element(
+				page.getByText(
+					'位置情報が取得できていない場所があります。場所を削除して選び直してください。'
+				)
+			)
+			.toBeInTheDocument();
+		expect(goto).not.toHaveBeenCalled();
+	});
+
 	it('通信自体が失敗したら通信エラーを表示する', async () => {
 		await renderPlan();
 		await addLocation('東京タワー');

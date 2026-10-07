@@ -17,6 +17,15 @@ export function isVisitTime(value: unknown): value is string {
 }
 
 /**
+ * 0時からの分数を "HH:MM" にする（parseTimeToMinutes の逆）。
+ * 日をまたいだ時刻は時刻表と同じく "25:10" のように24時以降で表し、時刻が戻って見えないようにする。
+ */
+export function formatMinutesAsTime(minutes: number): string {
+	const m = Math.max(0, Math.round(minutes));
+	return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+/**
  * "H:MM" / "HH:MM" 形式の時刻文字列を0時からの分数に変換する。解釈できなければnull。
  * 入力検証（isVisitTime）より緩く、モデル出力の時刻を読み取る用途にも使う。
  */

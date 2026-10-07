@@ -1,16 +1,22 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { LatLng, Place, RouteDestination } from '$lib/stores/route';
-import { isStayMinutesPreset } from '$lib/stay-minutes';
-import { isVisitTime, parseTimeToMinutes } from '$lib/visit-time';
-import { isPlanDate } from '$lib/plan-date';
 import {
-	isLatLng,
-	planRoute,
-	type Leg,
+	TIME_SLOT_LABELS,
+	TRANSPORT_MODES,
+	type LatLng,
+	type Place,
+	type RouteDestination,
 	type TimeSlot,
-	type TravelMode
-} from '$lib/server/route-planner';
+	type TransportMode
+} from '$lib/stores/route';
+import { isStayMinutesPreset } from '$lib/stay-minutes';
+import {
+	formatMinutesAsTime as formatMinutes,
+	isVisitTime,
+	parseTimeToMinutes
+} from '$lib/visit-time';
+import { isPlanDate } from '$lib/plan-date';
+import { isLatLng, planRoute, type Leg } from '$lib/server/route-planner';
 
 interface Location {
 	name: string;
@@ -21,15 +27,17 @@ interface Location {
 	arriveAt?: string;
 }
 
-const TRANSPORT_MODES = new Set<TravelMode>(['transit', 'car', 'walking']);
-const TIME_SLOTS = new Set<TimeSlot>(['morning', 'noon', 'night']);
-const TIME_SLOT_JA: Record<TimeSlot, string> = { morning: '朝', noon: '昼', night: '晩' };
 const DEFAULT_START_TIME = '09:00';
 
-/** 0時からの分数を "HH:MM" にする（日をまたいだら24時間で折り返す） */
-function formatMinutes(minutes: number): string {
-	const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
-	return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+/** 1プランの目的地の上限。順序計算はサーバーで行うため、計算量が膨らむ入力を受け付けない */
+const MAX_LOCATIONS = 20;
+
+function isTransportMode(v: unknown): v is TransportMode {
+	return (TRANSPORT_MODES as readonly unknown[]).includes(v);
+}
+
+function isTimeSlot(v: unknown): v is TimeSlot {
+	return typeof v === 'string' && Object.hasOwn(TIME_SLOT_LABELS, v);
 }
 
 function formatLeg(leg: Leg): string {
@@ -73,11 +81,12 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (!Array.isArray(locations) || locations.length < 2) {
 		error(400, '2件以上の目的地が必要です');
 	}
+	if (locations.length > MAX_LOCATIONS) {
+		error(400, `目的地は${MAX_LOCATIONS}件までです`);
+	}
 
 	const validPlanDate = isPlanDate(planDate) ? planDate : undefined;
-	const transportMode = TRANSPORT_MODES.has(transportModeInput as TravelMode)
-		? (transportModeInput as TravelMode)
-		: undefined;
+	const transportMode = isTransportMode(transportModeInput) ? transportModeInput : undefined;
 	const startTime = isVisitTime(startTimeInput) ? startTimeInput : undefined;
 	const origin = originInput ? pickPlace(originInput) : undefined;
 	const endDestination = endDestinationInput ? pickPlace(endDestinationInput) : undefined;
@@ -89,7 +98,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		return {
 			...place,
 			// 訪問時刻は時間帯より強い指定なので、両方来た場合は時刻を優先し時間帯は捨てる
-			timeSlot: !arriveAt && l.timeSlot && TIME_SLOTS.has(l.timeSlot) ? l.timeSlot : undefined,
+			timeSlot: !arriveAt && isTimeSlot(l.timeSlot) ? l.timeSlot : undefined,
 			stayMinutes: isStayMinutesPreset(l.stayMinutes) ? l.stayMinutes : undefined,
 			arriveAt
 		};
@@ -140,7 +149,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			];
 		}
 		if (s.timeSlotMissed && l.timeSlot) {
-			return [`${l.name}は希望の時間帯（${TIME_SLOT_JA[l.timeSlot]}）に収まりませんでした。`];
+			return [`${l.name}は希望の時間帯（${TIME_SLOT_LABELS[l.timeSlot]}）に収まりませんでした。`];
 		}
 		return [];
 	});

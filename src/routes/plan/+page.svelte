@@ -145,7 +145,13 @@
 				})
 			});
 			if (!res.ok) {
-				generateError = 'プランの作成に失敗しました。もう一度お試しください。';
+				// 入力起因の400（位置情報の欠落・件数超過など）は再試行しても直らないので理由をそのまま出す
+				const message =
+					res.status === 400 ? ((await res.json().catch(() => null))?.message as unknown) : null;
+				generateError =
+					typeof message === 'string'
+						? `${message}。場所を削除して選び直してください。`
+						: 'プランの作成に失敗しました。もう一度お試しください。';
 				return;
 			}
 			const data = await res.json();

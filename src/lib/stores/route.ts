@@ -1,5 +1,13 @@
 import { writable } from 'svelte/store';
 
+/** 移動手段の選択肢 */
+export const TRANSPORT_MODES = ['transit', 'car', 'walking'] as const;
+export type TransportMode = (typeof TRANSPORT_MODES)[number];
+
+/** 訪問時間帯と表示名 */
+export const TIME_SLOT_LABELS = { morning: '朝', noon: '昼', night: '晩' } as const;
+export type TimeSlot = keyof typeof TIME_SLOT_LABELS;
+
 /** 緯度経度（度）。訪問順序の計算に使う（issue #149） */
 export interface LatLng {
 	lat: number;
@@ -22,7 +30,7 @@ export interface RouteDestination {
 	description: string;
 	travelTimeFromPrevious: string | null;
 	transitRoute?: string | null;
-	timeSlot?: 'morning' | 'noon' | 'night' | null;
+	timeSlot?: TimeSlot | null;
 	stayMinutes?: number | null;
 	/** ユーザーが指定した訪問時刻 "HH:MM"（未指定は null）。issue #70 */
 	arriveAt?: string | null;
@@ -50,7 +58,7 @@ export const routeResult = writable<RouteResult | null>(null);
  */
 export interface PlanDraft {
 	origin: Place | null;
-	transportMode: 'transit' | 'car' | 'walking' | '';
+	transportMode: TransportMode | '';
 	startTime: string;
 	endDestination: Place | null;
 	/** プラン全体の日付 "YYYY-MM-DD"（未指定は空文字）。issue #73 */
@@ -58,7 +66,7 @@ export interface PlanDraft {
 	locations: {
 		address: string;
 		displayAddress?: string;
-		timeSlot: 'morning' | 'noon' | 'night' | '';
+		timeSlot: TimeSlot | '';
 		stayMinutes: number | '';
 		arriveAt: string;
 		location?: LatLng;
