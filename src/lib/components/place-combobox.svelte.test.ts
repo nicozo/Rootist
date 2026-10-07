@@ -168,7 +168,7 @@ describe('place-combobox', () => {
 
 		await expect
 			.element(page.getByRole('alert'))
-			.toHaveTextContent(/位置情報を取得できませんでした/);
+			.toHaveTextContent('場所の位置情報を取得できませんでした。もう一度選んでください。');
 		expect(onSelect).not.toHaveBeenCalled();
 	});
 
