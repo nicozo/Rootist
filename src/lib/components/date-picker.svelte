@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { parseDate, type DateValue } from '@internationalized/date';
-	import { Button } from '$lib/components/ui/button';
-	import * as Popover from '$lib/components/ui/popover';
-	import { Calendar } from '$lib/components/ui/calendar';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
+	import { Calendar } from '#lib/components/ui/calendar/index.js';
 	import { CalendarDays } from '@lucide/svelte';
-	import { cn } from '$lib/utils';
-	import { isPlanDate, formatPlanDate } from '$lib/plan-date';
+	import { cn } from '#lib/utils.js';
+	import { isPlanDate, formatPlanDate } from '#lib/plan-date.js';
 
 	// date-picker.svelte（issue #73）: プラン全体の日付を選ぶPopover + Calendar。
 	// 外部インターフェースは time-picker.svelte に揃える（value/id/onValueChange）。

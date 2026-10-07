@@ -1,16 +1,18 @@
 import { describe, expect, it, vi, beforeEach } from 'vite-plus/test';
 import { readFileSync } from 'node:fs';
+import { mockEnv } from '#lib/server/test-utils/mock-env.js';
 
 // issue #116: リクエストごとのSupabaseサーバー用クライアント生成の単体テスト。
 // @supabase/ssr と環境変数はモックし、ネットワークには出ない。
 
-const { createServerClient, env } = vi.hoisted(() => ({
-	createServerClient: vi.fn(),
-	env: {} as Record<string, string | undefined>
+const { createServerClient } = vi.hoisted(() => ({
+	createServerClient: vi.fn()
 }));
 
 vi.mock('@supabase/ssr', () => ({ createServerClient }));
-vi.mock('$env/dynamic/private', () => ({ env }));
+vi.mock('$app/env/private', async () =>
+	(await import('#lib/server/test-utils/mock-env.js')).createEnvModule()
+);
 
 // 文字列そのものをリポジトリ全体のgrep検証（src内0件）に掛けないため分割して組み立てる
 const SECRET_KEY_NAME = 'SUPABASE_SECRET' + '_KEY';
@@ -47,21 +49,21 @@ async function makeClient(event = fakeEvent()) {
 beforeEach(() => {
 	createServerClient.mockReset();
 	createServerClient.mockReturnValue({ auth: {} });
-	env.SUPABASE_URL = 'https://example.supabase.co';
-	env.SUPABASE_PUBLISHABLE_KEY = 'publishable-key';
-	delete env[SECRET_KEY_NAME];
+	mockEnv.SUPABASE_URL = 'https://example.supabase.co';
+	mockEnv.SUPABASE_PUBLISHABLE_KEY = 'publishable-key';
+	delete mockEnv[SECRET_KEY_NAME];
 });
 
 describe('環境変数', () => {
 	it.each([undefined, ''])('SUPABASE_URL が %j ならモジュール読込時に throw する', async (v) => {
-		env.SUPABASE_URL = v;
+		mockEnv.SUPABASE_URL = v;
 		await expect(load()).rejects.toThrow('SUPABASE_URL is not set');
 	});
 
 	it.each([undefined, ''])(
 		'SUPABASE_PUBLISHABLE_KEY が %j ならモジュール読込時に throw する',
 		async (v) => {
-			env.SUPABASE_PUBLISHABLE_KEY = v;
+			mockEnv.SUPABASE_PUBLISHABLE_KEY = v;
 			await expect(load()).rejects.toThrow('SUPABASE_PUBLISHABLE_KEY is not set');
 		}
 	);
@@ -80,12 +82,12 @@ describe('環境変数', () => {
 
 describe('isGoogleAuthEnabled', () => {
 	it('GOOGLE_AUTH_ENABLED=true のときだけ true', async () => {
-		env.GOOGLE_AUTH_ENABLED = 'true';
+		mockEnv.GOOGLE_AUTH_ENABLED = 'true';
 		expect((await load()).isGoogleAuthEnabled).toBe(true);
 	});
 
 	it.each([undefined, '', 'false', '1'])('GOOGLE_AUTH_ENABLED=%j なら false', async (v) => {
-		env.GOOGLE_AUTH_ENABLED = v;
+		mockEnv.GOOGLE_AUTH_ENABLED = v;
 		expect((await load()).isGoogleAuthEnabled).toBe(false);
 	});
 });

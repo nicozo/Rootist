@@ -1,5 +1,5 @@
 import type { JSONValue } from 'postgres';
-import type { RouteResult } from '$lib/stores/route';
+import type { RouteResult } from '#lib/stores/route.js';
 import { sql } from './index';
 
 // issue #128: plans テーブルへのアクセスをこのファイルに集約する（ルートは SQL を知らない）。

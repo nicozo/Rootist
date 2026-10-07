@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Separator } from '$lib/components/ui/separator';
-	import * as Card from '$lib/components/ui/card';
-	import * as Field from '$lib/components/ui/field';
-	import * as Alert from '$lib/components/ui/alert';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Separator } from '#lib/components/ui/separator/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
 	import { AlertCircleIcon } from '@lucide/svelte';
-	import GoogleIcon from '$lib/components/google-icon.svelte';
+	import GoogleIcon from '#lib/components/google-icon.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { form, data }: { form: ActionData; data: PageData } = $props();
@@ -94,10 +94,11 @@
 				</form>
 			{/if}
 		</Card.Content>
+
 		<Card.Footer class="justify-center text-sm text-muted-foreground">
-			すでにアカウントをお持ちの方は <a href={resolve('/login')} class="ml-1 text-accent underline"
-				>ログイン</a
-			>
+			すでにアカウントをお持ちの方は
+
+			<a href={resolve('login')} class="ml-1 text-accent underline">ログイン</a>
 		</Card.Footer>
 	</Card.Root>
 </div>

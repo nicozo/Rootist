@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { routeResult, planDraft, type PlanDraft } from '$lib/stores/route';
-	import { Button } from '$lib/components/ui/button';
-	import PlanTimeline from '$lib/components/plan-timeline.svelte';
+	import { routeResult, planDraft, type PlanDraft } from '#lib/stores/route.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import PlanTimeline from '#lib/components/plan-timeline.svelte';
 	import { Navigation, RotateCcw, Share2, Check, Loader2 } from '@lucide/svelte';
 	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
@@ -11,7 +11,7 @@
 	let result = $state($routeResult);
 
 	onMount(() => {
-		if (!result) goto(resolve('/plan'));
+		if (!result) goto(resolve('plan'));
 	});
 
 	let shareId = $state<string | null>(null);
@@ -67,7 +67,7 @@
 			};
 			planDraft.set(draft);
 		}
-		goto(resolve('/plan'));
+		goto(resolve('plan'));
 	}
 
 	async function handleShare() {
