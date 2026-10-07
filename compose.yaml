@@ -37,7 +37,7 @@ services:
       - '3000:3000'
     environment:
       - NODE_ENV=production
-      # Supabase 接続情報など。.env の値を受け渡す（DATABASE_URL が未設定ならアプリが起動時に DATABASE_URL is not set で失敗する）
+      # Supabase 接続情報など。.env の値を受け渡す（必須の変数が未設定ならアプリは env_invalid で失敗する。必須の変数は src/env.ts が正）
       - DATABASE_URL=${DATABASE_URL:-}
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-}
