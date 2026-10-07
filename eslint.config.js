@@ -45,6 +45,37 @@ export default defineConfig(
 		}
 	},
 	{
+		// SvelteKit 3 で非推奨・廃止になった API を、型情報なしで名指しで禁止する（svelte-check は非推奨を警告しない）。
+		// 型情報つきの汎用検出（no-deprecated）は .ts だけ eslint.deprecated.config.js で行う（.svelte に広げると lint が数分かかる）
+		files: ['src/**/*.ts', 'src/**/*.svelte'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						{
+							name: '@sveltejs/kit',
+							importNames: ['json', 'text'],
+							message: 'json() / text() は非推奨。Response.json() / new Response() を使う'
+						},
+						{
+							name: '$app/navigation',
+							importNames: ['invalidateAll'],
+							message: 'invalidateAll は非推奨。refreshAll を使う'
+						}
+					],
+					patterns: [
+						{
+							group: ['$app/stores', '$app/environment', '$env/*'],
+							message: '廃止・非推奨。$app/state / $app/env / $app/env/private を使う'
+						},
+						{ group: ['$lib', '$lib/*'], message: '$lib は廃止。#lib を使う' }
+					]
+				}
+			]
+		}
+	},
+	{
 		// button.svelte is a generic UI primitive that accepts external href props —
 		// it cannot use resolve() because the caller determines the path.
 		files: ['src/lib/components/ui/button/button.svelte'],
