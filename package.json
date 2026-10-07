@@ -12,7 +12,7 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "vp fmt .",
-		"lint": "vp fmt --check . && eslint . && eslint -c eslint.deprecated.config.js 'src/**/*.ts'",
+		"lint": "vp fmt --check . && eslint . && eslint -c eslint.deprecated.config.js 'src/**/*.ts' 'scripts/**/*.ts' vite.config.ts",
 		"test:unit": "vp test",
 		"metrics:context7": "node scripts/context7-metrics/cli.ts",
 		"test:coverage": "vp test run --coverage",

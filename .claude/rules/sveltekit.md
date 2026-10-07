@@ -10,7 +10,7 @@ paths:
 
 SvelteKit 3 を使っている。2 系の書き方を持ち込まない。個々の API の使い方は Svelte MCP（`get-documentation`）で確認する。ここにはこのリポジトリで決めた方針だけを書く。
 
-非推奨の API は `svelte-check` では警告されないので、`pnpm lint` が検出する。`.ts` は `eslint.deprecated.config.js`（型情報つきの `no-deprecated`。`.svelte` に広げると lint が数分かかるため `.ts` のみ）、`.svelte` を含む全体は `eslint.config.js` の `no-restricted-imports`（`json` / `text` / `invalidateAll` / `$app/stores` / `$env/*` / `$lib` など、移行で廃止・非推奨になったものを名指し）。
+非推奨の API は `svelte-check` では警告されないので、`pnpm lint` が検出する。`.ts` は `eslint.deprecated.config.js`（型情報つきの `no-deprecated`）、`.svelte` を含む全体は `eslint.config.js` の `no-restricted-imports`（移行で廃止・非推奨になったものを名指し。一覧は設定が正）。`.svelte` は型情報つきの検査をしていない（広げると lint が数分かかる）ので、名指しの一覧にない非推奨 API は検出されない。
 
 - lib の import は `#lib`（`package.json` の `imports`。`#lib/server/supabase.js` のように拡張子 `.js` を付ける）。`$lib` は使わない
 - 設定の置き場所: SvelteKit・Vite・Vitest・フォーマッタは `vite.config.ts`（`svelte.config.js` は無い）、TypeScript の対象範囲（`include`）は `tsconfig.json`。同じ設定を両方に書かない
