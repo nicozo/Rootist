@@ -9,7 +9,7 @@ declare global {
 			// issue #116: リクエストごとに hooks で作るSupabaseサーバー用クライアント
 			supabase: SupabaseClient;
 			// issue #116: user.idはSupabase Auth（auth.users）のUUID文字列。
-			// name/imageはuser_metadataから決める（$lib/server/auth-user.ts）
+			// name/imageはuser_metadataから決める（#lib/server/auth-user.ts）
 			user: { id: string; email: string; name: string; image: string | null } | null;
 		}
 		// interface PageData {}

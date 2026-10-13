@@ -1,3 +1,5 @@
+import adapter from '@sveltejs/adapter-auto';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, lazyPlugins } from 'vite-plus';
 import { playwright } from 'vite-plus/test/browser-playwright';
@@ -27,7 +29,15 @@ export default defineConfig({
 			'/static/'
 		]
 	},
-	plugins: lazyPlugins(() => [tailwindcss(), sveltekit()]),
+
+	plugins: lazyPlugins(() => [
+		tailwindcss(),
+		sveltekit({
+			preprocess: vitePreprocess(),
+			// adapter-auto が対応する環境は https://svelte.dev/docs/kit/adapter-auto を参照
+			adapter: adapter()
+		})
+	]),
 
 	test: {
 		// Vitest v4 compatibility: preserve mock call history.
@@ -51,6 +61,8 @@ export default defineConfig({
 				'src/**/*.svelte.{test,spec}.{js,ts}',
 				// 実行可能コードを持たない型定義
 				'src/**/*.d.ts',
+				// テスト専用のヘルパー（環境変数モックなど）
+				'src/**/test-utils/**',
 				// shadcn-svelte CLIが生成するベンダーコード。自前のロジックではなく、
 				// アプリが使っていないパーツも含まれるため計測対象から外す
 				// （利用箇所はアプリ側のコンポーネント・ページのテストで通る）

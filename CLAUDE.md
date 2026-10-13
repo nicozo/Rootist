@@ -79,7 +79,8 @@ docker compose --profile dev up -d    # dev コンテナ起動（prod は --prof
 
 **サービス概要**: ユーザーが行き先を入力するだけで、最短ルートでの旅行プランを自動生成するサービス。
 
-**スタック**: SvelteKit (Svelte 5) + TypeScript + Tailwind CSS v4 + PostgreSQL（Supabase）+ postgres.js（SQL 直書き。ORM なし）
+**スタック**: SvelteKit 3 (Svelte 5) + TypeScript + Tailwind CSS v4 + PostgreSQL（Supabase）+ postgres.js（SQL 直書き。ORM なし）
 
+- SvelteKit 3 の規約（`#lib`・設定の置き場所・環境変数・redirect など）は `.claude/rules/sveltekit.md`
 - DB・認証は Supabase（Postgres + Supabase Auth）。方式・スキーマ変更の手順・サーバーサイド構成は `.claude/rules/database.md`
 - 外部 API: Google Places API (New)（住所検索）、Google Gemini API（プラン生成、REST 直叩き）

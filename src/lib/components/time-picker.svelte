@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as Select from '$lib/components/ui/select';
+	import * as Select from '#lib/components/ui/select/index.js';
 	import { Clock } from '@lucide/svelte';
 
 	// 値は "HH:MM" 文字列（未選択は ""）。既存 startTime 契約を維持。

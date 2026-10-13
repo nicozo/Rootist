@@ -6,7 +6,7 @@ SvelteKit と PostgreSQL（Supabase）を使用したフルスタック Web ア�
 
 ### フロントエンド
 
-- **[SvelteKit](https://kit.svelte.jp/)** ^2.0.0 - フルスタック Web フレームワーク
+- **[SvelteKit](https://kit.svelte.jp/)** 3.x - フルスタック Web フレームワーク
 - **[Svelte](https://svelte.jp/)** ^5.0.0 - リアクティブ UI フレームワーク
 - **[TypeScript](https://www.typescriptlang.org/)** ^5.0.0 - 型安全な JavaScript
 - **[Vite](https://vitejs.dev/)** ^6.0.0 - 高速ビルドツール

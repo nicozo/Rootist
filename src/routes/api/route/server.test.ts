@@ -1,13 +1,12 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
+import { mockEnv } from '#lib/server/test-utils/mock-env.js';
 
 // issue #62: プラン生成APIの単体テスト。
 // 実際のGemini API（課金対象）は絶対に叩かず、fetchをモックする。
 
-const { mockEnv } = vi.hoisted(() => ({
-	mockEnv: {} as Record<string, string | undefined>
-}));
-
-vi.mock('$env/dynamic/private', () => ({ env: mockEnv }));
+vi.mock('$app/env/private', async () =>
+	(await import('#lib/server/test-utils/mock-env.js')).createEnvModule()
+);
 
 const { POST } = await import('./+server');
 
@@ -78,6 +77,46 @@ describe('POST /api/route 入力検証', () => {
 			status: 400,
 			body: { message: '2件以上の目的地が必要です' }
 		});
+	});
+});
+
+// issue #146 D1: GEMINI_API_KEY は利用時必須。未設定（未定義・空文字）のままキー無しで外部へ送らない
+describe('POST /api/route GEMINI_API_KEY の検知', () => {
+	const GEMINI_HOST = 'generativelanguage.googleapis.com';
+
+	it.each([undefined, ''])('キーが %j なら500を投げ、Geminiへ一度も送らない', async (v) => {
+		mockEnv.GEMINI_API_KEY = v;
+		const { fetchSpy } = stubGemini();
+
+		await expect(POST(eventWith({ locations: TWO_LOCATIONS }))).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'GEMINI_API_KEY is not set' }
+		});
+		expect(fetchSpy).not.toHaveBeenCalled();
+	});
+
+	it('キーがあればGeminiへ送る（陽性対照）', async () => {
+		const { fetchSpy } = stubGemini();
+
+		await POST(eventWith({ locations: TWO_LOCATIONS }));
+
+		expect(String(fetchSpy.mock.calls[0][0])).toContain(GEMINI_HOST);
+	});
+
+	it('エラー応答とログにキーの値を含めない', async () => {
+		mockEnv.GEMINI_API_KEY = 'sk-SENTINEL-146';
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('bad', { status: 500 })));
+
+		let err: unknown;
+		try {
+			await POST(eventWith({ locations: TWO_LOCATIONS }));
+		} catch (e) {
+			err = e;
+		}
+
+		expect(JSON.stringify(err)).not.toContain('SENTINEL');
+		expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('SENTINEL');
 	});
 });
 

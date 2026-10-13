@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vite-plus/test';
-import type { RouteResult } from '$lib/stores/route';
+import type { RouteResult } from '#lib/stores/route.js';
 
 // issue #128: plans のリポジトリ層の単体テスト。postgres.js のクライアント（sql）をモックし、
 // 「パラメータ化されたクエリが発行される」「data が JSON 文字列でなくオブジェクト由来で渡る」を検証する。

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { Button } from '$lib/components/ui/button';
-	import PlanTimeline from '$lib/components/plan-timeline.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import PlanTimeline from '#lib/components/plan-timeline.svelte';
 	import { Navigation, MapPin } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 	import type { PageProps } from './$types';
@@ -33,7 +33,7 @@
 				<MapPin class="size-4 shrink-0" />
 				自分だけの旅程を作ってみませんか？
 			</p>
-			<Button href={resolve('/plan')} class="w-full">自分もプランを作成する</Button>
+			<Button href={resolve('plan')} class="w-full">自分もプランを作成する</Button>
 		</div>
 	</div>
 </div>

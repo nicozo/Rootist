@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { findPlanByShareId } from '$lib/server/db/plans';
+import { findPlanByShareId } from '#lib/server/db/plans.js';
 import type { PageServerLoad } from './$types';
 
 // issue #115: shareIdはPOST /api/plansがrandomUUID()で発行したUUID。形式が違う入力はDBを呼ばずに404にする。

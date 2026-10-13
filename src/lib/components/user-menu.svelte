@@ -1,7 +1,7 @@
 <script lang="ts">
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
-	import * as Avatar from '$lib/components/ui/avatar/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import * as Avatar from '#lib/components/ui/avatar/index.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 
 	let { user }: { user: { email: string; name: string; image: string | null } } = $props();
 
