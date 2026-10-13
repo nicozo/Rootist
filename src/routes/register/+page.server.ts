@@ -40,7 +40,7 @@ export const actions: Actions = {
 			return fail(400, { message: passwordMessage, email: rawEmail });
 		}
 
-		let hasSession = false;
+		let hasSession: boolean;
 		try {
 			// UIに名前入力欄は追加しない方針のため、メールのローカル部を表示名として保存する
 			const { data, error } = await locals.supabase.auth.signUp({
