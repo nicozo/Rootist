@@ -45,14 +45,19 @@ function bashDenied(command: string): boolean {
 		.some((part) => rules.some((rule) => bashMatches(rule, part)));
 }
 
-// ファイル規則（絶対パス形・任意の階層）: パスの最後の要素が名前（`*` 可）に一致する。
+// ファイル規則: 絶対パス形（//**/名前）と cwd 相対の bare な名前は、パスの最後の要素が名前（* 可）に一致する。
+// 先頭が ! の規則は、それより前の規則に一致したパスを除外する（carve-out）。
 function fileDenied(tool: 'Read' | 'Edit', path: string): boolean {
 	const base = path.split('/').pop() ?? '';
-	return rulesFor(tool).some((rule) => {
-		const match = /^\/\/\*\*\/(.+)$/.exec(rule);
-		if (!match) return false;
-		return globToRegExp(match[1], '[^/]*').test(base);
-	});
+	const nameOf = (rule: string) => /^(?:\/\/\*\*\/)?([^/]+)$/.exec(rule)?.[1] ?? null;
+	let denied = false;
+	for (const rule of rulesFor(tool)) {
+		const negated = rule.startsWith('!');
+		const name = nameOf(negated ? rule.slice(1) : rule);
+		if (name === null || !globToRegExp(name, '[^/]*').test(base)) continue;
+		denied = !negated;
+	}
+	return denied;
 }
 
 const REAL_FILES = [
@@ -69,6 +74,8 @@ const BASES = ['', './', '/abs/dir/', '.claude/worktrees/wt/', '../../../'];
 
 // 窓口コマンドの一時ファイル名（worktree-env.ts の tempFileName と同じ形）
 const TEMP_FILE = '.env.worktree-env-123.local';
+// 列挙外の名前（cwd 相対の catch-all（.env.* と !.env.example）が止める）
+const OTHER_NAMES = ['.env.bak', '.env.staging', '.env.copy-test'];
 
 describe('設定の形', () => {
 	it('enabledPlugins を保ち、deny を持つ', () => {
@@ -83,9 +90,9 @@ describe('設定の形', () => {
 
 describe('ファイル系（Read / Edit）', () => {
 	for (const tool of ['Read', 'Edit'] as const) {
-		it(`${tool}: 実値ファイル 6 種を、どの位置でも拒否する`, () => {
+		it(`${tool}: 実値ファイル 6 種と列挙外の名前を、どの位置でも拒否する`, () => {
 			for (const base of BASES) {
-				for (const name of [...REAL_FILES, TEMP_FILE]) {
+				for (const name of [...REAL_FILES, TEMP_FILE, ...OTHER_NAMES]) {
 					expect(fileDenied(tool, `${base}${name}`), `${base}${name}`).toBe(true);
 				}
 			}
