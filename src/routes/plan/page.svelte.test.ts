@@ -2,7 +2,7 @@ import { page } from 'vite-plus/test/browser';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { get } from 'svelte/store';
-import { routeResult, planDraft, type PlanDraft } from '$lib/stores/route';
+import { routeResult, planDraft, type PlanDraft } from '#lib/stores/route.js';
 
 // issue #62: プラン作成ページのテスト。
 // /api/places（Google Places）と /api/route（Gemini）は課金対象なのでfetchをモックし実接続しない。

@@ -1,13 +1,13 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { isGoogleAuthEnabled } from '$lib/server/supabase';
+import { isGoogleAuthEnabled } from '#lib/server/supabase.js';
 import {
 	normalizeEmail,
 	mapSignInErrorCode,
 	describeAuthError,
 	isUnexpectedAuthError,
 	LOGIN_FAILURE_MESSAGE
-} from '$lib/server/auth-errors';
+} from '#lib/server/auth-errors.js';
 
 // Googleログイン失敗時に戻ってきたエラーを画面表示用の固定日本語メッセージに変換する。
 // 生のエラーコード（?errorの値そのもの）は画面に出さない。

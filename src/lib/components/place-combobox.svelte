@@ -1,7 +1,7 @@
 <script lang="ts">
-	import * as Command from '$lib/components/ui/command';
+	import * as Command from '#lib/components/ui/command/index.js';
 	import { Command as CommandPrimitive } from 'bits-ui';
-	import { Spinner } from '$lib/components/ui/spinner';
+	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import type { Component } from 'svelte';
 
 	interface Suggestion {

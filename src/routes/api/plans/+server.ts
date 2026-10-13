@@ -1,10 +1,9 @@
-import { json, error } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { randomUUID } from 'node:crypto';
-import { db } from '$lib/server/db';
-import { plans } from '$lib/server/db/schema';
+import { insertPlan } from '#lib/server/db/plans.js';
 import type { RequestHandler } from './$types';
-import type { RouteDestination, RouteResult } from '$lib/stores/route';
-import { isPlanDate } from '$lib/plan-date';
+import type { RouteDestination, RouteResult } from '#lib/stores/route.js';
+import { isPlanDate } from '#lib/plan-date.js';
 
 // 保存時に受け入れる既知フィールドのみを対象とする（任意の巨大キー混入防止）
 const DESTINATION_KEYS = [
@@ -112,11 +111,11 @@ export const POST: RequestHandler = async ({ request }) => {
 	const shareId = randomUUID();
 
 	try {
-		await db.insert(plans).values({ shareId, data });
+		await insertPlan(shareId, data);
 	} catch (e) {
 		console.error('[POST /api/plans] DB insert failed:', e);
 		error(500, 'プランの保存に失敗しました');
 	}
 
-	return json({ shareId }, { status: 201 });
+	return Response.json({ shareId }, { status: 201 });
 };

@@ -39,3 +39,6 @@ storybook-static
 
 # git worktree（開発用作業ディレクトリ）
 .claude/worktrees/
+
+# Supabase CLI の一時ファイル（pnpm dlx supabase 実行で作られる）
+supabase/.temp/

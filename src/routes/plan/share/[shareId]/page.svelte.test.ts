@@ -2,7 +2,7 @@ import { page } from 'vite-plus/test/browser';
 import { describe, expect, it } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import SharePage from './+page.svelte';
-import type { RouteResult } from '$lib/stores/route';
+import type { RouteResult } from '#lib/stores/route.js';
 
 // issue #62: 共有プラン閲覧ページ（認証不要・SSR）の表示テスト。
 

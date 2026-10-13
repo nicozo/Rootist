@@ -6,7 +6,7 @@ SvelteKit と PostgreSQL（Supabase）を使用したフルスタック Web ア�
 
 ### フロントエンド
 
-- **[SvelteKit](https://kit.svelte.jp/)** ^2.0.0 - フルスタック Web フレームワーク
+- **[SvelteKit](https://kit.svelte.jp/)** 3.x - フルスタック Web フレームワーク
 - **[Svelte](https://svelte.jp/)** ^5.0.0 - リアクティブ UI フレームワーク
 - **[TypeScript](https://www.typescriptlang.org/)** ^5.0.0 - 型安全な JavaScript
 - **[Vite](https://vitejs.dev/)** ^6.0.0 - 高速ビルドツール
@@ -69,7 +69,7 @@ docker compose ls                       # 全プロジェクトの一覧
 docker ps --filter name=rootist-issue-  # 全 issue 環境のコンテナとポート
 ```
 
-命名規則・ポート計算式・制約（Google ログインなど）の詳細は [CLAUDE.md](CLAUDE.md) の「Docker 開発環境（issue 単位の分離）」を参照してください。
+命名規則・ポート計算式・制約（Google ログインなど）の詳細は [.claude/rules/docker-worktree.md](.claude/rules/docker-worktree.md) を参照してください。
 
 ### キャッシュなしで起動
 
@@ -92,16 +92,24 @@ pnpm exec tsx seed.ts
 
 ### マイグレーション
 
+スキーマの正は `supabase/migrations/*.sql`（Supabase CLI のマイグレーション。SQL を手で書く）です。手順の詳細と RLS チェックリストは [`docs/supabase-setup.md`](docs/supabase-setup.md) の「6. スキーマの反映」を参照してください。
+
 #### 開発環境
 
 ```bash
-# 1. スキーマの変更からマイグレーションを生成し、SQL をレビューして適用（db:push は使わない）
-pnpm run db:generate
-pnpm run db:migrate
+# 1. 空のマイグレーションを作り、SQL を手で書く（新しい表は同じファイルで RLS を有効化し、ポリシーは作らない）
+pnpm run db:new <名前>
 
-# 2. データベースの確認
-pnpm run db:studio
+# 2. 適用状況の確認（読み取りのみ）
+pnpm run db:status
+
+# 3. PR を出して main へマージする。Supabase の GitHub 連携が未適用分を自動で適用する（手元で流す必要は無い）
+#    マージ後に pnpm run db:status で Local と Remote が一致したことを確認する
 ```
+
+`pnpm run db:migrate` は復旧専用です（通常は使いません）。連携の設定・ブランチ保護・失敗時の復旧は [`docs/supabase-setup.md`](docs/supabase-setup.md) の「14. GitHub 連携」以降を参照してください。
+
+データベースの確認・編集は Supabase ダッシュボードの Table Editor / SQL Editor を使います。
 
 ## ☁️ Supabase 環境
 

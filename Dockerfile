@@ -23,8 +23,8 @@ WORKDIR /app
 FROM base AS dependencies
 
 # 依存関係ファイルのみコピー（キャッシュ効率化）
-# Missing Svelte config file in /app — skippingの対応でsvelte.config.js*とvite.config.ts*を追加
-COPY package.json pnpm-lock.yaml svelte.config.js* vite.config.ts* ./
+# SvelteKit の設定は vite.config.ts にある。無いと prepare の svelte-kit sync が "Missing config" で警告するためコピーする
+COPY package.json pnpm-lock.yaml vite.config.ts* ./
 
 # 開発用も含めて一気にインストール（frozen-lockfile で整合性を担保）
 RUN pnpm install --frozen-lockfile

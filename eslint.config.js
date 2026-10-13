@@ -10,7 +10,9 @@ import svelte from 'eslint-plugin-svelte';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
-import svelteConfig from './svelte.config.js';
+import { loadConfig } from '@sveltejs/load-config';
+
+const svelteConfig = (await loadConfig('./', { traverse: false }))?.config;
 
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
@@ -40,6 +42,37 @@ export default defineConfig(
 				parser: ts.parser,
 				svelteConfig
 			}
+		}
+	},
+	{
+		// SvelteKit 3 で非推奨・廃止になった API を、型情報なしで名指しで禁止する（svelte-check は非推奨を警告しない）。
+		// 型情報つきの汎用検出（no-deprecated）は .ts だけ eslint.deprecated.config.js で行う（.svelte に広げると lint が数分かかる）
+		files: ['src/**/*.ts', 'src/**/*.svelte'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						{
+							name: '@sveltejs/kit',
+							importNames: ['json', 'text'],
+							message: 'json() / text() は非推奨。Response.json() / new Response() を使う'
+						},
+						{
+							name: '$app/navigation',
+							importNames: ['invalidateAll'],
+							message: 'invalidateAll は非推奨。refreshAll を使う'
+						}
+					],
+					patterns: [
+						{
+							group: ['$app/stores', '$app/environment', '$env/*'],
+							message: '廃止・非推奨。$app/state / $app/env / $app/env/private を使う'
+						},
+						{ group: ['$lib', '$lib/*'], message: '$lib は廃止。#lib を使う' }
+					]
+				}
+			]
 		}
 	},
 	{

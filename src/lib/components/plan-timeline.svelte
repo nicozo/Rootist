@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Badge } from '$lib/components/ui/badge';
-	import * as Card from '$lib/components/ui/card';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
 	import {
 		MapPin,
 		Clock,
@@ -13,10 +13,10 @@
 		CalendarDays
 	} from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
-	import type { RouteResult } from '$lib/stores/route';
-	import { isStayMinutesPreset, formatStayMinutes } from '$lib/stay-minutes';
-	import { isVisitTime } from '$lib/visit-time';
-	import { isPlanDate, formatPlanDate } from '$lib/plan-date';
+	import type { RouteResult } from '#lib/stores/route.js';
+	import { isStayMinutesPreset, formatStayMinutes } from '#lib/stay-minutes.js';
+	import { isVisitTime } from '#lib/visit-time.js';
+	import { isPlanDate, formatPlanDate } from '#lib/plan-date.js';
 
 	interface Props {
 		result: RouteResult;

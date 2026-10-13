@@ -1,9 +1,5 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import * as schema from './schema';
-import { env } from '$env/dynamic/private';
-
-if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
+import { DATABASE_URL } from '$app/env/private';
 
 // issue #115: Supabaseの Session pooler（ポート5432）に接続する。Transaction pooler（6543）は
 // プリペアドステートメントを使えないため使わない（docs/supabase-setup.md）。
@@ -16,6 +12,6 @@ export const POOL_OPTIONS = {
 	connect_timeout: 10
 } as const;
 
-const client = postgres(env.DATABASE_URL, POOL_OPTIONS);
-
-export const db = drizzle(client, { schema });
+// issue #128: ORMは使わず postgres.js で SQL を直接書く。クエリは必ずタグ付きテンプレートで
+// パラメータ化する（文字列連結・sql.unsafe は使わない）。スキーマの正は supabase/migrations。
+export const sql = postgres(DATABASE_URL, POOL_OPTIONS);

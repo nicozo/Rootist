@@ -1,7 +1,7 @@
-import type { Handle } from '@sveltejs/kit';
-import { describeAuthError, isUnexpectedAuthError } from '$lib/server/auth-errors';
-import { toAppUser } from '$lib/server/auth-user';
-import { createSupabaseClient } from '$lib/server/supabase';
+import type { Handle } from '@sveltejs/kit/hooks';
+import { describeAuthError, isUnexpectedAuthError } from '#lib/server/auth-errors.js';
+import { toAppUser } from '#lib/server/auth-user.js';
+import { createSupabaseClient } from '#lib/server/supabase.js';
 
 // issue #116: Supabase Authでログイン状態を判定して event.locals.user / event.locals.supabase を設定する。
 // - 認証Cookie（sb-始まり）が無いリクエストではSupabaseへ通信しない（I-10）
