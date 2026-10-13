@@ -1,13 +1,12 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
+import { mockEnv } from '#lib/server/test-utils/mock-env.js';
 
 // issue #62: Places APIプロキシの単体テスト。
 // 実際のGoogle Places API（課金対象）は絶対に叩かず、fetchをモックする。
 
-const { mockEnv } = vi.hoisted(() => ({
-	mockEnv: {} as Record<string, string | undefined>
-}));
-
-vi.mock('$env/dynamic/private', () => ({ env: mockEnv }));
+vi.mock('$app/env/private', async () =>
+	(await import('#lib/server/test-utils/mock-env.js')).createEnvModule()
+);
 
 const { POST } = await import('./+server');
 
@@ -83,6 +82,18 @@ describe('POST /api/places', () => {
 		const res = await POST(eventWith({}));
 
 		expect(await res.json()).toEqual({ suggestions: [] });
+		expect(fetchSpy).not.toHaveBeenCalled();
+	});
+
+	it('APIキーが空文字でも未設定として500を投げ、外部へ送らない', async () => {
+		mockEnv.GOOGLE_MAPS_API_KEY = '';
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+
+		await expect(POST(eventWith({ query: '東京駅' }))).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'GOOGLE_MAPS_API_KEY is not set' }
+		});
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 

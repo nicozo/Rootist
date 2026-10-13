@@ -6,13 +6,13 @@ import {
 	PASSWORD_TOO_LONG_MESSAGE,
 	RATE_LIMIT_MESSAGE,
 	REGISTER_FAILURE_MESSAGE
-} from '$lib/server/auth-errors';
+} from '#lib/server/auth-errors.js';
 
 // issue #116: /register の load / default action の単体テスト。Supabaseクライアントはモックする。
 
 const { signUp } = vi.hoisted(() => ({ signUp: vi.fn() }));
 
-vi.mock('$lib/server/supabase', () => ({ isGoogleAuthEnabled: false }));
+vi.mock('#lib/server/supabase.js', () => ({ isGoogleAuthEnabled: false }));
 
 const { load, actions } = await import('./+page.server');
 

@@ -7,7 +7,7 @@ const { getUser, createSupabaseClient } = vi.hoisted(() => {
 	return { getUser, createSupabaseClient: vi.fn(() => ({ auth: { getUser } })) };
 });
 
-vi.mock('$lib/server/supabase', () => ({ createSupabaseClient }));
+vi.mock('#lib/server/supabase.js', () => ({ createSupabaseClient }));
 
 const { handle } = await import('./hooks.server');
 

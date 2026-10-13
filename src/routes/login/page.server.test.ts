@@ -1,11 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
-import { LOGIN_FAILURE_MESSAGE, RATE_LIMIT_MESSAGE } from '$lib/server/auth-errors';
+import { LOGIN_FAILURE_MESSAGE, RATE_LIMIT_MESSAGE } from '#lib/server/auth-errors.js';
 
 // issue #116: /login の load / default action の単体テスト。Supabaseクライアントはモックする。
 
 const { signInWithPassword } = vi.hoisted(() => ({ signInWithPassword: vi.fn() }));
 
-vi.mock('$lib/server/supabase', () => ({ isGoogleAuthEnabled: false }));
+vi.mock('#lib/server/supabase.js', () => ({ isGoogleAuthEnabled: false }));
 
 const { load, actions } = await import('./+page.server');
 

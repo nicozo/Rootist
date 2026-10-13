@@ -1,27 +1,29 @@
 import { describe, expect, it, vi, afterEach } from 'vite-plus/test';
+import { mockEnv, clearMockEnv } from '#lib/server/test-utils/mock-env.js';
 
 // issue #115: DB接続モジュールの単体テスト。
 // 実際のPostgresへは接続せず、postgres.jsのクライアント生成呼び出しだけを検証する。
 // 環境変数ごとにモジュール評価をやり直すため vi.resetModules() + 動的importで読み込む。
 
-const { mockEnv, queryClient, postgres } = vi.hoisted(() => {
+const { queryClient, postgres } = vi.hoisted(() => {
 	// タグ付きテンプレートとして呼ばれる=クエリ実行。import時に呼ばれていないことを検証するために使う
 	const queryClient = vi.fn();
 	return {
-		mockEnv: {} as Record<string, string | undefined>,
 		queryClient,
 		postgres: vi.fn<(...args: unknown[]) => unknown>(() => queryClient)
 	};
 });
 
-vi.mock('$env/dynamic/private', () => ({ env: mockEnv }));
+vi.mock('$app/env/private', async () =>
+	(await import('#lib/server/test-utils/mock-env.js')).createEnvModule()
+);
 vi.mock('postgres', () => ({ default: postgres }));
 
 const URL_FOR_TEST = 'postgresql://user:pass@localhost:5432/rootist';
 
 /** 環境変数を差し替えてdb/index.tsを評価し直す。 */
 async function importDb(env: Record<string, string | undefined>) {
-	for (const key of Object.keys(mockEnv)) delete mockEnv[key];
+	clearMockEnv();
 	Object.assign(mockEnv, env);
 	vi.resetModules();
 	postgres.mockClear();

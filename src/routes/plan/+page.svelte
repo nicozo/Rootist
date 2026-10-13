@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import * as Field from '$lib/components/ui/field';
-	import * as Item from '$lib/components/ui/item';
-	import * as Empty from '$lib/components/ui/empty';
-	import * as Card from '$lib/components/ui/card';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group';
-	import * as Alert from '$lib/components/ui/alert';
-	import * as Select from '$lib/components/ui/select';
-	import PlaceCombobox from '$lib/components/place-combobox.svelte';
-	import TimePicker from '$lib/components/time-picker.svelte';
-	import DatePicker from '$lib/components/date-picker.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Spinner } from '#lib/components/ui/spinner/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import * as Item from '#lib/components/ui/item/index.js';
+	import * as Empty from '#lib/components/ui/empty/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import * as Select from '#lib/components/ui/select/index.js';
+	import PlaceCombobox from '#lib/components/place-combobox.svelte';
+	import TimePicker from '#lib/components/time-picker.svelte';
+	import DatePicker from '#lib/components/date-picker.svelte';
 	import {
 		MapPin,
 		Navigation,
@@ -34,8 +34,8 @@
 	} from '@lucide/svelte';
 	import { fly, slide, fade } from 'svelte/transition';
 	import { get } from 'svelte/store';
-	import { routeResult, planDraft } from '$lib/stores/route';
-	import { STAY_MINUTES_PRESETS, formatStayMinutes } from '$lib/stay-minutes';
+	import { routeResult, planDraft } from '#lib/stores/route.js';
+	import { STAY_MINUTES_PRESETS, formatStayMinutes } from '#lib/stay-minutes.js';
 
 	// issue #64: 「もう一度計画する」で戻ってきた場合のみ、直前の入力を1回だけ復元する。
 	// 読み取り後は即座にリセットする消費型ストアのため、それ以外の経路（トップからの遷移・
@@ -151,7 +151,7 @@
 			}
 			const data = await res.json();
 			routeResult.set(data);
-			goto(resolve('/plan/result'));
+			goto(resolve('plan/result'));
 		} catch {
 			generateError = '通信エラーが発生しました。もう一度お試しください。';
 		} finally {
