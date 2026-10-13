@@ -12,6 +12,11 @@
 // このガードは「誤操作を防ぐ仕組み」でありセキュリティ境界ではない。疑似端末（script コマンド等）を作る、
 // `pnpm dlx supabase@... db push` を直接叩く、で迂回できる（docs/supabase-setup.md）。
 
+// .env の解釈は env-file.ts（#152）。既存の import 元を変えないよう再エクスポートする。
+import { parseEnvFile } from './env-file.ts';
+
+export { parseEnvFile };
+
 export const SUPABASE_CLI = 'supabase@2.119.0';
 
 export type Command = 'new' | 'migrate' | 'status';
@@ -40,24 +45,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
 		return { ok: true, command, name };
 	}
 	return { ok: false, error: 'サブコマンドは new / migrate / status のいずれかです' };
-}
-
-/** .env の内容から KEY=VALUE を取り出す。値の前後の対のクォート（" または '）を外す。 */
-export function parseEnvFile(text: string): Record<string, string> {
-	const result: Record<string, string> = {};
-	for (const rawLine of text.split(/\r?\n/)) {
-		const line = rawLine.trim();
-		if (line === '' || line.startsWith('#')) continue;
-		const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
-		if (!match) continue;
-		let value = match[2].trim();
-		if (value.length >= 2) {
-			const first = value[0];
-			if ((first === '"' || first === "'") && value.endsWith(first)) value = value.slice(1, -1);
-		}
-		result[match[1]] = value;
-	}
-	return result;
 }
 
 /**
