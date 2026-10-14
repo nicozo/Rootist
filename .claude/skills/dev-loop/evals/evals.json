@@ -10,7 +10,7 @@
 				"進捗チェックリストを応答にコピーしている",
 				"git worktree add -b feat/issue-120-<スラッグ> .claude/worktrees/<スラッグ> main で worktree を作成している",
 				"EnterWorktree で worktree に移っている",
-				".env をコピーし pnpm install を実行している",
+				"pnpm -s worktree-env setup 120 で .env を準備し（.env を cat / cp / sed などで直接扱わない）、pnpm install を実行している",
 				".dev-loop/ ワークスペースをメインのワーキングツリー側に作成している（worktree 内ではない）",
 				"Planner への prompt にワークスペースと worktree の絶対パスを含めている"
 			]
