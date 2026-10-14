@@ -2,17 +2,8 @@
 // src/lib/dev-tools/worktree-env.ts（単体テスト済み）にあり、ここは副作用（ファイル・git・終了コード）だけを持つ。
 // 子プロセスは shell を介さず、引数を配列で渡す。値はここでも出力しない（出力は run() の結果だけ）。
 import { spawnSync } from 'node:child_process';
-import {
-	chmodSync,
-	copyFileSync,
-	lstatSync,
-	readFileSync,
-	realpathSync,
-	renameSync,
-	rmSync,
-	statSync,
-	writeFileSync
-} from 'node:fs';
+import { copyFileSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { writeAtomic } from '../src/lib/dev-tools/atomic-write.ts';
 import { parseWorktreeList, run } from '../src/lib/dev-tools/worktree-env.ts';
 
 function safeRealpath(path) {
@@ -54,22 +45,7 @@ const deps = {
 	copyFile(from, to) {
 		copyFileSync(from, to);
 	},
-	writeAtomic(tempPath, finalPath, text) {
-		let mode = 0o600;
-		try {
-			mode = statSync(finalPath).mode & 0o777;
-		} catch {
-			// 既存が無ければ 0600
-		}
-		try {
-			writeFileSync(tempPath, text, { mode });
-			chmodSync(tempPath, mode);
-			renameSync(tempPath, finalPath);
-		} catch (error) {
-			rmSync(tempPath, { force: true });
-			throw error;
-		}
-	}
+	writeAtomic
 };
 
 const result = run(process.argv.slice(2), deps);

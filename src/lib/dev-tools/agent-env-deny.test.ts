@@ -158,6 +158,8 @@ describe('シェル（Bash）', () => {
 		'grep -c SAMPLE .env.example',
 		'diff .env.example .env.example',
 		'cat .env.example 2>/dev/null',
+		// 次の 2 行は「Bash の deny 規則には一致しない」ことだけの確認。実際の Claude Code では、ファイル引数を持つ
+		// コマンドに Read の deny（//**/.env）が適用されるため、cp .env と ls -la .env は拒否される（実測。規則ファイル参照）
 		'cp .env .claude/worktrees/wt/.env.copy-test',
 		'test -f .env && echo exists',
 		'ls -la .env',

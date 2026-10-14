@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import {
+	chmodSync,
 	existsSync,
 	lstatSync,
 	mkdirSync,
@@ -125,6 +126,22 @@ describe('worktree-env 実入口', () => {
 		git(main, 'worktree', 'add', '-q', '-b', 'gone', gone);
 		rmSync(gone, { recursive: true, force: true });
 		expect(cli(wt, 'get', 'DEV_PORT')).toEqual({ code: 0, stdout: '20152\n', stderr: '' });
+	});
+
+	it('書き込みに失敗したら終了コード 1 で、一時ファイルを残さず、センチネルを出さない', () => {
+		const wt3 = join(main, '.claude/worktrees/wt3');
+		git(main, 'worktree', 'add', '-q', '-b', 'wt3', wt3);
+		writeFileSync(join(wt3, '.env'), `A=${SENTINEL}\n`, { mode: 0o600 });
+		chmodSync(wt3, 0o555); // ディレクトリを読み取り専用にして、一時ファイルの作成を失敗させる
+		try {
+			const result = cli(wt3, 'setup', '154');
+			expect(result.code).toBe(1);
+			expect(result.stdout + result.stderr).not.toContain(SENTINEL);
+			expect(readdirSync(wt3).filter((n) => n.startsWith('.env.worktree-env-'))).toEqual([]);
+			expect(readFileSync(join(wt3, '.env'), 'utf8')).toBe(`A=${SENTINEL}\n`);
+		} finally {
+			chmodSync(wt3, 0o755);
+		}
 	});
 
 	it('git リポジトリの外では失敗する', () => {
