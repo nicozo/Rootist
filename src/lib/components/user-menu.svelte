@@ -28,14 +28,6 @@
 	const fallbackStyle = $derived(
 		`background-color: oklch(0.85 0.06 ${hue}); color: oklch(0.35 0.06 ${hue});`
 	);
-
-	// bits-uiのonSelectに渡るイベントはdispatchされていないため currentTarget が null になる。
-	// そのためイベントからformを辿らず、要素参照を直接持つ。
-	let logoutForm = $state<HTMLFormElement>();
-
-	function submitLogout() {
-		logoutForm?.requestSubmit();
-	}
 </script>
 
 <DropdownMenu.Root>
@@ -57,10 +49,15 @@
 		</DropdownMenu.Group>
 		<DropdownMenu.Separator />
 		<DropdownMenu.Group>
-			<form bind:this={logoutForm} method="POST" action="/logout" class="contents">
-				<DropdownMenu.Item variant="destructive" onSelect={submitLogout}>
-					<LogOutIcon />
-					ログアウト
+			<!-- 項目自体をsubmitボタンにして、要素参照（bind:this）なしでformを送信する。 -->
+			<form method="POST" action="/logout" class="contents">
+				<DropdownMenu.Item variant="destructive">
+					{#snippet child({ props })}
+						<button {...props} type="submit">
+							<LogOutIcon />
+							ログアウト
+						</button>
+					{/snippet}
 				</DropdownMenu.Item>
 			</form>
 		</DropdownMenu.Group>
