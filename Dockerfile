@@ -1,11 +1,22 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ステージ1: ベースイメージ（共通設定）
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FROM node:25-slim AS base
+FROM node:24-slim AS base
+
+# 作業ディレクトリ
+WORKDIR /app
 
 # pnpmのインストール
-# CorepackはNode.js25から同包されないため、手動でインストール
-RUN npm install -g pnpm@10.28.0
+# CorepackはNode.js25以降は同梱されない（24では同梱だが将来の追従で壊れるため使わない）。npmで明示的にインストールする
+# バージョンの正は package.json の packageManager だけ。ここでは書かずに読み取る
+# （package.json だけを先にコピーするので、ソースの変更では pnpm 取得のレイヤーは無効化されない）
+# packageManager が "pnpm@<数字>.<数字>.<数字>" の形でなければ、latest などに倒れずビルドを失敗させる
+COPY package.json ./
+RUN set -eu; \
+    PNPM_VERSION="$(node -e "const m = /^pnpm@(\\d+\\.\\d+\\.\\d+)\$/.exec(require('./package.json').packageManager || ''); if (!m) { console.error('package.json の packageManager が pnpm@<major>.<minor>.<patch> の形式ではありません'); process.exit(1); } console.log(m[1]);")"; \
+    [ -n "$PNPM_VERSION" ]; \
+    npm install -g "pnpm@${PNPM_VERSION}"; \
+    [ "$(pnpm --version)" = "$PNPM_VERSION" ]
 
 # pnpmの設定
 ENV PNPM_HOME="/pnpm"
@@ -14,17 +25,15 @@ ENV PATH="$PNPM_HOME:$PATH"
 # ストアの場所を設定
 RUN pnpm config set store-dir /app/.pnpm-store --global
 
-# 作業ディレクトリ
-WORKDIR /app
-
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ステージ2: 依存関係のインストール
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FROM base AS dependencies
 
 # 依存関係ファイルのみコピー（キャッシュ効率化）
+# pnpm-workspace.yaml には catalog・overrides・allowBuilds・engineStrict があり、install が読むため必須
 # SvelteKit の設定は vite.config.ts にある。無いと prepare の svelte-kit sync が "Missing config" で警告するためコピーする
-COPY package.json pnpm-lock.yaml vite.config.ts* ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml vite.config.ts* ./
 
 # 開発用も含めて一気にインストール（frozen-lockfile で整合性を担保）
 RUN pnpm install --frozen-lockfile
@@ -68,7 +77,7 @@ CMD ["pnpm", "dev", "--host"]
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ステージ5: 本番環境（最終イメージ）
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FROM node:25-slim AS production
+FROM node:24-slim AS production
 
 # 非rootユーザーの作成（セキュリティ向上）
 RUN groupadd -r appuser && useradd -r -g appuser appuser
