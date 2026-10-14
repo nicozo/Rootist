@@ -1,4 +1,4 @@
-import { page } from 'vite-plus/test/browser';
+import { page, userEvent } from 'vite-plus/test/browser';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import UserMenu from './user-menu.svelte';
@@ -109,14 +109,30 @@ describe('user-menu', () => {
 
 		await openMenu();
 
-		// jsdomではなく実ブラウザなので、実際に送信されるとページ遷移してしまう。
-		// requestSubmit()が呼ばれたことだけを確かめるため送信は差し止める。
+		// 実ブラウザなので、実際に送信されるとページ遷移してしまう。
+		// submitイベントが発火したことだけを確かめるため送信は差し止める。
 		const form = container.ownerDocument.querySelector('form[action="/logout"]');
-		const requestSubmit = vi.fn();
-		Object.defineProperty(form!, 'requestSubmit', { value: requestSubmit, configurable: true });
+		const onSubmit = vi.fn((event: Event) => event.preventDefault());
+		form!.addEventListener('submit', onSubmit);
 
 		await page.getByRole('menuitem', { name: /ログアウト/ }).click();
 
-		await vi.waitFor(() => expect(requestSubmit).toHaveBeenCalledOnce());
+		await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+	});
+
+	it('キーボード(Enter)でログアウトを選んでもformを送信する', async () => {
+		const { container } = await render(UserMenu, { user: USER });
+
+		await openMenu();
+
+		const form = container.ownerDocument.querySelector('form[action="/logout"]');
+		const onSubmit = vi.fn((event: Event) => event.preventDefault());
+		form!.addEventListener('submit', onSubmit);
+
+		const item = container.ownerDocument.querySelector<HTMLElement>('[role="menuitem"]');
+		item!.focus();
+		await userEvent.keyboard('{Enter}');
+
+		await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
 	});
 });
