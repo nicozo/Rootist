@@ -32,7 +32,9 @@ const deps = {
 		});
 		if (result.status !== 0 || typeof result.stdout !== 'string') return null;
 		const paths = parseWorktreeList(result.stdout).map(safeRealpath);
-		return paths.every((p) => p !== null) ? paths : null;
+		// 先頭（メイン）が解決できなければ失敗。ディレクトリが消えた登録（prunable）は読み飛ばし、他の worktree を巻き込まない
+		if (paths.length === 0 || paths[0] === null) return null;
+		return paths.filter((p) => p !== null);
 	},
 	realpath: safeRealpath,
 	readText(path) {

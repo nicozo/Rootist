@@ -120,6 +120,13 @@ describe('worktree-env 実入口', () => {
 		expect(readFileSync(join(main, '.env'), 'utf8')).toBe(MAIN_ENV);
 	});
 
+	it('ディレクトリが消えた worktree の登録（prunable）があっても、他の worktree は使える', () => {
+		const gone = join(main, '.claude/worktrees/gone');
+		git(main, 'worktree', 'add', '-q', '-b', 'gone', gone);
+		rmSync(gone, { recursive: true, force: true });
+		expect(cli(wt, 'get', 'DEV_PORT')).toEqual({ code: 0, stdout: '20152\n', stderr: '' });
+	});
+
 	it('git リポジトリの外では失敗する', () => {
 		const outside = mkdtempSync(join(tmpdir(), 'worktree-env-out-'));
 		try {
