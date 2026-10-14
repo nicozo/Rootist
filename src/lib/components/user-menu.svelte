@@ -51,7 +51,7 @@
 		<DropdownMenu.Group>
 			<!-- 項目自体をsubmitボタンにして、要素参照（bind:this）なしでformを送信する。 -->
 			<form method="POST" action="/logout" class="contents">
-				<DropdownMenu.Item variant="destructive">
+				<DropdownMenu.Item variant="destructive" class="w-full">
 					{#snippet child({ props })}
 						<button {...props} type="submit">
 							<LogOutIcon />
