@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-// Node のバージョンの正は .nvmrc。Dockerfile の FROM は ARG を読めないため、一致をここで検証する
+// Node のバージョンの正は .nvmrc。Dockerfile の ARG は読み込めないため、一致をここで検証する
 describe('Node のバージョン定義', () => {
 	const major = read('.nvmrc').trim();
 
@@ -11,10 +11,16 @@ describe('Node のバージョン定義', () => {
 		expect(major).toMatch(/^\d+$/);
 	});
 
-	it('Dockerfile の node ベースイメージはすべて .nvmrc と一致する', () => {
-		const tags = [...read('Dockerfile').matchAll(/^FROM node:(\d+)-slim\b/gm)].map((m) => m[1]);
-		expect(tags.length).toBeGreaterThan(0);
-		expect(tags.every((t) => t === major)).toBe(true);
+	it('Dockerfile の ARG NODE_VERSION の既定値は .nvmrc と一致する', () => {
+		expect(read('Dockerfile')).toMatch(new RegExp(`^ARG NODE_VERSION=${major}$`, 'm'));
+	});
+
+	it('Dockerfile の node ベースイメージはすべて ARG NODE_VERSION を参照する', () => {
+		const froms = read('Dockerfile')
+			.split('\n')
+			.filter((l) => /^FROM\b.*\bnode:/.test(l));
+		expect(froms.length).toBeGreaterThan(0);
+		expect(froms.every((l) => /\bnode:\$\{NODE_VERSION\}-slim\b/.test(l))).toBe(true);
 	});
 
 	it('CI の setup-node は .nvmrc を参照し、バージョンを直書きしない', () => {
