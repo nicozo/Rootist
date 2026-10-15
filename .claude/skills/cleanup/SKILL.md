@@ -54,24 +54,27 @@ until s=$(gh pr view <PR番号> --json state -q .state) && [ "$s" != OPEN ]; do 
    - その worktree で `git -C <path> status --porcelain` に出力がある → 未コミットの作業が残っているので、worktree もブランチも削除せずスキップして報告する
    - **gitignore 対象のファイルは `git worktree remove` で黙って消える**（`--force` 無しでも拒否されない）。削除前に `git -C <path> status --porcelain --ignored` の `!!` 行を確認する:
      - `.dev-loop/` がある → QAレポート等の記録が失われるので削除せず、メインのワーキングツリーの `.dev-loop/` へ移すか、ユーザーに確認する
-     - `.env` がメインのワーキングツリーの `.env` と、issue 単位の Docker 環境用 2 キー（`COMPOSE_PROJECT_NAME` / `DEV_PORT`）**以外**の行で異なる → 手元の設定が失われるので、ユーザーに確認する。2 キーの差分だけなら想定内なので確認不要。判定（値を表示しないため `diff` は使わない）:
+     - `.env` がメインのワーキングツリーの `.env` と、issue 単位の Docker 環境用 2 キー（`COMPOSE_PROJECT_NAME` / `DEV_PORT`）**以外**のキーで異なる → 手元の設定が失われるので、ユーザーに確認する。2 キーの差分だけなら想定内なので確認不要。`.env` は読めないので窓口コマンドで判定する（値は出ない。エージェントは `.env` を直接読めない: .claude/rules/agent-env-access.md）:
 
        ```bash
-       K='^(COMPOSE_PROJECT_NAME|DEV_PORT)='
-       cmp -s <(grep -vE "$K" <メインのワーキングツリー>/.env) <(grep -vE "$K" <path>/.env) && echo 想定内 || echo 要確認
+       pnpm -s worktree-env compare --worktree <path>   # 想定内（終了コード 0）/ 要確認（1）/ エラー（2）
        ```
 
+       - 比較は**キー単位**（コメント・空行・順序の差は見ない）。メインにしか無い／worktree にしか無いキーも差分。解析できない行（`=` 無し等）が片方にでもあれば、内容を比べず要確認（行番号だけ表示）
+       - 要確認の場合は、表示された差分キー名をユーザーに示して確認する。エラー（2）の場合は判定できていないので削除せず報告する
+
      - それ以外（`node_modules/`、`.svelte-kit/` 等の再生成できるもの）→ そのまま削除してよい
-   - **issue 環境の Docker プロジェクトの削除（worktree を削除する前に行う）**: worktree の `.env` からプロジェクト名を取り出し、`rootist-issue-<数字>` に完全一致する場合のみ、そのプロジェクトのコンテナ・ネットワーク・名前付きボリュームを削除する（dev プロファイルのコンテナも含む）。プロジェクト名は必ず `-p` で明示する（シェルの `COMPOSE_PROJECT_NAME` が `.env` より優先されて別プロジェクトを消す事故を防ぐ）:
+   - **issue 環境の Docker プロジェクトの削除（worktree を削除する前に行う）**: 窓口コマンドで worktree の `COMPOSE_PROJECT_NAME` を取り出し、`rootist-issue-<数字>` に完全一致する場合のみ、そのプロジェクトのコンテナ・ネットワーク・名前付きボリュームを削除する（dev プロファイルのコンテナも含む）。プロジェクト名は必ず `-p` で明示する（シェルの `COMPOSE_PROJECT_NAME` が `.env` より優先されて別プロジェクトを消す事故を防ぐ）:
 
      ```bash
-     name=$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' <path>/.env | tail -n1 | tr -d "\"'")
-     printf '%s\n' "$name" | grep -qxE 'rootist-issue-[0-9]+' \
+     name=$(pnpm -s worktree-env get COMPOSE_PROJECT_NAME --worktree <path>); rc=$?
+     [ "$rc" = 0 ] && printf '%s\n' "$name" | grep -qxE 'rootist-issue-[0-9]+' \
        && docker compose -p "$name" --project-directory <path> --profile dev down --volumes --remove-orphans
      ```
 
-     - 値の前後のクォートは除去して判定する（`COMPOSE_PROJECT_NAME="rootist-issue-112"` と書かれていても対象になる）
-     - `rootist` や `rootist-issue-`・`rootist-issue-12a` など完全一致しない値、キー無しの場合は Docker に触れない。ただし **`COMPOSE_PROJECT_NAME` キーがあるのに完全一致しない場合は、Docker に触れずスキップしたことをユーザーに報告する**（メインの `rootist` 以外の想定外の値は、コンテナ・ボリュームが残る恐れがあるため）
+     - 終了コード: 0＝値あり（標準出力が値）、3＝キー無し、2＝許可外・エラー。値の前後のクォートはコマンドが除去し、同じキーが複数あれば最後の出現を返す（`COMPOSE_PROJECT_NAME="rootist-issue-112"` と書かれていても対象になる）
+     - 終了コードが 2（許可外・エラー。登録されていない worktree、環境ファイルが無い等）の場合は、Docker に触れず、判定できなかったことをユーザーに報告する
+     - `rootist` や `rootist-issue-`・`rootist-issue-12a` など完全一致しない値、キー無し（終了コード 3）の場合は Docker に触れない。ただし **`COMPOSE_PROJECT_NAME` キーがあるのに完全一致しない場合は、Docker に触れずスキップしたことをユーザーに報告する**（メインの `rootist` 以外の想定外の値は、コンテナ・ボリュームが残る恐れがあるため）
      - Docker デーモンが使えない／プロジェクトが存在しない場合はスキップして報告する（worktree の削除は続行してよい）
 
    - 問題が無ければ `git worktree remove <path>` で削除する（`--force` は使わない。git が拒否したらスキップして報告する）

@@ -54,15 +54,8 @@ dev-loop 進捗:
    1. `git -C <メインのワーキングツリー> pull --ff-only` で main を最新化
    2. `git worktree add -b <ブランチ> .claude/worktrees/<スラッグ> main`（ブランチ名は CLAUDE.md の規則どおり `<type>/issue-<n>-<スラッグ>`。テキスト入力でissue番号が無い場合は先にissueを起票するか、番号なしの `<type>/<スラッグ>` を使う）
    3. EnterWorktree（`path` 指定）でセッションを worktree に移す
-   4. `cp <メインのワーキングツリー>/.env .env` と `pnpm install` — gitignore 対象の `.env` と `node_modules/` は worktree に無いため
-   5. **issue 番号指定の場合のみ**、コピーした `.env` に issue 単位の Docker 環境用 2 キーを設定する（規則・理由は .claude/rules/docker-worktree.md）。既存キーは置き換え、未定義キーは追加し、各キーがちょうど 1 回だけ現れる状態にする。**値はクォートしない**（`KEY=value` 形式）。`DATABASE_URL` は書き換えない（全 worktree でメインと同じ Supabase の値を使う）。メインの `.env` は変更しない:
-
-      | キー                   | 値                  |
-      | ---------------------- | ------------------- |
-      | `COMPOSE_PROJECT_NAME` | `rootist-issue-<N>` |
-      | `DEV_PORT`             | `20000+N`           |
-
-      テキスト入力モード（issue 番号なし）では設定しない。その場合はディレクトリ名由来のプロジェクト名＋既定ポート（5173）になり、メインの環境と同時には起動できない（起動に失敗するだけで他の環境は止まらない）。N が 10000 以上の場合は対象外のため中断してユーザーに報告する。
+   4. `pnpm -s worktree-env setup <N>`（issue 番号なしのテキスト入力モードは `<N>` を省略）と `pnpm install` — gitignore 対象の `.env` と `node_modules/` は worktree に無いため。**`.env` は読まず、必ずこのコマンドで準備する**（エージェントは `.env` を直接読めない。理由・範囲は .claude/rules/agent-env-access.md）。メインからのコピーと、issue 番号指定の場合の issue 単位の Docker 環境用 2 キー（`COMPOSE_PROJECT_NAME` / `DEV_PORT`）の設定を 1 回で行う。値の規則・理由は .claude/rules/docker-worktree.md。出力は 2 キーの値と結果語（`コピー済み` / `キー設定のみ` / `既存を維持`）だけ
+   5. 終了コードが 0 以外（1: N が 1〜9999 の整数でない＝10000 以上は対象外、メインに `.env` が無い、対象が登録済み worktree でない）なら中断してユーザーに報告する。テキスト入力モード（issue 番号なし）では 2 キーを設定しない。その場合はディレクトリ名由来のプロジェクト名＋既定ポート（5173）になり、メインの環境と同時には起動できない（起動に失敗するだけで他の環境は止まらない）。
 
 ### Step 1: Planner — 仕様策定
 
@@ -90,7 +83,7 @@ Planner（`planner`）を起動。promptに含めるもの:
 ### Step 4: QA評価（イテレーションN）
 
 1. **devサーバー起動（オーケストレーターの仕事）**:
-   - worktree 内で実行する（`.env` の `COMPOSE_PROJECT_NAME` / `DEV_PORT` がそのまま効く。シェルで環境変数を上書きしない）。`DEV_PORT` は `sed -n 's/^DEV_PORT=//p' .env | tail -n1` で読む（issue 番号なし＝未設定なら 5173）
+   - worktree 内で実行する（`.env` の `COMPOSE_PROJECT_NAME` / `DEV_PORT` がそのまま効く。シェルで環境変数を上書きしない）。`DEV_PORT` は `pnpm -s worktree-env get DEV_PORT` で読む（標準出力が値。終了コード 3＝issue 番号なしで未設定なら 5173）
    - DB は Supabase 開発用クラウドに直結する（ローカルの DB コンテナは起動しない。`.env` の `DATABASE_URL` はメインと同じ値）。共有 DB へのスキーマ変更（`supabase/migrations/` の新しいマイグレーション）の適用は、**main へのマージ時の自動適用（Supabase の GitHub 連携）だけ**。マージ前の SQL の確認は使い捨てのローカル Postgres（Docker）で行い、共有 DB には流さない。共有 DB 上のスキーマに依存する受け入れ基準は、spec・契約で「マージ後にユーザーが確認する B 項目」に分ける。エージェントは共有 DB に書き込まない（`pnpm db:migrate` / `supabase db push` / `migration repair` の実行、`db push` の直接実行や `--yes` での迂回は禁止。`db:push` 相当の履歴なし適用もしない）。復旧が必要ならユーザーに依頼する（詳細は `docs/supabase-setup.md`）
    - `pnpm dev --port <DEV_PORT> --strictPort` を `run_in_background: true` で起動する。起動前に `lsof -iTCP:<DEV_PORT> -sTCP:LISTEN -P` が**空であることを確認し、空でなければ中断して報告する**。`--strictPort` は別ポートへのずれを防ぐが、ワイルドカードアドレス（Docker の公開ポート等）で LISTEN しているプロセスとの衝突は検知しないことがある（macOS で確認）ため、事前の空き確認が必要。`curl -s -o /dev/null -w "%{http_code}" http://localhost:<DEV_PORT>/` が200を返すまで待つ
 2. QAに **SendMessage**: 「`handoff.md` を読み、http://localhost:<DEV_PORT> でPlaywright動的テストを実施し、評価レポートを `qa_report_iter<N>.md` に書け」（`<DEV_PORT>` は実際の数値に置き換えて URL を明記する。issue 番号なしの場合は 5173）
