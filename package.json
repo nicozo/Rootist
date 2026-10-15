@@ -22,6 +22,7 @@
 		"db:new": "node scripts/supabase-db.mjs new",
 		"db:migrate": "node scripts/supabase-db.mjs migrate",
 		"db:status": "node scripts/supabase-db.mjs status",
+		"worktree-env": "node scripts/worktree-env.mjs",
 		"storybook": "storybook dev -p 6006",
 		"build-storybook": "storybook build"
 	},
