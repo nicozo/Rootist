@@ -20,7 +20,7 @@ SvelteKit と PostgreSQL（Supabase）を使用したフルスタック Web ア�
 
 - **[Docker](https://www.docker.com/)** - コンテナ化プラットフォーム
 - **[Docker Compose](https://docs.docker.com/compose/)** - マルチコンテナ管理
-- **[pnpm](https://pnpm.io/)** 10.25.0 - 高速パッケージマネージャー
+- **[pnpm](https://pnpm.io/)** - 高速パッケージマネージャー（バージョンは `package.json` の `packageManager` を参照）
 
 ### インフラ構成
 
