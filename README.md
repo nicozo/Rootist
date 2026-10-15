@@ -13,7 +13,7 @@ SvelteKit と PostgreSQL（Supabase）を使用したフルスタック Web ア�
 
 ### バックエンド
 
-- **[Node.js](https://nodejs.org/)** v25 - JavaScript ランタイム
+- **[Node.js](https://nodejs.org/)** v24（バージョンの正は `.nvmrc`） - JavaScript ランタイム
 - **[PostgreSQL](https://www.postgresql.org/)**（[Supabase](https://supabase.com/)）- リレーショナルデータベース
 
 ### 開発ツール

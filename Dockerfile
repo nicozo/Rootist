@@ -1,7 +1,11 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ステージ1: ベースイメージ（共通設定）
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FROM node:24-slim AS base
+# Node のバージョンの正は .nvmrc。Dockerfile はファイルを ARG に読み込めないため、既定値をここに 1 か所だけ書き、
+# scripts/node-version.test.ts が .nvmrc との一致を検証する（各 FROM はこの ARG を参照する）
+ARG NODE_VERSION=24
+
+FROM node:${NODE_VERSION}-slim AS base
 
 # 作業ディレクトリ
 WORKDIR /app
@@ -77,7 +81,7 @@ CMD ["pnpm", "dev", "--host"]
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ステージ5: 本番環境（最終イメージ）
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FROM node:24-slim AS production
+FROM node:${NODE_VERSION}-slim AS production
 
 # 非rootユーザーの作成（セキュリティ向上）
 RUN groupadd -r appuser && useradd -r -g appuser appuser
