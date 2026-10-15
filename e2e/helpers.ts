@@ -8,7 +8,7 @@ export const MOCK_SUGGESTIONS = [
 	{ placeId: 'mock-place-2', name: '浅草寺', displayAddress: '東京都台東区浅草2-3-1' }
 ];
 
-export const MOCK_ROUTE_SUMMARY = 'モックの概要: 東京タワーから浅草寺へ向かう1日プランです。';
+export const MOCK_ROUTE_SUMMARY = 'モックの概要: 2 か所を巡る1日プランです。';
 
 export const MOCK_ROUTE_RESULT = {
 	summary: MOCK_ROUTE_SUMMARY,
@@ -23,7 +23,7 @@ export const MOCK_ROUTE_RESULT = {
 		displayAddress: s.displayAddress,
 		arrivalTime: i === 0 ? '10:00' : '12:00',
 		departureTime: i === 0 ? '11:00' : '13:00',
-		description: `${s.name}を観光します。`,
+		description: `${i + 1} か所目の見どころです。`,
 		travelTimeFromPrevious: i === 0 ? null : '約30分'
 	}))
 };
@@ -108,6 +108,9 @@ export async function createPlanToResult(page: Page) {
 	await page.goto('/plan');
 	await waitForHydration(page);
 	for (const s of MOCK_SUGGESTIONS) await addPlace(page, s.name);
+	// 一覧（ItemTitle）に選んだ場所名がそのまま並ぶこと（候補の option は選択後に閉じる）
+	for (const s of MOCK_SUGGESTIONS)
+		await expect(page.getByText(s.name, { exact: true })).toBeVisible();
 	await expect(page.getByText('2 箇所 · 作成できます')).toBeVisible();
 	await page.getByRole('button', { name: '旅行プランを作成する' }).click();
 	await expect(page).toHaveURL(/\/plan\/result$/);

@@ -21,7 +21,7 @@ test('P-2: 場所を 2 件選んでプランを作成すると結果画面に着
 	await createPlanToResult(page);
 	await expect(page.getByText(MOCK_ROUTE_SUMMARY)).toBeVisible();
 	for (const s of MOCK_SUGGESTIONS) {
-		await expect(page.getByText(s.name).first()).toBeVisible();
+		await expect(page.getByText(s.name, { exact: true })).toBeVisible();
 	}
 	expect(calls.route).toBe(1);
 });
