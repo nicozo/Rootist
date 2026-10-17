@@ -8,17 +8,20 @@ vi.mock('$app/env/private', async () =>
 	(await import('#lib/server/test-utils/mock-env.js')).createEnvModule()
 );
 
-const { POST } = await import('./+server');
+vi.mock('$app/server', async () =>
+	(await import('#lib/server/test-utils/remote-call.js')).createAppServerModule()
+);
 
-/** RequestHandlerに渡す最小限のイベント。テスト対象はrequestしか参照しない。 */
+// 本物の remote module を、スキーマ検証 → 本体の経路で呼ぶ（issue #159）。
+// 旧 POST ハンドラのテストの assertion を保つため、戻り値は Response に包んで返す。
+const { searchPlaces } = await import('#lib/remote/places.remote.js');
+const { callRemote } = await import('#lib/server/test-utils/remote-call.js');
+
+const POST = async (arg: unknown) => Response.json(await callRemote(searchPlaces, arg));
+
+/** remote function の引数（移行前は JSON 本文だったもの）。 */
 function eventWith(body: unknown) {
-	return {
-		request: new Request('http://localhost/api/places', {
-			method: 'POST',
-			body: JSON.stringify(body)
-		})
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	} as any;
+	return body;
 }
 
 /** placePrediction 1件分のGoogle Places APIレスポンス断片を組み立てる。 */
@@ -44,7 +47,7 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-describe('POST /api/places', () => {
+describe('searchPlaces（場所検索）', () => {
 	it('queryが空なら外部APIを叩かず空配列を返す', async () => {
 		const fetchSpy = vi.fn();
 		vi.stubGlobal('fetch', fetchSpy);
@@ -201,5 +204,43 @@ describe('POST /api/places', () => {
 			status: 502,
 			body: { message: 'Places API request failed' }
 		});
+	});
+});
+
+// issue #159: 未指定・型違いの入力の扱いを固定する（スキーマを必須にして移行前の 200 を 400 に変えないため）
+describe('searchPlaces 未指定・型違いの入力', () => {
+	it.each([
+		['引数なし（undefined）', undefined],
+		['空オブジェクト', {}],
+		['空文字', { query: '' }],
+		['前後空白込みで 1 文字', { query: ' a ' }],
+		// 旧 API は `!query` で判定し null を未指定として扱っていた（issue #159 QA 指摘 #1）
+		['query が null', { query: null }]
+	])('%s は外部APIを叩かず空配列を返す', async (_label, arg) => {
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+
+		const res = await POST(arg);
+
+		expect(await res.json()).toEqual({ suggestions: [] });
+		expect(fetchSpy).not.toHaveBeenCalled();
+	});
+
+	// D2: 移行前は想定外の 500（P5）。型で絞るため境界の 400 になる（締める方向）
+	it.each([
+		['数値の query', { query: 123 }],
+		['Date の query', { query: new Date() }]
+	])('%s は境界で 400 になり、外部APIを叩かない', async (_label, arg) => {
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+
+		await expect(POST(arg)).rejects.toMatchObject({ status: 400 });
+		expect(fetchSpy).not.toHaveBeenCalled();
+	});
+
+	it('検証を省略せず、スキーマが登録されている', async () => {
+		const { assertSchemaRegistered } = await import('#lib/server/test-utils/remote-call.js');
+
+		expect(() => assertSchemaRegistered(searchPlaces)).not.toThrow();
 	});
 });

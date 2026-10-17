@@ -35,7 +35,14 @@
 	import { fly, slide, fade } from 'svelte/transition';
 	import { get } from 'svelte/store';
 	import { routeResult, planDraft } from '#lib/stores/route.js';
-	import { STAY_MINUTES_PRESETS, formatStayMinutes } from '#lib/stay-minutes.js';
+	import {
+		STAY_MINUTES_PRESETS,
+		formatStayMinutes,
+		isStayMinutesPreset
+	} from '#lib/stay-minutes.js';
+	import type { TimeSlot as TimeSlotValue } from '#lib/time-slot.js';
+	import { isHttpError } from '@sveltejs/kit';
+	import { generateRoute as requestRoute } from '#lib/remote/route.remote.js';
 
 	// issue #64: 「もう一度計画する」で戻ってきた場合のみ、直前の入力を1回だけ復元する。
 	// 読み取り後は即座にリセットする消費型ストアのため、それ以外の経路（トップからの遷移・
@@ -66,7 +73,7 @@
 	let isGoalOpen = $state(false);
 
 	// 時間帯タグ（'' = 指定なし）
-	type TimeSlot = 'morning' | 'noon' | 'night' | '';
+	type TimeSlot = TimeSlotValue | '';
 	const timeSlotOptions: { value: Exclude<TimeSlot, ''>; label: string; icon: typeof Sunrise }[] = [
 		{ value: 'morning', label: '朝', icon: Sunrise },
 		{ value: 'noon', label: '昼', icon: Sun },
@@ -127,33 +134,27 @@
 		isGenerating = true;
 		generateError = null;
 		try {
-			const res = await fetch('/api/route', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					origin: origin ?? undefined,
-					transportMode: transportMode || undefined,
-					startTime: startTime || undefined,
-					planDate: planDate || undefined,
-					endDestination: endDestination ?? undefined,
-					locations: locations.map((l) => ({
-						name: l.address,
-						displayAddress: l.displayAddress ?? '',
-						timeSlot: l.timeSlot || undefined,
-						stayMinutes: l.stayMinutes || undefined,
-						arriveAt: l.arriveAt || undefined
-					}))
-				})
+			const data = await requestRoute({
+				origin: origin ?? undefined,
+				transportMode: transportMode || undefined,
+				startTime: startTime || undefined,
+				planDate: planDate || undefined,
+				endDestination: endDestination ?? undefined,
+				locations: locations.map((l) => ({
+					name: l.address,
+					displayAddress: l.displayAddress ?? '',
+					timeSlot: l.timeSlot || undefined,
+					stayMinutes: isStayMinutesPreset(l.stayMinutes) ? l.stayMinutes : undefined,
+					arriveAt: l.arriveAt || undefined
+				}))
 			});
-			if (!res.ok) {
-				generateError = 'プランの作成に失敗しました。もう一度お試しください。';
-				return;
-			}
-			const data = await res.json();
 			routeResult.set(data);
 			goto(resolve('plan/result'));
-		} catch {
-			generateError = '通信エラーが発生しました。もう一度お試しください。';
+		} catch (e) {
+			// サーバーが返した失敗（検証エラー・上流エラーなどステータス付き）と、通信自体の失敗を区別する
+			generateError = isHttpError(e)
+				? 'プランの作成に失敗しました。もう一度お試しください。'
+				: '通信エラーが発生しました。もう一度お試しください。';
 		} finally {
 			isGenerating = false;
 		}

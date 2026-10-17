@@ -1,6 +1,9 @@
 import { writable } from 'svelte/store';
+import type { TimeSlot } from '#lib/time-slot.js';
 
-export interface RouteDestination {
+// remote function（savePlan）の引数スキーマ（looseObject: 未知キーを index signature で受ける）へ代入できるよう、
+// interface ではなく type alias にしている（interface は暗黙の index signature を持たない）。
+export type RouteDestination = {
 	order: number;
 	name: string;
 	displayAddress: string;
@@ -9,13 +12,13 @@ export interface RouteDestination {
 	description: string;
 	travelTimeFromPrevious: string | null;
 	transitRoute?: string | null;
-	timeSlot?: 'morning' | 'noon' | 'night' | null;
+	timeSlot?: TimeSlot | null;
 	stayMinutes?: number | null;
 	/** ユーザーが指定した訪問時刻 "HH:MM"（未指定は null）。issue #70 */
 	arriveAt?: string | null;
-}
+};
 
-export interface RouteResult {
+export type RouteResult = {
 	origin?: { name: string; displayAddress: string };
 	transportMode?: string | null;
 	startTime?: string | null;
@@ -24,7 +27,7 @@ export interface RouteResult {
 	planDate?: string | null;
 	destinations: RouteDestination[];
 	summary: string;
-}
+};
 
 export const routeResult = writable<RouteResult | null>(null);
 
@@ -43,7 +46,7 @@ export interface PlanDraft {
 	locations: {
 		address: string;
 		displayAddress?: string;
-		timeSlot: 'morning' | 'noon' | 'night' | '';
+		timeSlot: TimeSlot | '';
 		stayMinutes: number | '';
 		arriveAt: string;
 	}[];

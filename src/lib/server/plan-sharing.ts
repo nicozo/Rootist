@@ -1,11 +1,12 @@
 import { error } from '@sveltejs/kit';
 import { randomUUID } from 'node:crypto';
 import { insertPlan } from '#lib/server/db/plans.js';
-import type { RequestHandler } from './$types';
 import type { RouteDestination, RouteResult } from '#lib/stores/route.js';
+import type { SavePlanInput } from '#lib/schemas/plans.js';
 import { isPlanDate } from '#lib/plan-date.js';
 
-// 保存時に受け入れる既知フィールドのみを対象とする（任意の巨大キー混入防止）
+// 保存時に受け入れる既知フィールドのみを対象とする（任意の巨大キー混入防止）。
+// RouteDestination のキーと食い違うと pnpm check が落ちる。
 const DESTINATION_KEYS = [
 	'order',
 	'name',
@@ -20,29 +21,17 @@ const DESTINATION_KEYS = [
 	'arriveAt'
 ] as const satisfies readonly (keyof RouteDestination)[];
 
+/** 受け取った引数全体（正規化前・未知キーを含む）を JSON にしたときの UTF-8 バイト数の上限。 */
 const MAX_BODY_BYTES = 100 * 1024;
 
 function isNonEmptyString(v: unknown): v is string {
 	return typeof v === 'string' && v.length > 0;
 }
 
-function isValidDestination(d: unknown): d is RouteDestination {
-	if (!d || typeof d !== 'object') return false;
-	const rec = d as Record<string, unknown>;
-	const orderOk = typeof rec.order === 'number' && Number.isFinite(rec.order) && rec.order > 0;
-	return (
-		orderOk &&
-		isNonEmptyString(rec.name) &&
-		isNonEmptyString(rec.displayAddress) &&
-		isNonEmptyString(rec.arrivalTime) &&
-		isNonEmptyString(rec.departureTime)
-	);
-}
-
 // each_key_duplicate（plan-timeline.svelte の {#each ... (dest.order)}）を防ぐため、
 // destinations 間で order が重複していないことを検証する。
-function hasUniqueOrders(destinations: unknown[]): boolean {
-	const orders = destinations.map((d) => (d as Record<string, unknown>).order);
+function hasUniqueOrders(destinations: readonly { order: number }[]): boolean {
+	const orders = destinations.map((d) => d.order);
 	return new Set(orders).size === orders.length;
 }
 
@@ -61,40 +50,23 @@ function pickPlace(v: unknown): { name: string; displayAddress: string } | undef
 	return { name: rec.name, displayAddress: rec.displayAddress };
 }
 
-export const POST: RequestHandler = async ({ request }) => {
-	const rawBody = await request.text();
-
-	if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
+/**
+ * 生成結果をプランとして保存し、共有 ID を返す（issue #159 で remote function の本体として移設）。
+ * 形式の検査（destinations の必須項目・JSON で表せる値のみ）は境界のスキーマ（`#lib/schemas/plans.js`）が行い、
+ * ここでは文言を維持する業務ルール（サイズ・order 重複）と正規化・保存を行う。
+ */
+export async function savePlan(input: SavePlanInput): Promise<{ shareId: string }> {
+	if (new TextEncoder().encode(JSON.stringify(input)).byteLength > MAX_BODY_BYTES) {
 		error(400, 'リクエストボディが大きすぎます');
 	}
 
-	let body: unknown;
-	try {
-		body = JSON.parse(rawBody);
-	} catch {
-		error(400, '不正なJSON形式です');
-	}
-
-	if (!body || typeof body !== 'object') {
-		error(400, '不正なリクエストです');
-	}
-
-	const rec = body as Record<string, unknown>;
-	const destinationsInput = rec.destinations;
-
-	if (!Array.isArray(destinationsInput) || destinationsInput.length === 0) {
-		error(400, 'destinations は1件以上必要です');
-	}
-
-	if (!destinationsInput.every(isValidDestination)) {
-		error(400, 'destinations の形式が不正です');
-	}
-
-	if (!hasUniqueOrders(destinationsInput)) {
+	if (!hasUniqueOrders(input.destinations)) {
 		error(400, 'destinations の order が重複しています');
 	}
 
-	const destinations = destinationsInput.map((d) =>
+	const rec = input as Record<string, unknown>;
+
+	const destinations = input.destinations.map((d) =>
 		pickDestination(d as unknown as Record<string, unknown>)
 	);
 
@@ -113,9 +85,9 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		await insertPlan(shareId, data);
 	} catch (e) {
-		console.error('[POST /api/plans] DB insert failed:', e);
+		console.error('[savePlan] DB insert failed:', e);
 		error(500, 'プランの保存に失敗しました');
 	}
 
-	return Response.json({ shareId }, { status: 201 });
-};
+	return { shareId };
+}

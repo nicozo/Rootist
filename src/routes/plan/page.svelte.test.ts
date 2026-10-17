@@ -2,13 +2,21 @@ import { page } from 'vite-plus/test/browser';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { get } from 'svelte/store';
+import { error } from '@sveltejs/kit';
 import { routeResult, planDraft, type PlanDraft } from '#lib/stores/route.js';
 
 // issue #62: プラン作成ページのテスト。
-// /api/places（Google Places）と /api/route（Gemini）は課金対象なのでfetchをモックし実接続しない。
+// 場所検索（Google Places）とルート生成（Gemini）の remote function は課金対象なので、remote module をモックし実接続しない（issue #159）。
 
 const { goto } = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto }));
+
+const { searchPlaces, generateRoute } = vi.hoisted(() => ({
+	searchPlaces: vi.fn(),
+	generateRoute: vi.fn()
+}));
+vi.mock('#lib/remote/places.remote.js', () => ({ searchPlaces }));
+vi.mock('#lib/remote/route.remote.js', () => ({ generateRoute }));
 
 const PlanPage = (await import('./+page.svelte')).default;
 
@@ -19,26 +27,22 @@ const PLACES = [
 	{ placeId: 'p2', name: '浅草寺', displayAddress: '台東区浅草' }
 ];
 
-/** /api/places と /api/route の両方に応答するfetchモックを立てる。 */
-function stubApis(routeResponse?: Response) {
-	const fetchSpy = vi
-		.fn<(url: string, init: { body: string }) => Promise<Response>>()
-		.mockImplementation((url) => {
-			if (String(url).includes('/api/places')) {
-				return Promise.resolve(
-					new Response(JSON.stringify({ suggestions: PLACES }), { status: 200 })
-				);
-			}
-			return Promise.resolve(
-				routeResponse ??
-					new Response(JSON.stringify({ destinations: [], summary: '概要' }), { status: 200 })
-			);
-		});
-	vi.stubGlobal('fetch', fetchSpy);
-	return fetchSpy;
+/** 場所検索とルート生成の remote function に応答するモックを立てる。routeData が生成結果。 */
+function stubApis(routeData: unknown = { destinations: [], summary: '概要' }) {
+	searchPlaces.mockResolvedValue({ suggestions: PLACES });
+	generateRoute.mockResolvedValue(routeData);
 }
 
-/** デバウンスとfetch解決を待つ。 */
+/** サーバーが失敗を返したときに remote function が投げる本物の HttpError を作る。 */
+function httpError(status: number) {
+	try {
+		error(status, 'failed');
+	} catch (e) {
+		return e;
+	}
+}
+
+/** デバウンスと検索の解決を待つ。 */
 function settle() {
 	return new Promise((r) => setTimeout(r, DEBOUNCE_MS + 150));
 }
@@ -155,7 +159,6 @@ afterEach(() => {
 	routeResult.set(null);
 	planDraft.set(null);
 	vi.clearAllMocks();
-	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 });
 
@@ -355,7 +358,7 @@ describe('/plan +page.svelte 出発地とゴール', () => {
 
 describe('/plan +page.svelte 任意条件の指定', () => {
 	it('移動手段を選ぶとリクエストに含める', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -364,12 +367,12 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).transportMode).toBe('transit');
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.transportMode).toBe('transit');
 	});
 
 	it('出発時刻を選ぶとリクエストに含める', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -379,12 +382,12 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).startTime).toBe('10:00');
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.startTime).toBe('10:00');
 	});
 
 	it('目的地の時間帯を選ぶとリクエストに含める', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -393,12 +396,12 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).locations[0].timeSlot).toBe('morning');
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.locations[0].timeSlot).toBe('morning');
 	});
 
 	it('目的地の滞在時間を選ぶとリクエストに含める', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -407,12 +410,12 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).locations[0].stayMinutes).toBe(90);
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.locations[0].stayMinutes).toBe(90);
 	});
 
 	it('滞在時間を一度選んでから「指定なし」に戻すとリクエストから外れる', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -422,12 +425,12 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).locations[0].stayMinutes).toBeUndefined();
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.locations[0].stayMinutes).toBeUndefined();
 	});
 
 	it('時間帯と滞在時間を同じ行き先に両方指定するとどちらもリクエストに含める', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -437,14 +440,14 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		const location = JSON.parse(routeCall![1].body).locations[0];
+		const routeBody = generateRoute.mock.calls[0][0];
+		const location = routeBody.locations[0];
 		expect(location.timeSlot).toBe('morning');
 		expect(location.stayMinutes).toBe(30);
 	});
 
 	it('目的地の訪問時刻を選ぶとリクエストに含める', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -453,12 +456,12 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).locations[0].arriveAt).toBe('10:00');
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.locations[0].arriveAt).toBe('10:00');
 	});
 
 	it('訪問時刻を一度選んでから「指定なし」に戻すとリクエストから外れる', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -468,12 +471,12 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).locations[0].arriveAt).toBeUndefined();
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.locations[0].arriveAt).toBeUndefined();
 	});
 
 	it('訪問時刻を指定すると同じ行き先の時間帯指定は解除される', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -484,14 +487,14 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
 		expect(toggleItem('訪問する時間帯', '朝')?.getAttribute('data-state')).toBe('off');
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		const location = JSON.parse(routeCall![1].body).locations[0];
+		const routeBody = generateRoute.mock.calls[0][0];
+		const location = routeBody.locations[0];
 		expect(location.arriveAt).toBe('10:00');
 		expect(location.timeSlot).toBeUndefined();
 	});
 
 	it('時間帯を指定すると同じ行き先の訪問時刻は解除される', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -502,14 +505,14 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
 		expect(arriveAtTrigger(0)?.textContent?.trim()).toBe('--');
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		const location = JSON.parse(routeCall![1].body).locations[0];
+		const routeBody = generateRoute.mock.calls[0][0];
+		const location = routeBody.locations[0];
 		expect(location.timeSlot).toBe('morning');
 		expect(location.arriveAt).toBeUndefined();
 	});
 
 	it('訪問時刻と滞在時間は同じ行き先に両方指定できる', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -519,14 +522,14 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		const location = JSON.parse(routeCall![1].body).locations[0];
+		const routeBody = generateRoute.mock.calls[0][0];
+		const location = routeBody.locations[0];
 		expect(location.arriveAt).toBe('10:00');
 		expect(location.stayMinutes).toBe(30);
 	});
 
 	it('出発地を選ぶとリクエストに含める', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await pickPlace('例：自宅最寄り駅、宿泊ホテル...', '東京', '東京タワー');
 		await addLocation('東京タワー');
@@ -535,15 +538,15 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).origin).toEqual({
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.origin).toEqual({
 			name: '東京タワー',
 			displayAddress: '港区芝公園'
 		});
 	});
 
 	it('ゴールを選ぶとリクエストに含める', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -553,17 +556,17 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).endDestination).toEqual({
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.endDestination).toEqual({
 			name: '浅草寺',
 			displayAddress: '台東区浅草'
 		});
 	});
 
-	it('日付を指定して作成すると/api/routeのリクエストボディにplanDateが含まれる', async () => {
+	it('日付を指定して作成するとルート生成の引数にplanDateが含まれる', async () => {
 		// 「今日」に依存しないため実行日によらず安定させる: planDraftで固定日付から復元した状態で
 		// 12日をクリックし、送信ボディが復元月内の別の日付になることを検証する。
-		const fetchSpy = stubApis();
+		stubApis();
 		planDraft.set({
 			origin: null,
 			transportMode: '',
@@ -593,12 +596,12 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).planDate).toBe('2026-09-12');
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.planDate).toBe('2026-09-12');
 	});
 
 	it('日付を指定せずに作成すると、送信ボディにplanDateが含まれない', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -606,12 +609,12 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).planDate).toBeUndefined();
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.planDate).toBeUndefined();
 	});
 
 	it('日付を指定してから「指定なしに戻す」で解除して作成すると、送信ボディのplanDateがundefinedになる', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
@@ -624,8 +627,8 @@ describe('/plan +page.svelte 任意条件の指定', () => {
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(JSON.parse(routeCall![1].body).planDate).toBeUndefined();
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(routeBody.planDate).toBeUndefined();
 	});
 });
 
@@ -638,18 +641,16 @@ describe('/plan +page.svelte プラン作成', () => {
 		return rendered;
 	}
 
-	it('入力内容を /api/route へ送りストアに保存して遷移する', async () => {
-		const fetchSpy = stubApis(
-			new Response(JSON.stringify({ destinations: [], summary: '生成された概要' }), { status: 200 })
-		);
+	it('入力内容をルート生成へ渡しストアに保存して遷移する', async () => {
+		stubApis({ destinations: [], summary: '生成された概要' });
 		await ready();
 
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		expect(routeCall).toBeDefined();
-		expect(JSON.parse(routeCall![1].body).locations).toEqual([
+		const routeBody = generateRoute.mock.calls[0][0];
+		expect(generateRoute).toHaveBeenCalledOnce();
+		expect(routeBody.locations).toEqual([
 			{
 				name: '東京タワー',
 				displayAddress: '港区芝公園',
@@ -662,14 +663,14 @@ describe('/plan +page.svelte プラン作成', () => {
 	});
 
 	it('未指定の条件はリクエストに含めない', async () => {
-		const fetchSpy = stubApis();
+		stubApis();
 		await ready();
 
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		const body = JSON.parse(routeCall![1].body);
+		const routeBody = generateRoute.mock.calls[0][0];
+		const body = routeBody;
 		expect(body.origin).toBeUndefined();
 		expect(body.transportMode).toBeUndefined();
 		expect(body.startTime).toBeUndefined();
@@ -680,7 +681,22 @@ describe('/plan +page.svelte プラン作成', () => {
 	});
 
 	it('生成APIがエラーを返したらメッセージを表示し遷移しない', async () => {
-		stubApis(new Response('boom', { status: 502 }));
+		stubApis();
+		generateRoute.mockRejectedValue(httpError(502));
+		await ready();
+
+		await generateButton().click();
+
+		await expect
+			.element(page.getByText('プランの作成に失敗しました。もう一度お試しください。'))
+			.toBeInTheDocument();
+		expect(goto).not.toHaveBeenCalled();
+	});
+
+	// issue #159: クロスサイト検査（CSRF 相当）で拒否された場合もサーバーが返した失敗として扱う
+	it('生成APIが 403（クロスサイト拒否）を返したらプラン作成失敗のメッセージを表示する', async () => {
+		stubApis();
+		generateRoute.mockRejectedValue(httpError(403));
 		await ready();
 
 		await generateButton().click();
@@ -692,10 +708,11 @@ describe('/plan +page.svelte プラン作成', () => {
 	});
 
 	it('通信自体が失敗したら通信エラーを表示する', async () => {
+		stubApis();
 		await renderPlan();
 		await addLocation('東京タワー');
 		await addLocation('浅草寺');
-		vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+		generateRoute.mockRejectedValue(new TypeError('Failed to fetch'));
 
 		await generateButton().click();
 
@@ -775,16 +792,16 @@ describe('/plan +page.svelte 入力の復元（もう一度計画する）', () 
 		await vi.waitFor(() => expect(container.textContent).toContain('2 箇所'));
 	});
 
-	it('復元後にそのまま作成すると復元された内容で/api/routeを呼ぶ', async () => {
-		const fetchSpy = stubApis();
+	it('復元後にそのまま作成すると復元された内容でルート生成を呼ぶ', async () => {
+		stubApis();
 		planDraft.set(DRAFT);
 		await renderPlan();
 
 		await generateButton().click();
 
 		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-		const routeCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('/api/route'));
-		const body = JSON.parse(routeCall![1].body);
+		const routeBody = generateRoute.mock.calls[0][0];
+		const body = routeBody;
 		expect(body.origin).toEqual(DRAFT.origin);
 		expect(body.transportMode).toBe('transit');
 		expect(body.startTime).toBe('09:30');
