@@ -1,19 +1,10 @@
 import { error } from '@sveltejs/kit';
 import { GEMINI_API_KEY } from '$app/env/private';
-import type { RequestHandler } from './$types';
-import { isStayMinutesPreset, formatStayMinutes } from '#lib/stay-minutes.js';
-import { isVisitTime, parseTimeToMinutes } from '#lib/visit-time.js';
-import { isPlanDate } from '#lib/plan-date.js';
-
-type TimeSlot = 'morning' | 'noon' | 'night';
-
-interface Location {
-	name: string;
-	displayAddress: string;
-	timeSlot?: TimeSlot;
-	stayMinutes?: number;
-	arriveAt?: string;
-}
+import { formatStayMinutes } from '#lib/stay-minutes.js';
+import { parseTimeToMinutes } from '#lib/visit-time.js';
+import type { RouteGenerationInput } from '#lib/schemas/route.js';
+import type { TimeSlot } from '#lib/time-slot.js';
+import type { RouteResult } from '#lib/stores/route.js';
 
 /** モデル出力のarrivalTime〜departureTimeから実際の滞在分数を算出する。解釈できなければnull。 */
 function actualStayMinutes(arrivalTime: unknown, departureTime: unknown): number | null {
@@ -23,45 +14,27 @@ function actualStayMinutes(arrivalTime: unknown, departureTime: unknown): number
 	return departure - arrival;
 }
 
-export const POST: RequestHandler = async ({ request }) => {
-	const {
-		locations,
-		origin,
-		transportMode,
-		startTime,
-		endDestination,
-		planDate
-	}: {
-		locations: Location[];
-		origin?: Location;
-		transportMode?: string;
-		startTime?: string;
-		endDestination?: Location;
-		planDate?: string;
-	} = await request.json();
+/**
+ * Gemini でルートを生成する（issue #159 で remote function の本体として移設）。
+ *
+ * 引数は境界のスキーマ（`#lib/schemas/route.js`）を通った値。時間帯・滞在時間・訪問時刻・日付は
+ * ホワイトリスト外なら境界で undefined に落ちている（プロンプト汚染防止のため拒否せず無視する方針）。
+ */
+export async function generateRoute(input: RouteGenerationInput): Promise<RouteResult> {
+	const { locations, origin, transportMode, startTime, endDestination, planDate } = input ?? {};
 
 	if (!locations || locations.length < 2) {
 		error(400, '2件以上の目的地が必要です');
 	}
 
-	// プラン全体の日付: 形式外・実在しない日はホワイトリスト外として無視する（プロンプトには一切注入しない）
-	const validPlanDate = isPlanDate(planDate) ? planDate : undefined;
+	const validPlanDate = planDate; // 形式外・実在しない日は境界で undefined になる（プロンプトには一切注入しない）
 
-	// 時間帯: whitelist（4値）以外は undefined として無視（プロンプト汚染防止）
-	const validSlots = new Set<TimeSlot>(['morning', 'noon', 'night']);
-	// 滞在時間: プリセットのwhitelist以外は undefined として無視（プロンプト汚染防止）
-	// 訪問時刻: 厳密な "HH:MM"（00:00〜23:59）以外は undefined として無視（プロンプト汚染防止）
-	const normalizedLocations = locations.map((l) => {
-		const arriveAt = isVisitTime(l.arriveAt) ? l.arriveAt : undefined;
-		return {
-			...l,
-			// 訪問時刻は時間帯より強い指定なので、両方来た場合は時刻を優先し時間帯は捨てる
-			// （矛盾した指示をプロンプトに同時に載せないため）
-			timeSlot: !arriveAt && l.timeSlot && validSlots.has(l.timeSlot) ? l.timeSlot : undefined,
-			stayMinutes: isStayMinutesPreset(l.stayMinutes) ? l.stayMinutes : undefined,
-			arriveAt
-		};
-	});
+	const normalizedLocations = locations.map((l) => ({
+		...l,
+		// 訪問時刻は時間帯より強い指定なので、両方来た場合は時刻を優先し時間帯は捨てる
+		// （矛盾した指示をプロンプトに同時に載せないため）
+		timeSlot: l.arriveAt ? undefined : l.timeSlot
+	}));
 
 	// 出発地: 指定時のみ注入（省略方式）
 	const originLine = origin
@@ -271,12 +244,12 @@ ${locationList}
 		);
 	}
 
-	return Response.json({
+	return {
 		...routeData,
-		origin,
+		origin: origin ?? undefined,
 		transportMode: transportMode ?? null,
 		startTime: startTime ?? null,
 		endDestination: endDestination ?? null,
 		planDate: validPlanDate ?? null
-	});
-};
+	};
+}

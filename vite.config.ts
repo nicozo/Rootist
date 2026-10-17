@@ -35,7 +35,11 @@ export default defineConfig({
 		sveltekit({
 			preprocess: vitePreprocess(),
 			// adapter-auto が対応する環境は https://svelte.dev/docs/kit/adapter-auto を参照
-			adapter: adapter()
+			adapter: adapter(),
+			// remote functions（experimental）。公式は両方の opt-in が必須としている
+			// https://svelte.dev/docs/kit/remote-functions
+			experimental: { remoteFunctions: true },
+			compilerOptions: { experimental: { async: true } }
 		})
 	]),
 

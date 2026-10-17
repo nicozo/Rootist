@@ -2,13 +2,26 @@ import { page } from 'vite-plus/test/browser';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 import { get } from 'svelte/store';
+import { error } from '@sveltejs/kit';
 import { routeResult, planDraft, type RouteResult } from '#lib/stores/route.js';
 
 // issue #62: プラン結果ページのテスト。
-// /api/plans はDB書き込みを伴うためfetchをモックし、遷移とクリップボードもモックする。
+// プラン保存（remote function）はDB書き込みを伴うため remote module をモックし、遷移とクリップボードもモックする（issue #159）。
 
 const { goto } = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto }));
+
+const { savePlan } = vi.hoisted(() => ({ savePlan: vi.fn() }));
+vi.mock('#lib/remote/plans.remote.js', () => ({ savePlan }));
+
+/** サーバーが失敗を返したときに remote function が投げる本物の HttpError を作る。 */
+function httpError(status: number) {
+	try {
+		error(status, 'failed');
+	} catch (e) {
+		return e;
+	}
+}
 
 const ResultPage = (await import('./+page.svelte')).default;
 
@@ -38,13 +51,10 @@ function stubClipboard(impl: () => Promise<void>) {
 	return writeText;
 }
 
-/** /api/plans のレスポンスを返すfetchモックを立てる。 */
-function stubPlansApi(response: Response) {
-	const fetchSpy = vi
-		.fn<(url: string, init: { body: string }) => Promise<Response>>()
-		.mockResolvedValue(response);
-	vi.stubGlobal('fetch', fetchSpy);
-	return fetchSpy;
+/** プラン保存の remote function が shareId を返すモックを立てる。 */
+function stubSavePlan(shareId = 'abc-123') {
+	savePlan.mockResolvedValue({ shareId });
+	return savePlan;
 }
 
 // intro を有効にして、ヘッダーと操作ブロックの in: トランジションも実際に走らせる。
@@ -70,7 +80,6 @@ afterEach(() => {
 	routeResult.set(null);
 	planDraft.set(null);
 	vi.clearAllMocks();
-	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 });
 
@@ -104,25 +113,21 @@ describe('/plan/result +page.svelte', () => {
 	});
 
 	it('共有ボタンでプランを保存しURLをコピーする', async () => {
-		const fetchSpy = stubPlansApi(
-			new Response(JSON.stringify({ shareId: 'abc-123' }), { status: 201 })
-		);
+		const savePlanSpy = stubSavePlan();
 		const writeText = stubClipboard(() => Promise.resolve());
 		await renderResult();
 
 		await shareButton().click();
 
-		await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce());
-		expect(JSON.parse(fetchSpy.mock.calls[0][1].body)).toEqual(RESULT);
+		await vi.waitFor(() => expect(savePlanSpy).toHaveBeenCalledOnce());
+		expect(savePlanSpy.mock.calls[0][0]).toEqual(RESULT);
 		await vi.waitFor(() => expect(writeText).toHaveBeenCalledOnce());
 		expect(writeText.mock.calls[0][0]).toContain('/plan/share/abc-123');
 		await expect.element(page.getByText('リンクをコピーしました')).toBeInTheDocument();
 	});
 
-	it('2回目の共有はAPIを再度呼ばずコピーだけする', async () => {
-		const fetchSpy = stubPlansApi(
-			new Response(JSON.stringify({ shareId: 'abc-123' }), { status: 201 })
-		);
+	it('2回目の共有は保存を再度呼ばずコピーだけする', async () => {
+		const savePlanSpy = stubSavePlan();
 		const writeText = stubClipboard(() => Promise.resolve());
 		await renderResult();
 
@@ -135,11 +140,11 @@ describe('/plan/result +page.svelte', () => {
 		await shareButton().click();
 
 		await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
-		expect(fetchSpy).toHaveBeenCalledOnce();
+		expect(savePlanSpy).toHaveBeenCalledOnce();
 	});
 
 	it('保存APIがエラーを返したらエラーメッセージを表示する', async () => {
-		stubPlansApi(new Response('boom', { status: 500 }));
+		savePlan.mockRejectedValue(httpError(500));
 		await renderResult();
 
 		await shareButton().click();
@@ -150,7 +155,7 @@ describe('/plan/result +page.svelte', () => {
 	});
 
 	it('保存APIの通信自体が失敗してもエラーメッセージを表示する', async () => {
-		vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+		savePlan.mockRejectedValue(new TypeError('Failed to fetch'));
 		await renderResult();
 
 		await shareButton().click();
@@ -161,7 +166,7 @@ describe('/plan/result +page.svelte', () => {
 	});
 
 	it('クリップボードが使えない場合はURLを手動コピー用に表示する', async () => {
-		stubPlansApi(new Response(JSON.stringify({ shareId: 'abc-123' }), { status: 201 }));
+		stubSavePlan();
 		stubClipboard(() => Promise.reject(new Error('not allowed')));
 		await renderResult();
 
@@ -186,7 +191,7 @@ describe('/plan/result +page.svelte', () => {
 	it('コピー完了の表示は一定時間で元に戻る', async () => {
 		vi.useFakeTimers({ shouldAdvanceTime: true });
 		try {
-			stubPlansApi(new Response(JSON.stringify({ shareId: 'abc-123' }), { status: 201 }));
+			stubSavePlan();
 			const writeText = stubClipboard(() => Promise.resolve());
 			await renderResult();
 
@@ -207,12 +212,10 @@ describe('/plan/result +page.svelte', () => {
 	// そのガードが効いていることを確かめる。
 	it('共有処理中に再度呼ばれても二重に発行しない', async () => {
 		let release: (() => void) | undefined;
-		const pending = new Promise<Response>((resolve) => {
-			release = () =>
-				resolve(new Response(JSON.stringify({ shareId: 'abc-123' }), { status: 201 }));
+		const pending = new Promise<{ shareId: string }>((resolve) => {
+			release = () => resolve({ shareId: 'abc-123' });
 		});
-		const fetchSpy = vi.fn().mockReturnValue(pending);
-		vi.stubGlobal('fetch', fetchSpy);
+		const savePlanSpy = savePlan.mockReturnValue(pending);
 		const { container } = await renderResult();
 
 		await shareButton().click();
@@ -222,7 +225,7 @@ describe('/plan/result +page.svelte', () => {
 		button?.removeAttribute('disabled');
 		button?.click();
 
-		expect(fetchSpy).toHaveBeenCalledOnce();
+		expect(savePlanSpy).toHaveBeenCalledOnce();
 		release?.();
 	});
 });

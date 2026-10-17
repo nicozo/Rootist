@@ -3,12 +3,10 @@
 	import { Command as CommandPrimitive } from 'bits-ui';
 	import { Spinner } from '#lib/components/ui/spinner/index.js';
 	import type { Component } from 'svelte';
+	import { searchPlaces } from '#lib/remote/places.remote.js';
 
-	interface Suggestion {
-		placeId: string;
-		name: string;
-		displayAddress: string;
-	}
+	// 候補の型は検索関数の戻り値から導出する（手書きで再定義しない）
+	type Suggestion = Awaited<ReturnType<typeof searchPlaces>>['suggestions'][number];
 
 	let {
 		id,
@@ -30,16 +28,6 @@
 	let open = $state(false);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-	async function searchPlaces(q: string): Promise<Suggestion[]> {
-		const res = await fetch('/api/places', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ query: q })
-		});
-		const { suggestions: data } = await res.json();
-		return data;
-	}
-
 	function handleInput() {
 		if (debounceTimer) clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(async () => {
@@ -50,7 +38,7 @@
 			}
 			loading = true;
 			try {
-				suggestions = await searchPlaces(query);
+				suggestions = (await searchPlaces({ query })).suggestions;
 				open = suggestions.length > 0;
 			} catch {
 				suggestions = [];

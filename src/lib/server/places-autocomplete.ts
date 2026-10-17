@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { GOOGLE_MAPS_API_KEY } from '$app/env/private';
-import type { RequestHandler } from './$types';
+import type { PlacesSearchInput } from '#lib/schemas/places.js';
 
 const EXCLUDED_TYPES = new Set([
 	'administrative_area_level_1',
@@ -27,11 +27,23 @@ interface AutocompleteResponse {
 	suggestions?: { placePrediction: PlacePrediction }[];
 }
 
-export const POST: RequestHandler = async ({ request }) => {
-	const { query } = await request.json();
+export interface PlaceSuggestion {
+	placeId: string;
+	name: string;
+	displayAddress: string;
+}
+
+/**
+ * Google Places API (New) の住所検索（issue #159 で remote function の本体として移設）。
+ * 2 文字未満・未指定は外部 API を呼ばずに空の候補を返す（キー未設定の判定より先）。
+ */
+export async function autocompletePlaces(
+	input: PlacesSearchInput
+): Promise<{ suggestions: PlaceSuggestion[] }> {
+	const query = input?.query;
 
 	if (!query || query.trim().length < 2) {
-		return Response.json({ suggestions: [] });
+		return { suggestions: [] };
 	}
 
 	if (!GOOGLE_MAPS_API_KEY) {
@@ -63,5 +75,5 @@ export const POST: RequestHandler = async ({ request }) => {
 			displayAddress: p.structuredFormat.secondaryText.text
 		}));
 
-	return Response.json({ suggestions });
-};
+	return { suggestions };
+}
