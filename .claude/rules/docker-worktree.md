@@ -39,7 +39,8 @@ git worktree 1つ = issue 1つ = Compose プロジェクト 1つとして扱い�
 | アプリ（dev）のホストポート | 5173     | `20000 + N`    | 20112          |
 
 - `compose.yaml` は `DEV_PORT` があればそれを、無ければ（未定義・空文字とも）5173 を使う。コンテナ内部のポートは変わらない
-- `DEV_PORT` は、dev コンテナで動かす場合もホストの `pnpm dev` で動かす場合も、その issue のアプリ用ポートとして共通で使う（同時には使わない）
+- `DEV_PORT` は dev コンテナのホスト側ポート。開発サーバーはコンテナで動かし、ホストで `pnpm dev` は実行しない
+- テスト・型チェック・lint の `tools` サービス（`docker compose run --rm tools …`。コマンドは CLAUDE.md の Commands）はポートを公開しないので、`DEV_PORT` を使わず、複数 issue で同時に実行しても衝突しない。プロジェクト名は `COMPOSE_PROJECT_NAME` で分かれ、実行後はコンテナ・匿名ボリュームが残らない（`--rm`）。ビルドしたイメージ（`<プロジェクト名>-tools`）だけが残り、`cleanup` が worktree 削除前に消す
 - issue 番号 10000 以上は対象外（到達時に方式を見直す）
 
 ## ポートの確認方法

@@ -78,14 +78,14 @@ Planner（`planner`）を起動。promptに含めるもの:
 
 合意後、Generatorに **SendMessage**: 「契約が承認された。実装フェーズ（フェーズ3〜5）を実行し、`self_evaluation.md` と `handoff.md` を作成せよ」
 
-完了後、オーケストレーターが検証コマンドを独立に再実行して裏取りする: `pnpm check` と `pnpm lint`。失敗したらGeneratorに **SendMessage** で差し戻す（QAに渡す前に落とす）。
+完了後、オーケストレーターが検証コマンドを独立に再実行して裏取りする: `docker compose run --rm tools pnpm check` と `docker compose run --rm tools pnpm lint`（ホストでは実行しない）。失敗したらGeneratorに **SendMessage** で差し戻す（QAに渡す前に落とす）。
 
 ### Step 4: QA評価（イテレーションN）
 
 1. **devサーバー起動（オーケストレーターの仕事）**:
    - worktree 内で実行する（`.env` の `COMPOSE_PROJECT_NAME` / `DEV_PORT` がそのまま効く。シェルで環境変数を上書きしない）。`DEV_PORT` は `pnpm -s worktree-env get DEV_PORT` で読む（標準出力が値。終了コード 3＝issue 番号なしで未設定なら 5173）
    - DB は Supabase 開発用クラウドに直結する（ローカルの DB コンテナは起動しない。`.env` の `DATABASE_URL` はメインと同じ値）。共有 DB へのスキーマ変更（`supabase/migrations/` の新しいマイグレーション）の適用は、**main へのマージ時の自動適用（Supabase の GitHub 連携）だけ**。マージ前の SQL の確認は使い捨てのローカル Postgres（Docker）で行い、共有 DB には流さない。共有 DB 上のスキーマに依存する受け入れ基準は、spec・契約で「マージ後にユーザーが確認する B 項目」に分ける。エージェントは共有 DB に書き込まない（`pnpm db:migrate` / `supabase db push` / `migration repair` の実行、`db push` の直接実行や `--yes` での迂回は禁止。`db:push` 相当の履歴なし適用もしない）。復旧が必要ならユーザーに依頼する（詳細は `docs/supabase-setup.md`）
-   - `pnpm dev --port <DEV_PORT> --strictPort` を `run_in_background: true` で起動する。起動前に `lsof -iTCP:<DEV_PORT> -sTCP:LISTEN -P` が**空であることを確認し、空でなければ中断して報告する**。`--strictPort` は別ポートへのずれを防ぐが、ワイルドカードアドレス（Docker の公開ポート等）で LISTEN しているプロセスとの衝突は検知しないことがある（macOS で確認）ため、事前の空き確認が必要。`curl -s -o /dev/null -w "%{http_code}" http://localhost:<DEV_PORT>/` が200を返すまで待つ
+   - `docker compose --profile dev up -d --build` で dev コンテナを起動する（ホストで `pnpm dev` は実行しない）。起動前に `lsof -iTCP:<DEV_PORT> -sTCP:LISTEN -P` が**空であることを確認し、空でなければ中断して報告する**（`DEV_PORT` は `.env` から compose が読む）。`curl -s -o /dev/null -w "%{http_code}" http://localhost:<DEV_PORT>/` が200を返すまで待つ
 2. QAに **SendMessage**: 「`handoff.md` を読み、http://localhost:<DEV_PORT> でPlaywright動的テストを実施し、評価レポートを `qa_report_iter<N>.md` に書け」（`<DEV_PORT>` は実際の数値に置き換えて URL を明記する。issue 番号なしの場合は 5173）
 3. レポートの総合判定（PASS/FAIL）を読み取る
 
@@ -97,8 +97,8 @@ Planner（`planner`）を起動。promptに含めるもの:
 
 ### Step 6: 仕上げ — レビュー・コミット・PR
 
-1. devサーバーを停止（バックグラウンドタスクをkill）。issue 環境の Compose プロジェクトは残してよい（マージ後の `cleanup` が worktree 削除前に削除する）
-2. `pnpm test:unit -- --run` を実行。失敗したらStep 5のFAIL扱いでGeneratorに差し戻し
+1. dev コンテナを停止する（`docker compose --profile dev stop`）。issue 環境の Compose プロジェクトは残してよい（マージ後の `cleanup` が worktree 削除前に削除する）
+2. `docker compose run --rm tools pnpm test:unit -- --run` を実行。失敗したらStep 5のFAIL扱いでGeneratorに差し戻し
 3. **コードレビュー**: Skillツールで `code-review` を `args: "high"`（effort は high 固定）で実行（ブランチの変更差分が対象。QAの静的レビューはSOLID/規約準拠が中心なので、バグハントはここで補完する）
 4. **セキュリティレビュー**: Skillツールで `security-review` を実行
 5. レビュー指摘の扱い:
@@ -142,5 +142,5 @@ review_findings_iter<N>.md  # code-review / security-review の要修正指摘�
 ## 中断・失敗時の原則
 
 - どのステップでも、同じ失敗が2回続いたらループを止めてユーザーに状況を報告する（無限ループ禁止）
-- 中断時もdevサーバーの後始末を忘れない。ホストの dev サーバー（`pnpm dev`）は停止する。自 issue の Compose プロジェクト（`rootist-issue-<N>`）は再開に備えて残し、`docker compose down` はしない（マージ後の `cleanup` が削除する）。**他プロジェクト（メインの `rootist` や他 issue）のコンテナには一切触れない**
+- 中断時もdevサーバーの後始末を忘れない。自 issue の dev コンテナは `docker compose --profile dev stop` で止める。Compose プロジェクト（`rootist-issue-<N>`）は再開に備えて残し、`docker compose down` はしない（マージ後の `cleanup` が削除する）。**他プロジェクト（メインの `rootist` や他 issue）のコンテナには一切触れない**
 - エージェントの応答はそのまま転記せず、要点（成果物パス・判定・次のアクション）に絞ってユーザーに報告する

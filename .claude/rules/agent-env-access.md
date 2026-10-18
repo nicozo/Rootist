@@ -33,11 +33,11 @@ paths:
 - 対象操作: ファイル読み取り系ツール（Read。Grep / Glob にも best-effort で及ぶ）、編集系ツール（Edit / Write）、シェルの典型的な表示コマンド（`cat` `head` `grep` `rg` `sed` `awk` `source` など。コマンドの全集合は `.claude/settings.json`）
 - 対象セッション: このリポジトリ（メイン・worktree）で起動したセッションと、その配下のサブエージェント。deny は全権限モード（`bypassPermissions` を含む）で効く
 - 副作用: このリポジトリで起動したセッションでは、ファイルシステム上のどの `.env` も読めない（他プロジェクトの `.env` を含む）
-- アプリ（`pnpm dev`・Vitest・Supabase CLI ラッパー・Docker Compose）が実行時に `.env` を読むことは妨げない。OS のサンドボックスでの読み取り禁止は採用しない（それらが正当に読むため、開発が止まる）
+- アプリ（dev コンテナ・Supabase CLI ラッパー・Docker Compose）が実行時に `.env` を読むことは妨げない。OS のサンドボックスでの読み取り禁止は採用しない（それらが正当に読むため、開発が止まる）
 
 ### シェルで通るもの・通らないもの（実測）
 
-- 通る: `cat .env.example`、`test -f .env`、`git status --short --ignored`、`pnpm dev` / `pnpm test:unit` / `pnpm check` / `pnpm lint` / `pnpm db:status`、`docker compose ps`、`env FOO=1 cmd`
+- 通る: `cat .env.example`、`test -f .env`、`git status --short --ignored`、`docker compose run --rm tools pnpm check`（lint・test も同様）/ `pnpm db:status`、`docker compose ps`、`env FOO=1 cmd`
 - **`cp .env ...` と `ls -la .env` も拒否される**（Claude Code が Read の deny をファイル引数を持つコマンドにも適用するため）。コピーは `pnpm -s worktree-env setup`、存在確認は `test -f .env` か `git status --short --ignored` を使う
 - 検索コマンドに `.env` という文字列を含めると拒否されうる。検索式は `[.]env` と書き、パターンはファイルから読ませる（`grep -f <パターンファイル>`）
 
