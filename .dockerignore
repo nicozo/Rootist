@@ -6,6 +6,6 @@ build
 .DS_Store
 
 # 秘密情報をイメージに入れない（実行時は compose の bind mount / environment で渡す）
-.env
-.env.*
-!.env.example
+**/.env
+**/.env.*
+!**/.env.example

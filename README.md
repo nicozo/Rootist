@@ -84,6 +84,10 @@ BUILDKIT_PROGRESS=plain docker compose --profile dev build --no-cache --pull
 docker compose --profile dev up --force-recreate
 ```
 
+### 本番イメージのビルド
+
+`.env` は `.dockerignore` でイメージから除外している。build 時の環境変数検証には secret マウントで渡すので、`docker build` を直接使う場合は `--secret id=env,src=.env` を付ける（`docker compose --profile prod build` は自動で付く）。
+
 ### seedの投入
 
 ```bash
