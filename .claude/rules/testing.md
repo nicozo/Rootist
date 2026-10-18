@@ -37,4 +37,6 @@ paths:
 
 ## 実行
 
-- `pnpm test:e2e` は本番ビルドをポート 4173 で起動してから実行する。CI と同じ条件: `DATABASE_URL=postgresql://ci:ci@localhost:5432/ci SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_PUBLISHABLE_KEY=ci-dummy-publishable-key GOOGLE_MAPS_API_KEY= GEMINI_API_KEY= GOOGLE_AUTH_ENABLED= pnpm test:e2e`
+- テストはコンテナ（`docker compose run --rm tools pnpm test:unit -- --run` / `… pnpm test:e2e`。ホストでは実行しない）で動かす。`tools` は CI の `test` ジョブと同じダミーの環境変数を `compose.yaml` で持つ（値を変えるときは `.github/workflows/ci.yml` と揃える）
+- `pnpm test:e2e` は本番ビルドをコンテナ内のポート 4173 で起動してから実行する（ホストには公開しない）
+- コンテナは root で動くため、ファイルの権限で失敗を再現するテスト（`worktree-env.cli.test.ts` の書き込み失敗）は root のときスキップする。CI（非 root）では実行される
