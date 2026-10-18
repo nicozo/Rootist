@@ -75,13 +75,7 @@ docker ps --filter name=rootist-issue-  # 全 issue 環境のコンテナとポ�
 
 ホストに Node / pnpm / ブラウザは要りません。`tools` サービスがコンテナの中で実行し、終了時にコンテナと匿名ボリュームを消します（ポートは公開しないので、issue 環境と衝突しません）。
 
-```bash
-docker compose run --rm tools pnpm check                 # 型チェック
-docker compose run --rm tools pnpm lint                  # フォーマット + eslint
-docker compose run --rm tools pnpm test:unit -- --run    # 単体テスト
-docker compose run --rm tools pnpm test:e2e              # E2E（コンテナ内の Chromium）
-docker compose run --rm --build tools pnpm check         # 依存や Dockerfile を変えた後は --build
-```
+コマンド一覧は [CLAUDE.md](CLAUDE.md) の Commands を参照してください（`docker compose run --rm tools pnpm check` など）。依存や Dockerfile を変えた後は `--build` を付けます。
 
 テストは `.env` を読まず、CI と同じダミーの環境変数で動きます（`compose.yaml` の `tools`）。
 

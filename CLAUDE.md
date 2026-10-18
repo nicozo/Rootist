@@ -46,7 +46,7 @@ AI エージェント向けの作業指示。コードを読めば分かるこ�
   - IMPORTANT: `main` への直接コミットはしない。dependabot など自動生成ブランチは対象外
 - IMPORTANT: 開発作業（機能追加・修正など、ファイル変更を伴う作業）は必ず git worktree を切って行う。メインのワーキングツリー（`main`）で直接ブランチを切り替えたり変更したりしない
   - `git worktree add -b <branch> .claude/worktrees/<name> main` で作成し、その中で実装・コミット・push を行う
-  - worktree には gitignore 対象の `.env` が無いので、作成直後に `pnpm -s worktree-env setup <issue番号>` で `.env` を準備する（メインからのコピーと、issue 単位の Docker 環境用 2 キーの設定）。値の規則と手順は `.claude/rules/docker-worktree.md`。`pnpm install` はしない（依存は Docker イメージの中に入る）
+  - worktree には gitignore 対象の `.env` が無いので、作成直後に `pnpm -s worktree-env setup <issue番号>` で `.env` を準備する（メインからのコピーと、issue 単位の Docker 環境用 2 キーの設定）。値の規則と手順は `.claude/rules/docker-worktree.md`。開発・テストの依存は Docker イメージの中に入るのでホストで `pnpm install` する必要は無い（コミットフックを使うときだけ、ホストで `pnpm install` する）
   - PRマージ後は `cleanup` スキルが worktree とブランチをまとめて削除する
 - Claude Code（オーケストレーター本体・generator等のサブエージェントを問わず）が作成するコミットには、必ず以下のトレーラーを含める
 

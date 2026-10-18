@@ -39,6 +39,7 @@ services:
       - .:/app
       - /app/node_modules # コンテナ内のnode_modulesをホストと共有しない（run --rm で一緒に消える）
       - /app/.pnpm-store
+      - /dev/null:/app/.env:ro # bind mount 経由で実値の .env を読ませない（ダミーの環境変数だけで動かす）
     environment:
       - CI=true
       # テストは Supabase・DB・外部 API に接続しない。CI（.github/workflows/ci.yml の test ジョブ）と同じダミー値。.env は読まない

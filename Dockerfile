@@ -88,7 +88,7 @@ FROM development AS tooling
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN pnpm exec playwright install --with-deps chromium
 
-# テスト（worktree-env の CLI テスト等）が一時リポジトリを作るため git が要る。git config は未設定のまま使えるようにする
+# テスト（worktree-env の CLI テスト等）が一時リポジトリを作るため git が要る
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
