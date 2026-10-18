@@ -33,6 +33,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production # 本番ステージを指定
+      secrets:
+        - env # build 時の環境変数検証用。.env をイメージに残さず secret マウントで渡す（Dockerfile 参照）
     ports:
       - '3000:3000'
     environment:
@@ -63,6 +65,10 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+secrets:
+  env:
+    file: .env
 
 volumes:
   pnpm_store:
