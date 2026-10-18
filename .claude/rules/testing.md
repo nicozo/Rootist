@@ -28,7 +28,7 @@ paths:
 - E2E は画面ごとに 1 ファイル（`e2e/<画面>.test.ts`）で、主な導線だけを確認する。画面をまたぐ横断の確認は内容が分かる名前の別ファイルにする（例: `auth-cookie.test.ts`）
 - E2E は CI と同じダミー環境変数でも、手元の実 `.env` でも、同じ結果で通す。環境によって結果が変わる確認は入れない
 - E2E から Supabase（Auth・DB）に実際に往復しない
-- 外部 API と DB 保存の API（`/api/places`・`/api/route`・`/api/plans`）は、ブラウザ側で横取りしてモックする。モックしていない `/api/*` は失敗させる（課金と共有 DB への書き込みを防ぐ。仕組みは `e2e/helpers.ts`）
+- 外部 API と DB 保存を伴う remote function（場所検索・ルート生成・プラン保存。`/_app/remote/<hash>/<関数名>` への POST）は、ブラウザ側で横取りしてモックする。モックしていない `/_app/remote/**` への要求は失敗させる（課金と共有 DB への書き込みを防ぐ。仕組みは `e2e/helpers.ts`）。remote function の入口を直接呼ぶ確認（`e2e/remote-functions.test.ts`）は、外部 API・DB に届かない入力だけを送る
 - E2E の共通処理はテストではない共通ファイル（`e2e/helpers.ts`）に置き、コピーしない
 
 ## 既知の範囲外

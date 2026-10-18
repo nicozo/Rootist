@@ -1,8 +1,8 @@
 /**
  * 旅行プラン全体の日付（"YYYY-MM-DD"）に関する共有ロジック（issue #73）。
  *
- * `date-picker.svelte` の入力・`/api/route` のホワイトリスト検証とエコーバック・
- * `/api/plans` の保存・`plan-timeline.svelte` の表示の4箇所で同じ形式判定と
+ * `date-picker.svelte` の入力・ルート生成のスキーマ検証とエコーバック・
+ * プラン保存の正規化・`plan-timeline.svelte` の表示の4箇所で同じ形式判定と
  * 表示整形を使い回すための共通モジュール。
  *
  * タイムゾーン方針: `planDate` はタイムゾーンを持たないカレンダー日付として扱う。

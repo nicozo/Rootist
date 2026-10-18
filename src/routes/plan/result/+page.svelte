@@ -7,6 +7,7 @@
 	import { Navigation, RotateCcw, Share2, Check, Loader2 } from '@lucide/svelte';
 	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
+	import { savePlan } from '#lib/remote/plans.remote.js';
 
 	let result = $state($routeResult);
 
@@ -82,16 +83,7 @@
 		if (!result) return;
 		sharing = true;
 		try {
-			const res = await fetch('/api/plans', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(result)
-			});
-			if (!res.ok) {
-				shareError = 'プランの共有に失敗しました。時間をおいて再度お試しください。';
-				return;
-			}
-			const data: { shareId: string } = await res.json();
+			const data = await savePlan(result);
 			shareId = data.shareId;
 			await copyToClipboard(buildShareUrl(shareId));
 		} catch {

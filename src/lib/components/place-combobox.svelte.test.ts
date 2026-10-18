@@ -1,12 +1,16 @@
 import { page } from 'vite-plus/test/browser';
 import { describe, expect, it, vi, afterEach } from 'vite-plus/test';
+import { error } from '@sveltejs/kit';
 import { render } from 'vitest-browser-svelte';
 import MapPin from '@lucide/svelte/icons/map-pin';
 import PlaceCombobox from './place-combobox.svelte';
 
 // issue #62: 住所検索コンボボックスのテスト。
-// /api/places はGoogle Places API（課金対象）のプロキシなので、fetchをモックして実接続しない。
+// 場所検索（remote function）はGoogle Places API（課金対象）のプロキシなので、remote module をモックして実接続しない。
 // デバウンス（350ms）はフェイクタイマーだとlucideアイコンの描画が壊れるため実時間で待つ。
+
+const { searchPlaces } = vi.hoisted(() => ({ searchPlaces: vi.fn() }));
+vi.mock('#lib/remote/places.remote.js', () => ({ searchPlaces }));
 
 const DEBOUNCE_MS = 350;
 
@@ -31,13 +35,10 @@ function settle() {
 	return new Promise((r) => setTimeout(r, DEBOUNCE_MS + 150));
 }
 
-/** /api/places のレスポンスを返すfetchモックを立てる。 */
+/** 場所検索の remote function が候補を返すモックを立てる。 */
 function stubPlaces(suggestions: unknown) {
-	const fetchSpy = vi
-		.fn()
-		.mockResolvedValue(new Response(JSON.stringify({ suggestions }), { status: 200 }));
-	vi.stubGlobal('fetch', fetchSpy);
-	return fetchSpy;
+	searchPlaces.mockResolvedValue({ suggestions });
+	return searchPlaces;
 }
 
 /** 候補一覧が開いているか。 */
@@ -46,7 +47,7 @@ function listOpen(container: HTMLElement) {
 }
 
 afterEach(() => {
-	vi.unstubAllGlobals();
+	vi.clearAllMocks();
 	vi.restoreAllMocks();
 });
 
@@ -81,7 +82,7 @@ describe('place-combobox', () => {
 		await settle();
 
 		expect(fetchSpy).toHaveBeenCalledOnce();
-		expect(JSON.parse(fetchSpy.mock.calls[0][1].body)).toEqual({ query: '浅草' });
+		expect(fetchSpy.mock.calls[0][0]).toEqual({ query: '浅草' });
 		await expect.element(page.getByText('浅草寺')).toBeInTheDocument();
 		await expect.element(page.getByText('台東区浅草')).toBeInTheDocument();
 	});
@@ -97,7 +98,7 @@ describe('place-combobox', () => {
 		await settle();
 
 		expect(fetchSpy).toHaveBeenCalledOnce();
-		expect(JSON.parse(fetchSpy.mock.calls[0][1].body)).toEqual({ query: '浅草寺' });
+		expect(fetchSpy.mock.calls[0][0]).toEqual({ query: '浅草寺' });
 	});
 
 	it('候補が0件なら一覧を開かない', async () => {
@@ -124,7 +125,27 @@ describe('place-combobox', () => {
 	});
 
 	it('検索APIが失敗しても候補を出さず落ちない', async () => {
-		vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+		searchPlaces.mockRejectedValue(new TypeError('Failed to fetch'));
+		const { container } = await renderCombobox();
+
+		await page.getByPlaceholder('行き先を入力').fill('浅草');
+		await settle();
+
+		expect(listOpen(container)).toBe(false);
+		await expect.element(page.getByPlaceholder('行き先を入力')).toBeInTheDocument();
+	});
+
+	// issue #159: サーバー由来の失敗（本物の HttpError）でも通信失敗と同じく候補なしで閉じる
+	it.each([
+		['キー未設定（500）', 500],
+		['上流エラー（502）', 502],
+		['検証失敗（400）', 400]
+	])('サーバーが失敗を返しても（%s）候補を出さず落ちない', async (_label, status) => {
+		try {
+			error(status, 'failed');
+		} catch (e) {
+			searchPlaces.mockRejectedValue(e);
+		}
 		const { container } = await renderCombobox();
 
 		await page.getByPlaceholder('行き先を入力').fill('浅草');

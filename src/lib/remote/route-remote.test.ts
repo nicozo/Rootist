@@ -8,17 +8,20 @@ vi.mock('$app/env/private', async () =>
 	(await import('#lib/server/test-utils/mock-env.js')).createEnvModule()
 );
 
-const { POST } = await import('./+server');
+vi.mock('$app/server', async () =>
+	(await import('#lib/server/test-utils/remote-call.js')).createAppServerModule()
+);
 
-/** RequestHandlerに渡す最小限のイベント。テスト対象はrequestしか参照しない。 */
+// 本物の remote module を、スキーマ検証 → 本体の経路で呼ぶ（issue #159）。
+// 旧 POST ハンドラのテストの assertion を保つため、戻り値は Response に包んで返す。
+const { generateRoute } = await import('#lib/remote/route.remote.js');
+const { callRemote } = await import('#lib/server/test-utils/remote-call.js');
+
+const POST = async (arg: unknown) => Response.json(await callRemote(generateRoute, arg));
+
+/** remote function の引数（移行前は JSON 本文だったもの）。 */
 function eventWith(body: unknown) {
-	return {
-		request: new Request('http://localhost/api/route', {
-			method: 'POST',
-			body: JSON.stringify(body)
-		})
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	} as any;
+	return body;
 }
 
 const TWO_LOCATIONS = [
@@ -58,7 +61,7 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-describe('POST /api/route 入力検証', () => {
+describe('generateRoute 入力検証', () => {
 	it('locationsが未指定なら400を返す', async () => {
 		const fetchSpy = vi.fn();
 		vi.stubGlobal('fetch', fetchSpy);
@@ -81,7 +84,7 @@ describe('POST /api/route 入力検証', () => {
 });
 
 // issue #146 D1: GEMINI_API_KEY は利用時必須。未設定（未定義・空文字）のままキー無しで外部へ送らない
-describe('POST /api/route GEMINI_API_KEY の検知', () => {
+describe('generateRoute GEMINI_API_KEY の検知', () => {
 	const GEMINI_HOST = 'generativelanguage.googleapis.com';
 
 	it.each([undefined, ''])('キーが %j なら500を投げ、Geminiへ一度も送らない', async (v) => {
@@ -120,7 +123,7 @@ describe('POST /api/route GEMINI_API_KEY の検知', () => {
 	});
 });
 
-describe('POST /api/route プロンプト組み立て', () => {
+describe('generateRoute プロンプト組み立て', () => {
 	it('APIキーをクエリに載せてGeminiを呼ぶ', async () => {
 		const { fetchSpy } = stubGemini();
 
@@ -429,7 +432,7 @@ describe('POST /api/route プロンプト組み立て', () => {
 	});
 });
 
-describe('POST /api/route planDate（issue #73）', () => {
+describe('generateRoute planDate（issue #73）', () => {
 	// 不変条件1（本issueの核）: planDate は Gemini のプロンプトに一切注入しない。
 	it('プロンプト文字列にplanDateの値・整形結果・「日付」という語のいずれも含めない', async () => {
 		const { prompt } = stubGemini();
@@ -512,7 +515,7 @@ describe('POST /api/route planDate（issue #73）', () => {
 	);
 });
 
-describe('POST /api/route レスポンス整形', () => {
+describe('generateRoute レスポンス整形', () => {
 	it('Geminiの生成結果に入力条件を添えて返す', async () => {
 		stubGemini({ destinations: [], summary: '概要' });
 
@@ -863,5 +866,80 @@ describe('POST /api/route レスポンス整形', () => {
 			status: 502,
 			body: { message: 'ルート生成に失敗しました' }
 		});
+	});
+});
+
+// issue #159: 未指定・型違いの入力の扱いを固定する（スキーマを必須にして移行前の文言を既定の 400 に変えないため）
+describe('generateRoute 未指定・型違いの入力', () => {
+	it.each([
+		['引数なし（undefined）', undefined],
+		['空オブジェクト', {}],
+		['locations が空配列', { locations: [] }],
+		['locations が 1 件', { locations: [TWO_LOCATIONS[0]] }],
+		// 旧 API は `!locations` で判定し null を未指定として扱っていた（QA 指摘 #1）
+		['locations が null', { locations: null }]
+	])('%s は 400・既存の文言で、外部APIを叩かない', async (_label, arg) => {
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+
+		await expect(POST(arg)).rejects.toMatchObject({
+			status: 400,
+			body: { message: '2件以上の目的地が必要です' }
+		});
+		expect(fetchSpy).not.toHaveBeenCalled();
+	});
+
+	// D2: 移行前は想定外の 500 またはそのまま動作（R6）。型で絞るため境界の 400 になる
+	it.each([
+		['locations が文字列', { locations: 'abc' }],
+		['name に Date', { locations: [{ name: new Date(), displayAddress: 'x' }, TWO_LOCATIONS[1]] }],
+		['transportMode が数値', { locations: TWO_LOCATIONS, transportMode: 1 }]
+	])('%s は境界で 400 になり、外部APIを叩かない', async (_label, arg) => {
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+
+		await expect(POST(arg)).rejects.toMatchObject({ status: 400 });
+		expect(fetchSpy).not.toHaveBeenCalled();
+	});
+
+	it('検証を省略せず、スキーマが登録されている', async () => {
+		const { assertSchemaRegistered } = await import('#lib/server/test-utils/remote-call.js');
+
+		expect(() => assertSchemaRegistered(generateRoute)).not.toThrow();
+	});
+});
+
+// QA 指摘 #1: 旧 API は null を「未指定」として受理していた。移行後も 400 にしない
+describe('generateRoute null を未指定として受理する', () => {
+	it.each([
+		['transportMode が null', { transportMode: null }, '移動手段: 指定なし'],
+		['startTime が null', { startTime: null }, '開始時間: 09:00（未指定のためデフォルト）']
+	])('%s は未指定と同じプロンプトになり、応答では null を返す', async (_label, extra, line) => {
+		const { prompt } = stubGemini();
+
+		const res = await POST({ locations: TWO_LOCATIONS, ...extra });
+		const body = await res.json();
+
+		expect(prompt()).toContain(line);
+		expect(body.transportMode).toBeNull();
+		expect(body.startTime).toBeNull();
+	});
+
+	it('transportMode・startTime・origin・endDestination がすべて null でも、未指定の場合と送信ボディが同一になる', async () => {
+		const withNull = stubGemini();
+		await POST({
+			locations: TWO_LOCATIONS,
+			transportMode: null,
+			startTime: null,
+			origin: null,
+			endDestination: null
+		});
+		const nullBody = withNull.requestBody();
+		vi.unstubAllGlobals();
+
+		const omitted = stubGemini();
+		await POST({ locations: TWO_LOCATIONS });
+
+		expect(nullBody).toBe(omitted.requestBody());
 	});
 });
