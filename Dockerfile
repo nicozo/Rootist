@@ -81,7 +81,20 @@ EXPOSE 5173
 CMD ["pnpm", "dev", "--host"]
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ステージ5: 本番環境（最終イメージ）
+# ステージ5: テスト・検証ツール（unit / E2E / 型チェック / lint）
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# development に Playwright の Chromium（OS 依存ライブラリ込み）を足したもの。ホストにブラウザ・Node・pnpm を要求しない。
+# ブラウザはソースの bind mount に隠れない場所（/ms-playwright）に置く
+FROM development AS tooling
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN pnpm exec playwright install --with-deps chromium
+
+# テスト（worktree-env の CLI テスト等）が一時リポジトリを作るため git が要る
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ステージ6: 本番環境（最終イメージ）
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FROM node:${NODE_VERSION}-slim AS production
 

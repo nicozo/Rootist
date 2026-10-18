@@ -64,12 +64,12 @@ until s=$(gh pr view <PR番号> --json state -q .state) && [ "$s" != OPEN ]; do 
        - 要確認の場合は、表示された差分キー名をユーザーに示して確認する。エラー（2）の場合は判定できていないので削除せず報告する
 
      - それ以外（`node_modules/`、`.svelte-kit/` 等の再生成できるもの）→ そのまま削除してよい
-   - **issue 環境の Docker プロジェクトの削除（worktree を削除する前に行う）**: 窓口コマンドで worktree の `COMPOSE_PROJECT_NAME` を取り出し、`rootist-issue-<数字>` に完全一致する場合のみ、そのプロジェクトのコンテナ・ネットワーク・名前付きボリュームを削除する（dev プロファイルのコンテナも含む）。プロジェクト名は必ず `-p` で明示する（シェルの `COMPOSE_PROJECT_NAME` が `.env` より優先されて別プロジェクトを消す事故を防ぐ）:
+   - **issue 環境の Docker プロジェクトの削除（worktree を削除する前に行う）**: 窓口コマンドで worktree の `COMPOSE_PROJECT_NAME` を取り出し、`rootist-issue-<数字>` に完全一致する場合のみ、そのプロジェクトのコンテナ・ネットワーク・名前付きボリューム・ビルドしたイメージ（`tools` を含む）を削除する。プロジェクト名は必ず `-p` で明示する（シェルの `COMPOSE_PROJECT_NAME` が `.env` より優先されて別プロジェクトを消す事故を防ぐ）:
 
      ```bash
      name=$(pnpm -s worktree-env get COMPOSE_PROJECT_NAME --worktree <path>); rc=$?
      [ "$rc" = 0 ] && printf '%s\n' "$name" | grep -qxE 'rootist-issue-[0-9]+' \
-       && docker compose -p "$name" --project-directory <path> --profile dev down --volumes --remove-orphans
+       && docker compose -p "$name" --project-directory <path> --profile dev --profile tools down --volumes --remove-orphans --rmi local
      ```
 
      - 終了コード: 0＝値あり（標準出力が値）、3＝キー無し、2＝許可外・エラー。値の前後のクォートはコマンドが除去し、同じキーが複数あれば最後の出現を返す（`COMPOSE_PROJECT_NAME="rootist-issue-112"` と書かれていても対象になる）

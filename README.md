@@ -60,8 +60,8 @@ docker compose logs -f dev
 | `DEV_PORT`             | `20112`（`20000 + 番号`）            |
 
 ```bash
-# worktree 内で。DB は Supabase 開発用クラウドに直結（DATABASE_URL はメインと同じ値のまま）。アプリはホストで動かす
-pnpm dev --port 20112 --strictPort    # DEV_PORT で起動（別ポートにずれない。事前に lsof -iTCP:20112 -sTCP:LISTEN -P が空であることを確認）
+# worktree 内で。DB は Supabase 開発用クラウドに直結（DATABASE_URL はメインと同じ値のまま）。アプリもコンテナで動かす
+docker compose --profile dev up -d    # ホストの 20112 → コンテナの 5173（ホストで pnpm dev は実行しない）
 
 # ポートの確認
 docker compose ps                       # 自 issue のコンテナと公開ポート
@@ -70,6 +70,14 @@ docker ps --filter name=rootist-issue-  # 全 issue 環境のコンテナとポ�
 ```
 
 命名規則・ポート計算式・制約（Google ログインなど）の詳細は [.claude/rules/docker-worktree.md](.claude/rules/docker-worktree.md) を参照してください。
+
+### テスト・型チェック・lint（使い捨てコンテナ）
+
+ホストに Node / pnpm / ブラウザは要りません。`tools` サービスがコンテナの中で実行し、終了時にコンテナと匿名ボリュームを消します（ポートは公開しないので、issue 環境と衝突しません）。
+
+コマンド一覧は [CLAUDE.md](CLAUDE.md) の Commands を参照してください（`docker compose run --rm tools pnpm check` など）。依存や Dockerfile を変えた後は `--build` を付けます。
+
+テストは `.env` を読まず、CI と同じダミーの環境変数で動きます（`compose.yaml` の `tools`）。
 
 ### キャッシュなしで起動
 

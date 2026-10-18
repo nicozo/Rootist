@@ -1,4 +1,12 @@
 node_modules
+.env
+.env.*
+!.env.example
+.git
+.claude/worktrees
+coverage
+test-results
+storybook-static
 .pnpm-store
 dist
 build

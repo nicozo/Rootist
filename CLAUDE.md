@@ -46,7 +46,7 @@ AI エージェント向けの作業指示。コードを読めば分かるこ�
   - IMPORTANT: `main` への直接コミットはしない。dependabot など自動生成ブランチは対象外
 - IMPORTANT: 開発作業（機能追加・修正など、ファイル変更を伴う作業）は必ず git worktree を切って行う。メインのワーキングツリー（`main`）で直接ブランチを切り替えたり変更したりしない
   - `git worktree add -b <branch> .claude/worktrees/<name> main` で作成し、その中で実装・コミット・push を行う
-  - worktree には gitignore 対象の `.env` と `node_modules/` が無いので、作成直後に `pnpm -s worktree-env setup <issue番号>` で `.env` を準備し（メインからのコピーと、issue 単位の Docker 環境用 2 キーの設定）、`pnpm install` する。値の規則と手順は `.claude/rules/docker-worktree.md`
+  - worktree には gitignore 対象の `.env` が無いので、作成直後に `pnpm -s worktree-env setup <issue番号>` で `.env` を準備する（メインからのコピーと、issue 単位の Docker 環境用 2 キーの設定）。値の規則と手順は `.claude/rules/docker-worktree.md`。開発・テストの依存は Docker イメージの中に入るのでホストで `pnpm install` する必要は無い（コミットフックを使うときだけ、ホストで `pnpm install` する）
   - PRマージ後は `cleanup` スキルが worktree とブランチをまとめて削除する
 - Claude Code（オーケストレーター本体・generator等のサブエージェントを問わず）が作成するコミットには、必ず以下のトレーラーを含める
 
@@ -64,19 +64,21 @@ AI エージェント向けの作業指示。コードを読めば分かるこ�
 
 ## Commands
 
+開発・テスト・型チェック・lint は **Docker コンテナの中だけで実行する。ホストでは実行しない**（ホストの Node / pnpm / ブラウザに依存しない。本番と同じ Node で検証するため）。`tools` サービスは使い捨て（`--rm`）で、コンテナと匿名ボリュームは実行後に消える。issue 単位の分離（`COMPOSE_PROJECT_NAME` / `DEV_PORT`）はそのまま効く。
+
 ```bash
-pnpm dev                  # 開発サーバー（ホットリロード）
-pnpm check                # 型チェック
-pnpm lint                 # vp fmt --check + eslint
-pnpm format               # vp fmt で自動整形（prettier ではない）
-pnpm test:unit -- --run   # Vitest 単発実行（-- --run なしはウォッチモード）
-pnpm test:e2e             # Playwright E2E
-pnpm storybook            # localhost:6006
-docker compose --profile dev up -d    # dev コンテナ起動（prod は --profile prod）
+docker compose --profile dev up -d                           # 開発サーバー（ホットリロード。prod は --profile prod）
+docker compose run --rm tools pnpm check                     # 型チェック
+docker compose run --rm tools pnpm lint                      # vp fmt --check + eslint
+docker compose run --rm tools pnpm format                    # vp fmt で自動整形（prettier ではない）
+docker compose run --rm tools pnpm test:unit -- --run        # Vitest 単発実行（-- --run なしはウォッチモード）
+docker compose run --rm tools pnpm test:e2e                  # Playwright E2E（コンテナ内の Chromium・ポート 4173 はコンテナ内で閉じる）
 ```
 
-- 完了とみなす前に `pnpm check` / `pnpm lint` / `pnpm test:unit -- --run` を通す
-- DB 操作（`pnpm db:new` / `db:status` / `db:migrate`）の手順は `.claude/rules/database.md`
+- 完了とみなす前に `pnpm check` / `pnpm lint` / `pnpm test:unit -- --run` を（上記の `docker compose run --rm tools …` で）通す
+- `tools` はソースを bind mount するので、編集は即反映される。依存（`package.json` / lockfile）や Dockerfile を変えたら `docker compose run --rm --build tools …` で作り直す（初回ビルドは数分）
+- `tools` は `.env` を読まず、CI と同じダミーの環境変数で動く（Supabase・外部 API には接続しない）。実値が要る確認は人間に依頼する
+- Storybook（`pnpm storybook`）は未対応の例外（コンテナ化は別 issue）。DB 操作（`pnpm db:new` / `db:status` / `db:migrate`）はホストの Node で動く Supabase CLI ラッパーで、これらも対象外。手順は `.claude/rules/database.md`
 - IMPORTANT: エージェントは共有 DB に書き込まない（`pnpm db:migrate` / `supabase db push` / `migration repair` を実行せず、必要ならユーザーに依頼する）。共有 DB への適用は main へのマージ時の自動適用（Supabase の GitHub 連携）が通常経路で、`pnpm db:migrate` は復旧専用
 
 ## アーキテクチャ概要
