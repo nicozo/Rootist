@@ -9,6 +9,11 @@ updates:
     commit-message:
       prefix: 'chore'
       include: 'scope'
+    ignore:
+      # 1.3.0 は @sveltejs/kit 3.1.0 と非互換（vite_ssr_environment_not_runnable）。1.3.1 以降は提案させる
+      - dependency-name: 'vite-plus'
+        versions:
+          - '1.3.0'
     groups:
       minor-and-patch:
         update-types:
