@@ -55,7 +55,9 @@ COPY --from=dependencies /app/.pnpm-store ./.pnpm-store
 COPY . .
 
 # ビルド実行
-RUN pnpm build
+# 環境変数は build 時にも検証されるため .env が要る。COPY ではなく secret マウントで渡し、イメージのレイヤーに残さない
+# （.dockerignore が .env を除外している。docker build は --secret id=env,src=.env を付ける。compose は prod の build.secrets が付ける）
+RUN --mount=type=secret,id=env,target=/app/.env,required pnpm build
 
 # ビルド成果物と本番依存関係のみを残す
 RUN pnpm prune --prod
