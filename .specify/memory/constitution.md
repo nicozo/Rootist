@@ -14,7 +14,7 @@
 
 ### II. spec は何を・なぜだけを書く
 
-spec.md には利用者から見た振る舞いとその理由を書き、技術・ファイル構成・API は plan.md 以降に書く。書き方（EARS 記法の要件表・要件 ID・ステータス・Given / When / Then の受け入れシナリオ）は `.specify/templates/overrides/spec-template.md` が正。
+spec.md には利用者から見た振る舞いとその理由を書き、技術・ファイル構成・API は plan.md 以降に書く。書き方（EARS 記法の要件表・要件 ID・ステータス・Given / When / Then の受け入れシナリオ）は `.specify/templates/overrides/spec-template.md` が正。/speckit-clarify などで要件を足す・直すときも、このテンプレートの要件表に行を足す・直す形で行い、表の外に「System MUST」形式の箇条書きを足さない。
 
 ### III. 完了の基準は spec の受け入れシナリオ
 
