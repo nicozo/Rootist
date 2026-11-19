@@ -1,64 +1,33 @@
-# [PROJECT_NAME] Constitution
+# Rootist Constitution
 
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+  Spec Kit の各コマンド（/speckit-specify・/speckit-plan・/speckit-analyze など）が読む、このプロジェクトの原則。
+  規約の本文は CLAUDE.md と .claude/rules/ が正。ここには写さず、どこを見るかだけを書く。
+  規約を変えるときは CLAUDE.md / .claude/rules/ を直し、このファイルは参照先が変わったときだけ直す。
+-->
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
+### I. 規約は CLAUDE.md と .claude/rules/ に従う
 
-<!-- Example: I. Library-First -->
+コーディング規約・Single Source of Truth・git 戦略・秘密情報の扱い・検証コマンド・アーキテクチャは、リポジトリ直下の `CLAUDE.md` に従う。触るファイルに応じた規約は `.claude/rules/` の該当ファイル（frontmatter の `paths:` で対象が決まる）に従う。spec・plan・tasks の内容がこれらと食い違う場合は、規約側を正として spec 側を直す。
 
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### II. spec は何を・なぜだけを書く
 
-### [PRINCIPLE_2_NAME]
+spec.md には利用者から見た振る舞いとその理由を書き、技術・ファイル構成・API は plan.md 以降に書く。書き方（EARS 記法の要件表・要件 ID・ステータス・Given / When / Then の受け入れシナリオ）は `.specify/templates/overrides/spec-template.md` が正。
 
-<!-- Example: II. CLI Interface -->
+### III. 完了の基準は spec の受け入れシナリオ
 
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+実装の完了は spec.md の受け入れシナリオを満たすかで判定する。plan.md・tasks.md は spec の要件 ID に結び付け、spec に無い機能を足さない。
 
-### [PRINCIPLE_3_NAME]
+### IV. 検証は CLAUDE.md の手順で行う
 
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
-
-### [PRINCIPLE_4_NAME]
-
-<!-- Example: IV. Integration Testing -->
-
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
-
-### [PRINCIPLE_5_NAME]
-
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
-
-## [SECTION_2_NAME]
-
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
-
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+型チェック・lint・テストは CLAUDE.md の「Commands」に書かれた方法（Docker コンテナ内）で通す。テストの置き場所と役割分担は `.claude/rules/testing.md` に従う。
 
 ## Governance
 
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+- このファイルと CLAUDE.md / `.claude/rules/` が食い違う場合は CLAUDE.md / `.claude/rules/` を正とし、このファイルを直す
+- 原則を足す・変えるときは、規約の本文を CLAUDE.md / `.claude/rules/` に書き、ここには参照だけを足す
+- plan.md の Constitution Check では、上の原則 I〜IV への適合を確認する
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-11-20 | **Last Amended**: 2026-11-20
