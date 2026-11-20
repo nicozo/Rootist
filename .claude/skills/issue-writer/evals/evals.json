@@ -3,35 +3,38 @@
 	"evals": [
 		{
 			"id": 1,
-			"prompt": "プランをPDFで出力できるようにしたい。issueを作って",
-			"setup": "背景（なぜ）は説明されていない",
-			"expected_output": "起票前に、PDF出力が欲しいきっかけや困りごとを質問する",
+			"prompt": "プランをPDFで出力できる要望の spec を書き始めたい。issueを作って",
+			"setup": "要望 ID と Notion の要望ページの URL は伝えられていない",
+			"expected_output": "起票前に要望 ID と Notion の要望ページの URL を尋ねる",
 			"expectations": [
-				"最初の応答で背景（きっかけ・困りごと）を質問している",
-				"背景を確認する前に gh issue create を実行していない"
+				"要望 ID と Notion の URL を質問している",
+				"背景（きっかけ・困りごと）の深掘りをしていない",
+				"確認前に gh issue create を実行していない"
 			]
 		},
 		{
 			"id": 2,
-			"prompt": "旅行当日に電波が悪い場所でプランが見られず困った。オフラインでも見られるようにしたい。Service Workerでキャッシュする形でissueにして",
-			"setup": "背景は具体的に語られている",
-			"expected_output": "背景を重ねて質問せず、手段（Service Worker）を観察可能な要件に言い換えた下書きを提示する",
+			"prompt": "要望 ID は REQ-12、Notion は https://www.notion.so/example-req-12。オフラインでもプランを見られるようにしたい。issueにして",
+			"setup": "同じ要望 ID の open な issue は無い",
+			"expected_output": "要望 ID・Notion へのリンク・spec のパスだけの本文で下書きを提示し、了承を待つ",
 			"expectations": [
-				"既に具体的な背景を同じ質問で掘り返していない",
-				"開発要件に Service Worker などの技術選定を書いていない",
-				"開発要件が - [ ] 形式の観察可能な状態（〜できること）で書かれている",
+				"本文が要望 ID・Notion へのリンク・specs/issue-<番号>-<スラッグ>/ の 3 行だけで構成されている",
+				"本文に背景・要望の説明・開発要件のチェックボックスを書いていない",
+				"種別（<type>）とスラッグを提示している",
 				"下書きを提示し、了承を得る前に起票していない"
 			]
 		},
 		{
 			"id": 3,
 			"prompt": "いいよ、その内容で起票して",
-			"setup": "直前に下書きを提示し、ユーザーが了承した",
-			"expected_output": "テンプレートに沿った本文で enhancement ラベル付きの issue を作成し、URL を報告する",
+			"setup": "直前に下書きを提示し、ユーザーが了承した。起票すると #190 が発行される",
+			"expected_output": "起票後に本文の spec のパスを番号入りに直し、同じ番号のブランチと worktree を用意して /speckit-specify にフォルダを明示して渡す",
 			"expectations": [
 				"gh issue create に --label enhancement を付けている",
-				"本文がなぜ／何を／開発要件／補足の構成になっている",
-				"発行された issue URL を報告している"
+				"gh issue edit 190 で spec のパスを specs/issue-190-<スラッグ>/ にしている",
+				"ブランチ <type>/issue-190-<スラッグ> の worktree を作り、pnpm -s worktree-env setup 190 を実行している",
+				"/speckit-specify に SPECIFY_FEATURE_DIRECTORY=specs/issue-190-<スラッグ> を渡している",
+				"issue URL・ブランチ名・worktree のパス・spec のフォルダを報告している"
 			]
 		}
 	]

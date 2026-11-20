@@ -35,6 +35,19 @@
 				"意図が読み取れない実装について、ユーザーに質問している",
 				"推測した理由を事実として本文に書いていない"
 			]
+		},
+		{
+			"id": 4,
+			"prompt": "PRを作って",
+			"setup": "issue #190 の本文に spec のパス specs/issue-190-offline-plan/ があり、spec.md の要件は FR-001〜FR-004（FR-003 は取り下げ）。QA レポートで FR-001・FR-002 は PASS、FR-004 は検証の記録が無い",
+			"expected_output": "spec のパスと要件 ID ごとの判定表を載せた下書きを提示する",
+			"expectations": [
+				"本文に spec のパス specs/issue-190-offline-plan/ を載せている",
+				"要件の判定表に FR-001・FR-002・FR-004 があり、取り下げの FR-003 が無い",
+				"FR-001・FR-002 を PASS、FR-004 を未検証にしている（推測で PASS にしていない）",
+				"Closes #190 を含めている",
+				"issue 本文を編集していない"
+			]
 		}
 	]
 }
