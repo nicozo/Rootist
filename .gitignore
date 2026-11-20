@@ -36,6 +36,8 @@ storybook-static
 .dev-loop/
 .playwright-mcp/
 .vitest/
+# pnpm -s tdd-check の一時レポート
+.tdd-check/
 
 # git worktree（開発用作業ディレクトリ）
 .claude/worktrees/

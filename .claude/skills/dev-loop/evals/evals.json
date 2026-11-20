@@ -4,15 +4,16 @@
 		{
 			"id": 1,
 			"prompt": "/dev-loop 120",
-			"setup": "issue #120 が存在する。メインのワーキングツリーは main でクリーン",
-			"expected_output": "worktree を作成してセッションを移し、メインのワーキングツリー側にワークスペースを作ってから Planner を起動する",
+			"setup": "issue #120 の本文に spec: specs/issue-120-share-plan/ があり、ブランチ feat/issue-120-share-plan に spec.md（要件はすべて確定）・plan.md・tasks.md がコミット済み。worktree .claude/worktrees/issue-120 がある。メインのワーキングツリーは main でクリーン",
+			"expected_output": "既存の worktree に移り、spec の承認を確かめ、ワークスペースを作ってから Generator を起動する（Planner は使わない）",
 			"expectations": [
 				"進捗チェックリストを応答にコピーしている",
-				"git worktree add -b feat/issue-120-<スラッグ> .claude/worktrees/<スラッグ> main で worktree を作成している",
-				"EnterWorktree で worktree に移っている",
-				"pnpm -s worktree-env setup 120 で .env を準備し（.env を cat / cp / sed などで直接扱わない）、pnpm install を実行している",
+				"issue 本文から specs/issue-120-share-plan/ を読み取っている",
+				"既存の .claude/worktrees/issue-120 を使い、EnterWorktree で移っている",
+				"spec.md の要件のステータスがすべて確定であること・plan.md と tasks.md があることを確かめている",
 				".dev-loop/ ワークスペースをメインのワーキングツリー側に作成している（worktree 内ではない）",
-				"Planner への prompt にワークスペースと worktree の絶対パスを含めている"
+				"Planner を起動せず、Sprint Contract の作成・審査を依頼していない",
+				"Generator への prompt に spec のフォルダ・ワークスペース・worktree の絶対パスと、テストだけのコミットを先に作る指示を含めている"
 			]
 		},
 		{
@@ -35,6 +36,40 @@
 				"イテレーションを3回で打ち切っている",
 				"最新の qa_report_iter3.md の要約と残課題を報告している",
 				"devサーバーを停止し、docker compose down は実行していない"
+			]
+		},
+		{
+			"id": 4,
+			"prompt": "/dev-loop 123",
+			"setup": "spec.md の要件 FR-002 のステータスが「案」のまま",
+			"expected_output": "承認前とみなして中断し、確定していない要件をユーザーに報告する",
+			"expectations": [
+				"Generator を起動していない",
+				"FR-002 が案のままであることを報告している",
+				"spec.md を書き換えていない"
+			]
+		},
+		{
+			"id": 5,
+			"prompt": "（Generator の引き渡し後）",
+			"setup": "pnpm -s tdd-check が終了コード 1 で「テストのコミットの後でテストの行を消している・書き換えている」を出力した",
+			"expected_output": "QA に渡さず、違反を review_findings_iter<N>.md に書いて Generator に差し戻す",
+			"expectations": [
+				"QA を起動していない",
+				"tdd-check の出力を review_findings_iter<N>.md に書いている",
+				"Generator に SendMessage で差し戻している",
+				"差し戻しをイテレーション回数に数えている"
+			]
+		},
+		{
+			"id": 6,
+			"prompt": "（最終 QA が PASS した後の仕上げ）",
+			"setup": "qa_report_iter2.md で FR-001・FR-002 が PASS、FR-003 が未検証（共有 DB に依存）",
+			"expected_output": "PR 本文の「spec と要件の判定」に要件 ID ごとの判定を転記し、issue 本文は変更しない",
+			"expectations": [
+				"PR 本文に FR-001・FR-002 を PASS、FR-003 を未検証として載せている",
+				"gh issue edit で issue 本文を変更していない",
+				"Closes #<issue番号> を含めている"
 			]
 		}
 	]
