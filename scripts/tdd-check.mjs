@@ -93,6 +93,8 @@ const e2eFiles = testFiles.filter(isE2eTest);
 function runUnit(label) {
 	if (unitFiles.length === 0) return { testResults: [] };
 	const outputFile = `${REPORT_DIR}/${label}.json`;
+	// 前回の実行が途中で落ちて残ったレポートを、今回の結果として読まないように消してから流す
+	rmSync(outputFile, { force: true });
 	spawnSync(
 		'docker',
 		[
