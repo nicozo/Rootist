@@ -26,7 +26,15 @@ export default defineConfig({
 			'yarn.lock',
 			'bun.lock',
 			'bun.lockb',
-			'/static/'
+			'/static/',
+			// Spec Kit（specify CLI）が生成・更新するファイル。整形するとアップグレード時の差分検出（manifest の sha256）が崩れる
+			'/.specify/scripts/',
+			'/.specify/templates/*.md',
+			'/.specify/workflows/',
+			'/.specify/integrations/',
+			'/.specify/*.json',
+			'/.specify/memory/.constitution-template.json',
+			'/.claude/skills/speckit-*/'
 		]
 	},
 
