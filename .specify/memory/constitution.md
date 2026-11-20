@@ -24,10 +24,14 @@ spec.md には利用者から見た振る舞いとその理由を書き、技術
 
 型チェック・lint・テストは CLAUDE.md の「Commands」に書かれた方法（Docker コンテナ内）で通す。テストの置き場所と役割分担は `.claude/rules/testing.md` に従う。
 
+### V. テストを先に書き、実装は dev-loop で行う
+
+テストは必須で、実装より先に書く（TDD）。tasks.md には、各ユーザーストーリーの実装タスクより前にテストのタスクを置く。実装は `/speckit-implement` ではなく `dev-loop`（`.claude/skills/dev-loop/SKILL.md`）で行う。dev-loop がテストだけのコミットを実装より先に作らせ、`pnpm -s tdd-check` でテストの失敗→成功と、テストが緩められていないことを確かめる。
+
 ## Governance
 
 - このファイルと CLAUDE.md / `.claude/rules/` が食い違う場合は CLAUDE.md / `.claude/rules/` を正とし、このファイルを直す
 - 原則を足す・変えるときは、規約の本文を CLAUDE.md / `.claude/rules/` に書き、ここには参照だけを足す
-- plan.md の Constitution Check では、上の原則 I〜IV への適合を確認する
+- plan.md の Constitution Check では、上の原則 I〜V への適合を確認する
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-20 | **Last Amended**: 2026-11-20
+**Version**: 1.1.0 | **Ratified**: 2026-11-20 | **Last Amended**: 2026-11-20

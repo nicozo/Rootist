@@ -23,6 +23,7 @@
 		"db:migrate": "node scripts/supabase-db.mjs migrate",
 		"db:status": "node scripts/supabase-db.mjs status",
 		"worktree-env": "node scripts/worktree-env.mjs",
+		"tdd-check": "node scripts/tdd-check.mjs",
 		"storybook": "storybook dev -p 6006",
 		"build-storybook": "storybook build"
 	},
