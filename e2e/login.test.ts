@@ -1,5 +1,5 @@
-// ログインの送信は Supabase に届くため対象外（.claude/rules/testing.md）。
-// Google ボタンの有無は環境で変わるため確認しない。
+// コードの送信・確認とパスキーの操作は Supabase に届くため対象外（.claude/rules/testing.md）。
+// Google ボタン・パスキーのボタンの有無は環境で変わるため確認しない。
 import { expect, test } from './helpers';
 
 test('L-1: ナビの「ログイン」から /login に入る', async ({ page }) => {
@@ -12,7 +12,9 @@ test('L-1: ナビの「ログイン」から /login に入る', async ({ page })
 	await expect(page).toHaveTitle('rootist — ログイン');
 	await expect(page.getByRole('heading', { level: 1, name: 'ログイン' })).toBeVisible();
 	await expect(page.getByLabel('メールアドレス')).toBeVisible();
-	await expect(page.getByLabel('パスワード')).toBeVisible();
+	await expect(page.getByRole('button', { name: 'コードを送る' })).toBeVisible();
+	// issue #189 FR-001: パスワードの入力欄は無い
+	await expect(page.getByLabel('パスワード')).toHaveCount(0);
 });
 
 test('L-2: 画面下の「新規登録」から /register に移る', async ({ page }) => {

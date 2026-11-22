@@ -1,20 +1,13 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { Input } from '#lib/components/ui/input/index.js';
 	import { Separator } from '#lib/components/ui/separator/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
-	import * as Field from '#lib/components/ui/field/index.js';
-	import * as Alert from '#lib/components/ui/alert/index.js';
-	import { AlertCircleIcon } from '@lucide/svelte';
 	import GoogleIcon from '#lib/components/google-icon.svelte';
+	import EmailCodeForm from '#lib/components/email-code-form.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { form, data }: { form: ActionData; data: PageData } = $props();
-
-	let submitting = $state(false);
-	let password = $state('');
 </script>
 
 <svelte:head>
@@ -27,61 +20,13 @@
 			<Card.Title class="text-xl">
 				<h1>新規登録</h1>
 			</Card.Title>
-			<Card.Description>メールアドレスとパスワードでアカウントを作成します。</Card.Description>
+			<Card.Description>メールアドレスに届くコードでアカウントを作成します。</Card.Description>
 		</Card.Header>
-		<Card.Content>
-			<form
-				method="POST"
-				use:enhance={() => {
-					submitting = true;
-					return async ({ update }) => {
-						await update();
-						password = '';
-						submitting = false;
-					};
-				}}
-				class="flex flex-col gap-4"
-			>
-				{#if form?.message}
-					<Alert.Root variant="destructive">
-						<AlertCircleIcon />
-						<Alert.Description>{form.message}</Alert.Description>
-					</Alert.Root>
-				{/if}
-
-				<Field.Field>
-					<Field.FieldLabel for="email">メールアドレス</Field.FieldLabel>
-					<Input
-						id="email"
-						name="email"
-						type="email"
-						autocomplete="email"
-						required
-						value={form?.email ?? ''}
-					/>
-				</Field.Field>
-
-				<Field.Field>
-					<Field.FieldLabel for="password">パスワード</Field.FieldLabel>
-					<Input
-						id="password"
-						name="password"
-						type="password"
-						autocomplete="new-password"
-						minlength={8}
-						required
-						bind:value={password}
-					/>
-					<Field.FieldDescription>8文字以上で入力してください。</Field.FieldDescription>
-				</Field.Field>
-
-				<Button type="submit" disabled={submitting} class="mt-2 w-full">
-					{submitting ? '登録中…' : '新規登録'}
-				</Button>
-			</form>
+		<Card.Content class="flex flex-col gap-4">
+			<EmailCodeForm {form} />
 
 			{#if data.googleAuthEnabled}
-				<div class="relative my-4 flex items-center justify-center">
+				<div class="relative flex items-center justify-center">
 					<Separator class="absolute inset-x-0" />
 					<span class="relative bg-card px-2 text-xs text-muted-foreground">または</span>
 				</div>

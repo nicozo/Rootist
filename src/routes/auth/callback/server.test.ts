@@ -1,20 +1,27 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from 'vite-plus/test';
-import { GET } from './+server';
 
 // issue #117: GET /auth/callback（Google認証からの戻り）の単体テスト。
+// issue #189: 成功時の行き先は resolvePostLoginPath で決める（モックする）。
+
+const { resolvePostLoginPath } = vi.hoisted(() => ({ resolvePostLoginPath: vi.fn() }));
+vi.mock('#lib/server/post-login.js', () => ({ resolvePostLoginPath }));
+
+const { GET } = await import('./+server');
 
 const exchangeCodeForSession = vi.fn();
+const supabase = { auth: { exchangeCodeForSession } };
 
 function event(search: string) {
 	return {
 		url: new URL(`http://localhost/auth/callback${search}`),
-		locals: { supabase: { auth: { exchangeCodeForSession } } }
+		locals: { supabase }
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	} as any;
 }
 
 beforeEach(() => {
 	exchangeCodeForSession.mockResolvedValue({ error: null });
+	resolvePostLoginPath.mockResolvedValue('/plan');
 	vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
@@ -59,5 +66,24 @@ describe('/auth/callback', () => {
 		await expect(GET(event('?code=abc'))).rejects.toMatchObject({
 			location: '/login?error=google'
 		});
+	});
+
+	it('FR-020, FR-013: 交換できたら行き先の判定の結果（/passkey）へ', async () => {
+		resolvePostLoginPath.mockResolvedValue('/passkey');
+
+		await expect(GET(event('?code=abc'))).rejects.toMatchObject({
+			status: 303,
+			location: '/passkey'
+		});
+		expect(resolvePostLoginPath).toHaveBeenCalledWith(supabase);
+	});
+
+	it('FR-021: 交換に失敗したら行き先の判定を呼ばない', async () => {
+		exchangeCodeForSession.mockResolvedValue({ error: { code: 'bad_code' } });
+
+		await expect(GET(event('?code=abc'))).rejects.toMatchObject({
+			location: '/login?error=google'
+		});
+		expect(resolvePostLoginPath).not.toHaveBeenCalled();
 	});
 });

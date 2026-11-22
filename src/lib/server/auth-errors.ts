@@ -2,19 +2,16 @@
 // DBアクセス・Supabaseクライアント初期化を一切行わない純粋関数のみを置く（環境変数未設定でもテスト可能）。
 
 export const EMAIL_FORMAT_MESSAGE = 'メールアドレスの形式が正しくありません';
-export const PASSWORD_LENGTH_MESSAGE = 'パスワードは8文字以上で入力してください';
-export const DUPLICATE_EMAIL_MESSAGE = 'このメールアドレスは既に登録されています';
-export const LOGIN_FAILURE_MESSAGE = 'メールアドレスまたはパスワードが正しくありません';
-export const REGISTER_FAILURE_MESSAGE = '登録に失敗しました。もう一度お試しください。';
-// issue #116: Supabase Authのパスワード上限（72バイト）に伴い追加
-export const PASSWORD_TOO_LONG_MESSAGE =
-	'パスワードが長すぎます（半角英数字で72文字以内にしてください）';
+// issue #189: メールのコード（OTP）での登録・ログイン用
+export const CODE_INVALID_MESSAGE =
+	'コードが正しくないか、期限が切れています。入力し直すか、コードを再送してください。';
+export const RESEND_WAIT_MESSAGE = 'コードを送ったばかりです。60秒ほど待ってから再送してください。';
+export const VERIFY_FAILURE_MESSAGE =
+	'コードを確認できませんでした。しばらくしてからもう一度お試しください。';
+export const SEND_FAILURE_MESSAGE = 'コードを送れませんでした。もう一度お試しください。';
 // issue #116: Supabase Authの回数制限（IP単位）に当たったとき用
 export const RATE_LIMIT_MESSAGE =
 	'試行回数が多すぎます。しばらく時間をおいてからもう一度お試しください。';
-
-const MIN_PASSWORD_LENGTH = 8;
-const MAX_PASSWORD_BYTES = 72;
 
 // ブラウザのtype="email"ネイティブ検証（WHATWG living standard準拠）と同等の厳格度に揃える。
 // `<`や`'`等の記号を許容してしまう緩いパターン（`[^\s@]+`）だと、Supabaseに渡す前に
@@ -49,49 +46,40 @@ export function deriveNameFromEmail(email: string): string {
 	return localPart && localPart.length > 0 ? localPart : email;
 }
 
-/**
- * パスワード長の事前検査（Supabaseに送る前）。8文字未満、またはUTF-8で72バイト超ならメッセージを返す。
- * 8文字の判定は文字数（ブラウザのminlengthと同じUTF-16単位）、上限はバイト数で行う。
- */
-export function checkPasswordLength(password: string): string | null {
-	if (password.length < MIN_PASSWORD_LENGTH) return PASSWORD_LENGTH_MESSAGE;
-	if (new TextEncoder().encode(password).length > MAX_PASSWORD_BYTES) {
-		return PASSWORD_TOO_LONG_MESSAGE;
-	}
-	return null;
-}
+// GoTrue は同じ over_email_send_rate_limit を、同じアドレスへの再送間隔（"you can only request this after N
+// seconds"）とプロジェクト全体の 1 時間あたりの送信上限（"email rate limit exceeded"）の両方に使う。
+// 文言はサーバー由来（auth-js は通すだけ）なので、再送間隔と読める場合だけ「60 秒待つ」にする。
+const SEND_INTERVAL_MESSAGE_PATTERN = /after\s+\d+\s+seconds?/i;
 
 /**
- * 登録（signUp）失敗時のSupabase Authエラーコードを日本語メッセージへ変換する。
- * 未知のコード・signup_disabled等はnullを返す（呼び出し側で汎用メッセージにフォールバックする）。
+ * コード送信（signInWithOtp）失敗時のSupabase Authエラーコードを日本語メッセージへ変換する。
+ * 再送の間隔（FR-009）・回数制限（FR-023）・形式（FR-011）以外は送信失敗（FR-025）にする。
+ * message を渡したとき、再送間隔の文言でない over_email_send_rate_limit は回数制限として扱う。
  */
-export function mapSignUpErrorCode(code: string | undefined): string | null {
+export function mapSendCodeErrorCode(code: string | undefined, message?: string): string {
 	switch (code) {
-		case 'user_already_exists':
-		case 'email_exists':
-			return DUPLICATE_EMAIL_MESSAGE;
-		case 'weak_password':
-			return PASSWORD_LENGTH_MESSAGE;
 		case 'email_address_invalid':
 		case 'validation_failed':
 			return EMAIL_FORMAT_MESSAGE;
-		case 'over_request_rate_limit':
 		case 'over_email_send_rate_limit':
+			return message !== undefined && !SEND_INTERVAL_MESSAGE_PATTERN.test(message)
+				? RATE_LIMIT_MESSAGE
+				: RESEND_WAIT_MESSAGE;
+		case 'over_request_rate_limit':
 			return RATE_LIMIT_MESSAGE;
 		default:
-			return null;
+			return SEND_FAILURE_MESSAGE;
 	}
 }
 
 /**
- * ログイン（signInWithPassword）失敗時のメッセージ。回数制限だけ別メッセージにし、
- * それ以外（invalid_credentials・email_not_confirmed・未知のコード・Supabase以外の例外）は
- * アカウントの存在を推測させないよう統一メッセージにする。
+ * コード確認（verifyOtp）失敗時のメッセージ。回数制限だけ別メッセージにし、誤り・期限切れ・
+ * 未知のコードは同じ「コードが正しくないか期限切れ」にする（FR-008, FR-022, FR-023）。
  */
-export function mapSignInErrorCode(code: string | undefined): string {
+export function mapVerifyCodeErrorCode(code: string | undefined): string {
 	return code === 'over_request_rate_limit' || code === 'over_email_send_rate_limit'
 		? RATE_LIMIT_MESSAGE
-		: LOGIN_FAILURE_MESSAGE;
+		: CODE_INVALID_MESSAGE;
 }
 
 /** ログに出してよい、Supabase Authエラーの種別情報（値・トークン・パスワードは含めない） */

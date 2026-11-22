@@ -1,24 +1,49 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { Input } from '#lib/components/ui/input/index.js';
 	import { Separator } from '#lib/components/ui/separator/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
-	import * as Field from '#lib/components/ui/field/index.js';
 	import * as Alert from '#lib/components/ui/alert/index.js';
-	import { AlertCircleIcon } from '@lucide/svelte';
+	import { AlertCircleIcon, KeyRoundIcon } from '@lucide/svelte';
 	import GoogleIcon from '#lib/components/google-icon.svelte';
+	import EmailCodeForm from '#lib/components/email-code-form.svelte';
+	import { isPasskeySupported, signInWithPasskey } from '#lib/passkey-client.js';
 	import type { ActionData, PageData } from './$types';
 
 	let { form, data }: { form: ActionData; data: PageData } = $props();
 
-	let submitting = $state(false);
-	let password = $state('');
+	// パスキーの対応はブラウザでしか分からない。対応していなければボタンを出さない（FR-019）
+	let passkeySupported = $state(false);
+	let passkeyBusy = $state(false);
+	let passkeyFailed = $state(false);
 
-	// issue #42: form?.message（email/passwordログイン失敗）とdata.googleError
-	// （Google側でのキャンセル・失敗）は排他表示でよい（spec.md 2-3(3)）
-	const errorMessage = $derived(form?.message ?? data.googleError ?? null);
+	onMount(() => {
+		passkeySupported = isPasskeySupported();
+	});
+
+	// FR-018: 取り消し・失敗では画面にとどまり、メールのコードか Google でも入れることを伝える
+	const PASSKEY_LOGIN_FAILURE =
+		'パスキーでログインできませんでした。メールのコードかGoogleでもログインできます。';
+
+	async function loginWithPasskey() {
+		passkeyBusy = true;
+		passkeyFailed = false;
+		const ok = await signInWithPasskey();
+		if (ok) {
+			// セッションの Cookie はサーバーが書いた。ユーザー情報を読み直すため invalidateAll する
+			await goto(resolve('plan'), { invalidateAll: true });
+		} else {
+			passkeyFailed = true;
+		}
+		passkeyBusy = false;
+	}
+
+	// コードのメッセージは EmailCodeForm が出す。Google 側のキャンセル・失敗とパスキーの失敗はここで出す
+	const pageError = $derived(
+		passkeyFailed ? PASSKEY_LOGIN_FAILURE : form?.message ? null : (data.googleError ?? null)
+	);
 </script>
 
 <svelte:head>
@@ -31,59 +56,32 @@
 			<Card.Title class="text-xl">
 				<h1>ログイン</h1>
 			</Card.Title>
-			<Card.Description>メールアドレスとパスワードでログインします。</Card.Description>
+			<Card.Description>メールアドレスに届くコードでログインします。</Card.Description>
 		</Card.Header>
-		<Card.Content>
-			<form
-				method="POST"
-				use:enhance={() => {
-					submitting = true;
-					return async ({ update }) => {
-						await update();
-						password = '';
-						submitting = false;
-					};
-				}}
-				class="flex flex-col gap-4"
-			>
-				{#if errorMessage}
-					<Alert.Root variant="destructive">
-						<AlertCircleIcon />
-						<Alert.Description>{errorMessage}</Alert.Description>
-					</Alert.Root>
-				{/if}
+		<Card.Content class="flex flex-col gap-4">
+			{#if pageError}
+				<Alert.Root variant="destructive">
+					<AlertCircleIcon />
+					<Alert.Description>{pageError}</Alert.Description>
+				</Alert.Root>
+			{/if}
 
-				<Field.Field>
-					<Field.FieldLabel for="email">メールアドレス</Field.FieldLabel>
-					<Input
-						id="email"
-						name="email"
-						type="email"
-						autocomplete="email"
-						required
-						value={form?.email ?? ''}
-					/>
-				</Field.Field>
-
-				<Field.Field>
-					<Field.FieldLabel for="password">パスワード</Field.FieldLabel>
-					<Input
-						id="password"
-						name="password"
-						type="password"
-						autocomplete="current-password"
-						required
-						bind:value={password}
-					/>
-				</Field.Field>
-
-				<Button type="submit" disabled={submitting} class="mt-2 w-full">
-					{submitting ? 'ログイン中…' : 'ログイン'}
+			{#if passkeySupported}
+				<Button type="button" class="w-full" disabled={passkeyBusy} onclick={loginWithPasskey}>
+					<KeyRoundIcon data-icon="inline-start" />
+					パスキーでログイン
 				</Button>
-			</form>
+
+				<div class="relative flex items-center justify-center">
+					<Separator class="absolute inset-x-0" />
+					<span class="relative bg-card px-2 text-xs text-muted-foreground">または</span>
+				</div>
+			{/if}
+
+			<EmailCodeForm {form} />
 
 			{#if data.googleAuthEnabled}
-				<div class="relative my-4 flex items-center justify-center">
+				<div class="relative flex items-center justify-center">
 					<Separator class="absolute inset-x-0" />
 					<span class="relative bg-card px-2 text-xs text-muted-foreground">または</span>
 				</div>
