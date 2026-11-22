@@ -1,35 +1,35 @@
-# Specification Quality Checklist: パスワードなしでアカウント登録・ログインする
+# spec の品質チェックリスト: パスワードなしでアカウント登録・ログインする
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-11-22
-**Feature**: [spec.md](../spec.md)
+**目的**: 設計（plan）に進む前に、spec がそろっていて質が足りているかを確かめる
+**作成日**: 2026-11-22
+**対象**: [spec.md](../spec.md)
 
-## Content Quality
+## 内容の質
 
-- [x] No implementation details (languages, frameworks, APIs)
-- [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
-- [x] All mandatory sections completed
+- [x] 実装の詳細（言語・フレームワーク・API）を書いていない
+- [x] 利用者にとっての価値と、必要な理由に絞っている
+- [x] 技術に詳しくない人が読んでも分かる
+- [x] 必須の節をすべて埋めている
 
-## Requirement Completeness
+## 要件のそろい具合
 
-- [x] No [NEEDS CLARIFICATION] markers remain
-- [x] Requirements are testable and unambiguous
-- [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
-- [x] All acceptance scenarios are defined
-- [x] Edge cases are identified
-- [x] Scope is clearly bounded
-- [x] Dependencies and assumptions identified
+- [x] [NEEDS CLARIFICATION] が残っていない
+- [x] 要件が確かめられる形で、解釈が 1 つに決まる
+- [x] 成功基準が測れる
+- [x] 成功基準が技術に依存しない（実装の詳細を含まない）
+- [x] 受け入れシナリオをすべて書いている
+- [x] エッジケースを洗い出している
+- [x] 範囲の境目がはっきりしている
+- [x] 依存するものと前提を書いている
 
-## Feature Readiness
+## 設計に進めるか
 
-- [x] All functional requirements have clear acceptance criteria
-- [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [x] すべての要件に、はっきりした受け入れ基準がある
+- [x] ユーザーシナリオが主な流れを押さえている
+- [x] 成功基準で決めた成果を満たせる内容になっている
+- [x] spec に実装の詳細が漏れていない
 
-## Notes
+## メモ
 
 - 2026-11-22 師匠の回答で [NEEDS CLARIFICATION] 2 件を解消（案内は「あとで」3 回まで = FR-027 / パスキーの一覧・追加・削除は RT-REQ-1 へ）
 - FR-022〜FR-026 はエッジケースでだけ確かめる要件（受け入れシナリオではなくエッジケースの行に ID を添えた）
