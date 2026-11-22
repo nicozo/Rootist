@@ -53,4 +53,4 @@ spec を書き始める時点で、作業の単位と窓口になる issue を 1
 | worktree    | `.claude/worktrees/issue-<N>` |
 | spec の場所 | `specs/issue-<N>-<スラッグ>/` |
 
-ブランチと spec のフォルダは同じ `issue-<N>-<スラッグ>` を使う。`<type>/` はブランチだけに付く（種別が変わっても spec のフォルダ名は変えない）。
+命名の規則の正は CLAUDE.md の git 戦略（この表はその当てはめ）。ブランチと spec のフォルダは同じ `issue-<N>-<スラッグ>` を使う。`<type>/` はブランチだけに付く（種別が変わっても spec のフォルダ名は変えない）。
