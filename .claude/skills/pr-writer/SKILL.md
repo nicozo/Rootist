@@ -11,7 +11,7 @@ argument-hint: [Closesするissue番号（省略可）]
 ## 進め方
 
 1. **差分と経緯を集める**
-   `git status` / `git diff <base>...HEAD` / `git log <base>..HEAD` でベースブランチとの差分・コミット履歴を確認する。紐づくissueがあれば `gh issue view` で本文（要望 ID・Notion へのリンク・spec のパス）を取得し、spec のフォルダの spec.md（なぜ・要件）・plan.md（どう作るか）を読む。`.dev-loop/<slug>/` に QA レポートや decision_iter\*.md が残っていれば、判定の根拠・実装判断の記録として参照する（spec の正は `specs/` の spec.md）。
+   `git status` / `git diff <base>...HEAD` / `git log <base>..HEAD` でベースブランチとの差分・コミット履歴を確認する。紐づくissueがあれば `gh issue view` で本文（要望 ID・Notion へのリンク・spec のパス）を取得し、spec のフォルダの spec.md（なぜ・要件）・plan.md（どう作るか）を読む。`.dev-loop/<YYYYMMDD>-issue-<N>-<スラッグ>/` に QA レポートや `decision_iter<N>.md` が残っていれば、判定の根拠・実装判断の記録として参照する（spec の正は `specs/` の spec.md）。
 
 2. **なぜ（目的）**
    spec.md の冒頭とユーザーストーリーから「なぜ」を1〜2文に要約する（issue には背景を書かない運用なので、issue からは取らない）。spec が無い場合はユーザーに確認する。
