@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
 	checkE2e,
 	checkGreen,
+	checkNoDisabled,
 	checkNotWeakened,
 	checkOrder,
 	checkRed,
@@ -88,6 +89,27 @@ describe('testRangeChanges', () => {
 		expect(checkTestCommit(changes)).toEqual([
 			'テストのコミットにテスト以外の変更がある: src/lib/server/plan.ts'
 		]);
+	});
+});
+
+describe('checkNoDisabled', () => {
+	// issue #190: テストだけのコミットが複数あるとき、後のコミットで前のテストを skip 等にして RED を偽れないようにする
+	const diff = (line: string) =>
+		[
+			'diff --git a/src/a.test.ts b/src/a.test.ts',
+			'--- a/src/a.test.ts',
+			'+++ b/src/a.test.ts',
+			line
+		].join('\n');
+
+	it('ベース〜テストのコミットで skip 等を足していれば違反', () => {
+		expect(checkNoDisabled(diff("+\tit.skip('FR-001', () => {});"))).toEqual([
+			"テストのコミットまでにテストを無効化している: src/a.test.ts: it.skip('FR-001', () => {});"
+		]);
+	});
+
+	it('テストを足す・直すだけなら違反なし', () => {
+		expect(checkNoDisabled(diff("+\tit('FR-001', () => {});") + '\n-\told')).toEqual([]);
 	});
 });
 
