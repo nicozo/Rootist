@@ -10,7 +10,8 @@ import {
 	isE2eTest,
 	isTestFile,
 	isUnitTest,
-	parseNameStatus
+	parseNameStatus,
+	testRangeChanges
 } from './tdd-check';
 
 // issue #181: dev-loop の TDD 確認の判定ロジック。git とコンテナの実行は入口（scripts/tdd-check.mjs）が持つ。
@@ -58,6 +59,34 @@ describe('checkOrder', () => {
 	it('テストより前に実装が変わっていれば違反', () => {
 		expect(checkOrder(['specs/issue-1-x/spec.md', 'src/lib/server/plan.ts'])).toEqual([
 			'テストのコミットより前に実装が変わっている: src/lib/server/plan.ts'
+		]);
+	});
+});
+
+describe('testRangeChanges', () => {
+	// issue #190: 実装より前なら、テストの直しは追加のテストだけのコミットで行う（履歴を書き換えない）。
+	// ベース〜最後のテストだけのコミットの差分から spec を除いたものを「テストのコミット」の中身として扱う
+	it('ベース〜テストのコミットの差分から spec を除く', () => {
+		expect(
+			testRangeChanges([
+				{ status: 'A', path: 'specs/issue-1-x/spec.md' },
+				{ status: 'A', path: 'src/lib/server/plan.test.ts' },
+				{ status: 'M', path: 'e2e/plan.test.ts' }
+			])
+		).toEqual([
+			{ status: 'A', path: 'src/lib/server/plan.test.ts' },
+			{ status: 'M', path: 'e2e/plan.test.ts' }
+		]);
+	});
+
+	it('実装が混ざっていれば残し、checkTestCommit で違反になる', () => {
+		const changes = testRangeChanges([
+			{ status: 'M', path: 'specs/issue-1-x/tasks.md' },
+			{ status: 'A', path: 'src/lib/server/plan.test.ts' },
+			{ status: 'M', path: 'src/lib/server/plan.ts' }
+		]);
+		expect(checkTestCommit(changes)).toEqual([
+			'テストのコミットにテスト以外の変更がある: src/lib/server/plan.ts'
 		]);
 	});
 });
