@@ -27,7 +27,7 @@ function leaks(result: Result): boolean {
 	return (result.stdout + result.stderr).includes(SENTINEL);
 }
 
-type Files = Record<string, string | { link: true }>;
+type Files = Record<string, string | { symlink: true }>;
 
 function makeDeps(files: Files, over: Partial<Deps> = {}) {
 	const written: Record<string, string> = {};
@@ -297,7 +297,7 @@ describe('run: setup', () => {
 	it('対象の環境ファイルがシンボリックリンクなら失敗し何も書かない', () => {
 		const { deps, written, copied } = makeDeps({
 			[`${MAIN}/.env`]: MAIN_ENV,
-			[`${WT}/.env`]: { link: true }
+			[`${WT}/.env`]: { symlink: true }
 		});
 		const result = run(['setup', '152'], deps);
 		expect(result.code).toBe(1);
