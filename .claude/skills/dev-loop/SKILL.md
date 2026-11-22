@@ -55,11 +55,15 @@ disable-model-invocation: false
 
 spec・plan・tasks づくりは Planner（`planner` エージェント）に任せ、オーケストレーターは取り次ぎと外への操作（push・Notion・師匠への質問）だけを行う（spec づくりでオーケストレーターの文脈を埋めないため。下請けは師匠に直接聞けず、許可の確認が要る操作は下請けからだと止まるため）。
 
-1. ワークスペース `<メインのワーキングツリー>/.dev-loop/<YYYYMMDD>-issue-<N>-<スラッグ>/` が無ければ作り、issue の番号・タイトル・URL・spec のフォルダを `issue.md` に書く（段 6 でも同じワークスペースを使う）
-2. Planner を起動する（`run_in_background: false`）。prompt に worktree・spec のフォルダ・ワークスペースの絶対パス、要望の説明（Notion の要望の要約）、どこから始めるか（specify / clarify / plan）を書く
-3. Planner が `planner_questions.md` を書いて止まったら、質問を師匠に取り次ぐ（推奨と選択肢をそのまま見せる）。答えを **SendMessage** で同じ Planner に返して続けさせる。セッションをまたいだときは新しい Planner を「clarify から」で起動し、答えを prompt に入れる
+1. 下の「ワークスペース」を用意し、EnterWorktree（`path` に `.claude/worktrees/issue-<N>`）でセッションを worktree に移す（無ければ [implement.md](implement.md) の Step 0 の 4 と同じ手順で作る）
+2. Planner を起動する（`run_in_background: false`）。prompt に worktree・spec のフォルダ・ワークスペースの絶対パス、要望の説明（Notion の要望の要約）、どこから始めるか（spec.md が無ければ specify、`[NEEDS CLARIFICATION` が残れば clarify、plan.md か tasks.md が無ければ plan）を書く
+3. Planner が質問で止まったら、まずコミットを push する（質問は spec.md の `[NEEDS CLARIFICATION` の印として残るので、セッションが切れても段 3 から再開できる）。`planner_questions.md`（未回答の質問だけが書かれている）を師匠に取り次ぎ（推奨と選択肢をそのまま見せる）、答えを **SendMessage** で同じ Planner に返して続けさせる。セッションをまたいだときは、spec.md の印から質問を取り次ぎ、新しい Planner を「clarify から」で起動して答えを prompt に入れる
 4. Planner が終わったら `planner_report.md` を読み、spec のフォルダのコミットがあることを確かめて push する。Planner が spec のフォルダ以外を変えていたら push せずに止めて報告する
 5. 段 5 へ進む（要約は `planner_report.md` から作る）
+
+### ワークスペース
+
+ループの成果物（Planner の質問・報告、段 6 の報告類）は `<メインのワーキングツリー>/.dev-loop/<YYYYMMDD>-issue-<N>-<スラッグ>/` に置く（worktree 内には置かない。マージ後の cleanup で worktree ごと消えるため）。既にあるかは `.dev-loop/*-issue-<N>-*` で探し、あればそれを使う（日付は作った日なので、日をまたいでも作り直さない）。無ければ作り、issue の番号・タイトル・URL・spec のフォルダを `issue.md` に書く。
 
 ### spec の整形（段 4 の最後・段 6 の Step 0）
 
