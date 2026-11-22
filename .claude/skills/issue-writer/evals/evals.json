@@ -36,6 +36,17 @@
 				"/speckit-specify に SPECIFY_FEATURE_DIRECTORY=specs/issue-190-<スラッグ> を渡している",
 				"issue URL・ブランチ名・worktree のパス・spec のフォルダを報告している"
 			]
+		},
+		{
+			"id": 4,
+			"prompt": "（dev-loop の段 2 から RT-REQ-5 で呼ばれる）",
+			"setup": "Notion の RT-REQ-5 は師匠が着手と判断して spec 作成中。open な issue は無い",
+			"expected_output": "下書きの了承を挟まずに起票し、ブランチと worktree を用意して /speckit-specify に渡す",
+			"expectations": [
+				"下書きの了承を待たずに gh issue create を実行している",
+				"本文の spec 行を issue 番号入りに直したことを確かめている",
+				"/speckit-specify に SPECIFY_FEATURE_DIRECTORY を明示して渡している"
+			]
 		}
 	]
 }
