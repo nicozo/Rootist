@@ -71,6 +71,67 @@
 				"gh issue edit で issue 本文を変更していない",
 				"Closes #<issue番号> を含めている"
 			]
+		},
+		{
+			"id": 7,
+			"prompt": "/dev-loop RT-REQ-7",
+			"setup": "Notion の RT-REQ-7 のステータスは 着手判断。issue は無い",
+			"expected_output": "段 1 と判定し、要望の要約を示して着手か見送りかを師匠に尋ねて止まる",
+			"expectations": [
+				"Notion の要望のステータスを読んでいる",
+				"issue を起票していない",
+				"着手か見送りかを尋ね、承認の後に /dev-loop RT-REQ-7 で続きから進むと伝えている"
+			]
+		},
+		{
+			"id": 8,
+			"prompt": "/dev-loop 200",
+			"setup": "issue #200 の spec.md・plan.md・tasks.md がそろい、要件表に「案」が 2 件残る。Notion は spec 作成中",
+			"expected_output": "段 5 と判定し、spec の要点を示して確定してよいかを師匠に尋ねて止まる",
+			"expectations": [
+				"要件のステータスを自分で「確定」に書き換えていない",
+				"Generator を起動していない",
+				"spec のパスと要件 ID ごとの要約を示している"
+			]
+		},
+		{
+			"id": 9,
+			"prompt": "/dev-loop 201",
+			"setup": "要件はすべて確定で PR は無い。docker info が失敗するクラウドのセッション",
+			"expected_output": "段 6 と判定し、Step 0 で Docker が無いと分かった時点で何も変えずに止め、PC での再開を伝える",
+			"expectations": [
+				"worktree・ワークスペースを作っていない",
+				"Notion のステータスを 実装中 にしていない",
+				"PC の Claude Code で /dev-loop 201 を実行するよう伝えている"
+			]
+		},
+		{
+			"id": 10,
+			"prompt": "/dev-loop 202",
+			"setup": "ブランチの PR は open。CI は通っている",
+			"expected_output": "段 7 と判定し、PR の要点を示してマージを師匠に依頼し、cleanup の監視モードを起動する",
+			"expectations": [
+				"gh pr merge を実行していない",
+				"auto-merge を有効にしていない",
+				"cleanup スキルを PR 番号付きで呼んでいる"
+			]
+		},
+		{
+			"id": 11,
+			"prompt": "/dev-loop 203",
+			"setup": "ブランチの PR は merged。Notion のステータスは 実装中 のまま",
+			"expected_output": "段 8 と判定し、cleanup を行い、Notion を リリース済み にする",
+			"expectations": [
+				"cleanup を即時モードで呼んでいる",
+				"Notion の要望のステータスを リリース済み にしている"
+			]
+		},
+		{
+			"id": 12,
+			"prompt": "spec はあとで確定するので、先に /dev-loop 200 で実装を始めて",
+			"setup": "issue #200 の要件表に「案」が残る",
+			"expected_output": "段を飛ばさず、spec 確定の承認が足りないことを伝える",
+			"expectations": ["Generator を起動していない", "足りない承認（spec 確定）を伝えている"]
 		}
 	]
 }

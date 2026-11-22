@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
 	checkE2e,
 	checkGreen,
+	checkNoDisabled,
 	checkNotWeakened,
 	checkOrder,
 	checkRed,
@@ -10,7 +11,8 @@ import {
 	isE2eTest,
 	isTestFile,
 	isUnitTest,
-	parseNameStatus
+	parseNameStatus,
+	testRangeChanges
 } from './tdd-check';
 
 // issue #181: dev-loop の TDD 確認の判定ロジック。git とコンテナの実行は入口（scripts/tdd-check.mjs）が持つ。
@@ -59,6 +61,55 @@ describe('checkOrder', () => {
 		expect(checkOrder(['specs/issue-1-x/spec.md', 'src/lib/server/plan.ts'])).toEqual([
 			'テストのコミットより前に実装が変わっている: src/lib/server/plan.ts'
 		]);
+	});
+});
+
+describe('testRangeChanges', () => {
+	// issue #190: 実装より前なら、テストの直しは追加のテストだけのコミットで行う（履歴を書き換えない）。
+	// ベース〜最後のテストだけのコミットの差分から spec を除いたものを「テストのコミット」の中身として扱う
+	it('ベース〜テストのコミットの差分から spec を除く', () => {
+		expect(
+			testRangeChanges([
+				{ status: 'A', path: 'specs/issue-1-x/spec.md' },
+				{ status: 'A', path: 'src/lib/server/plan.test.ts' },
+				{ status: 'M', path: 'e2e/plan.test.ts' }
+			])
+		).toEqual([
+			{ status: 'A', path: 'src/lib/server/plan.test.ts' },
+			{ status: 'M', path: 'e2e/plan.test.ts' }
+		]);
+	});
+
+	it('実装が混ざっていれば残し、checkTestCommit で違反になる', () => {
+		const changes = testRangeChanges([
+			{ status: 'M', path: 'specs/issue-1-x/tasks.md' },
+			{ status: 'A', path: 'src/lib/server/plan.test.ts' },
+			{ status: 'M', path: 'src/lib/server/plan.ts' }
+		]);
+		expect(checkTestCommit(changes)).toEqual([
+			'テストのコミットにテスト以外の変更がある: src/lib/server/plan.ts'
+		]);
+	});
+});
+
+describe('checkNoDisabled', () => {
+	// issue #190: テストだけのコミットが複数あるとき、後のコミットで前のテストを skip 等にして RED を偽れないようにする
+	const diff = (line: string) =>
+		[
+			'diff --git a/src/a.test.ts b/src/a.test.ts',
+			'--- a/src/a.test.ts',
+			'+++ b/src/a.test.ts',
+			line
+		].join('\n');
+
+	it('ベース〜テストのコミットで skip 等を足していれば違反', () => {
+		expect(checkNoDisabled(diff("+\tit.skip('FR-001', () => {});"))).toEqual([
+			"テストのコミットまでにテストを無効化している: src/a.test.ts: it.skip('FR-001', () => {});"
+		]);
+	});
+
+	it('テストを足す・直すだけなら違反なし', () => {
+		expect(checkNoDisabled(diff("+\tit('FR-001', () => {});") + '\n-\told')).toEqual([]);
 	});
 });
 

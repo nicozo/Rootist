@@ -11,7 +11,7 @@ argument-hint: [Closesするissue番号（省略可）]
 ## 進め方
 
 1. **差分と経緯を集める**
-   `git status` / `git diff <base>...HEAD` / `git log <base>..HEAD` でベースブランチとの差分・コミット履歴を確認する。紐づくissueがあれば `gh issue view` で本文（要望 ID・Notion へのリンク・spec のパス）を取得し、spec のフォルダの spec.md（なぜ・要件）・plan.md（どう作るか）を読む。`.dev-loop/<slug>/` に QA レポートや decision_iter\*.md が残っていれば、判定の根拠・実装判断の記録として参照する（spec の正は `specs/` の spec.md）。
+   `git status` / `git diff <base>...HEAD` / `git log <base>..HEAD` でベースブランチとの差分・コミット履歴を確認する。紐づくissueがあれば `gh issue view` で本文（要望 ID・Notion へのリンク・spec のパス）を取得し、spec のフォルダの spec.md（なぜ・要件）・plan.md（どう作るか）を読む。`.dev-loop/<YYYYMMDD>-issue-<N>-<スラッグ>/` に QA レポートや `decision_iter<N>.md` が残っていれば、判定の根拠・実装判断の記録として参照する（spec の正は `specs/` の spec.md）。
 
 2. **なぜ（目的）**
    spec.md の冒頭とユーザーストーリーから「なぜ」を1〜2文に要約する（issue には背景を書かない運用なので、issue からは取らない）。spec が無い場合はユーザーに確認する。
@@ -35,7 +35,7 @@ argument-hint: [Closesするissue番号（省略可）]
      根拠の列には、どのシナリオをどう確かめたか（QA レポートの該当箇所・テスト名など）を短く書く。`dev-loop` 経由で QA レポートに要件 ID ごとの判定があれば、それを転記する。`FAIL` / `未検証` があれば、理由をユーザーへの報告にも載せる。issue 本文は変更しない。
 
 6. **下書きを見せてからpush・PR作成する**
-   pushとPR作成は公開行為。下書きを提示し、ユーザーの了承を得てから実行する。PR作成と同時にauto-mergeを有効にする旨も下書きと一緒に伝える（了承はまとめて得てよい）。
+   pushとPR作成は公開行為。下書きを提示し、ユーザーの了承を得てから実行する。ただし `dev-loop` から呼ばれたときは了承を挟まずに作成する（`dev-loop` の承認点は PR マージで、PR の作成ではないため）。
 
 ## テンプレート
 
@@ -43,16 +43,11 @@ argument-hint: [Closesするissue番号（省略可）]
 
 ## 実行
 
-`gh pr create --title "..." --body-file -`（またはヒアドキュメント）で作成し、続けて auto-merge を有効にする。
+`gh pr create --title "..." --body-file -`（またはヒアドキュメント）で作成する。
 
-```bash
-gh pr merge <PR番号> --auto --merge
-```
-
-- auto-merge は「必須ステータスチェック・必須レビューが揃うまで待ってからマージ」する仕組み。ベースブランチに必須チェックが無いとCIを待たずに即マージされるため、有効化の前に `gh api repos/{owner}/{repo}/branches/<base>/protection` でブランチ保護（必須ステータスチェック）があるか確認する。無ければ auto-merge は有効にせず、その旨をユーザーに伝える。
-- マージ方式はリポジトリの慣習に合わせて merge commit（`--merge`）を使う。
-- 発行されたPR URLと、auto-mergeを有効にしたかどうかを報告する。
+- **auto-merge は有効にしない**。マージは師匠が PR を見て行う（開発フローの承認点。必須レビューの無いブランチで auto-merge を有効にすると、CI が通った時点で承認なしにマージされるため）
+- 発行されたPR URLを報告する。
 
 ## マージ後の後片付け
 
-PR作成後、`cleanup` スキルを PR番号付き（監視モード）で呼び、マージを見守る。マージされたら自動でマージ済みローカルブランチが片付く。auto-merge を有効にしなかった場合も、手動マージを拾うため同様に監視する。
+PR作成後、`cleanup` スキルを PR番号付き（監視モード）で呼び、師匠のマージを見守る。マージされたら自動でマージ済みローカルブランチが片付く（`dev-loop` から呼ばれたときは、監視と後片付けは `dev-loop` の段 7・8 が行う）。

@@ -17,12 +17,11 @@
 		{
 			"id": 2,
 			"prompt": "その内容でPRを出して",
-			"setup": "下書きは了承済み。main にブランチ保護（必須ステータスチェック）が無い",
-			"expected_output": "PR を作成し、auto-merge は有効にせずその旨を伝え、cleanup の監視モードを起動する",
+			"setup": "下書きは了承済み",
+			"expected_output": "PR を作成し、auto-merge は有効にせず、マージは師匠が行う旨を伝え、cleanup の監視モードを起動する",
 			"expectations": [
-				"gh api でブランチ保護を確認している",
 				"gh pr merge --auto を実行していない",
-				"auto-merge を有効にしなかった理由を報告している",
+				"マージは師匠が PR を見て行うと伝えている",
 				"cleanup スキルを PR 番号付きで呼んでいる"
 			]
 		},
@@ -47,6 +46,17 @@
 				"FR-001・FR-002 を PASS、FR-004 を未検証にしている（推測で PASS にしていない）",
 				"Closes #190 を含めている",
 				"issue 本文を編集していない"
+			]
+		},
+		{
+			"id": 5,
+			"prompt": "（dev-loop の段 6 Step 5 から呼ばれる）",
+			"setup": "dev-loop が最終 QA の判定とレビュー結果を渡して pr-writer を呼んだ",
+			"expected_output": "下書きの了承を挟まずに PR を作成し、auto-merge は有効にしない",
+			"expectations": [
+				"下書きの了承を待たずに gh pr create を実行している",
+				"gh pr merge --auto を実行していない",
+				"cleanup の監視モードを自分では起動せず、dev-loop の段 7 に任せている"
 			]
 		}
 	]

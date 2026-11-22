@@ -57,7 +57,7 @@ AI エージェント向けの作業指示。コードを読めば分かるこ�
   Co-Authored-By: Claude <noreply@anthropic.com>
   ```
 
-- 開発作業は spec を書き始める時点の issue 作成（`issue-writer`）から始め、spec と実装（`dev-loop`）を同じ issue・同じブランチで進める（手順は `issue-writer`）。PR 作成時は `pr-writer` に issue 番号を渡し、本文に `Closes #<issue番号>` を入れる（`dev-loop` を使わない単体フローでも同様）
+- 開発作業は `dev-loop` が Notion の要望の着手判断から issue 作成（`issue-writer`）・spec・実装・PR・マージ後の後片付けまでを、師匠の承認点で止まりながら進める（段と承認点は `dev-loop`）。spec と実装は同じ issue・同じブランチで進める。PR 作成時は `pr-writer` に issue 番号を渡し、本文に `Closes #<issue番号>` を入れる（`dev-loop` を使わない単体フローでも同様）
 - PR 作成前に `code-review`（effort は常に `high` 固定。Skill 呼び出し時は args に `high` を渡す）と `security-review` を必ず実行する。重大な指摘（正当性バグ・セキュリティ脆弱性）は修正して検証コマンドと両レビューをやり直し、軽微な指摘は PR 本文に「既知の指摘」として記載する（`dev-loop` を使う場合も同じ）
 
 ## 秘密情報（.env）の扱い
