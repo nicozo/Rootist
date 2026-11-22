@@ -9,6 +9,7 @@ import { readFileSync, rmSync } from 'node:fs';
 import {
 	checkE2e,
 	checkGreen,
+	checkNoDisabled,
 	checkNotWeakened,
 	checkOrder,
 	checkRed,
@@ -87,6 +88,7 @@ const changes = testRangeChanges(
 violations.push(...checkTestCommit(changes));
 const testFiles = changes.filter((c) => c.status !== 'D').map((c) => c.path);
 if (testFiles.length > 0) {
+	violations.push(...checkNoDisabled(git(['diff', baseSha, testSha, '--', ...testFiles]).out));
 	violations.push(...checkNotWeakened(git(['diff', testSha, headSha, '--', ...testFiles]).out));
 }
 if (violations.length > 0) {

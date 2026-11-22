@@ -111,6 +111,25 @@ export function checkNotWeakened(diff: string): string[] {
 	return violations;
 }
 
+/**
+ * `git diff <ベース> <テストのコミット> -- <テストのファイル>` から、skip 等の追加を探す。
+ * テストだけのコミットが複数あるとき、後のコミットで前のテストを無効化して RED / GREEN を偽れないようにする（issue #190）
+ */
+export function checkNoDisabled(diff: string): string[] {
+	const violations: string[] = [];
+	let file = '';
+	for (const line of diff.split('\n')) {
+		if (line.startsWith('diff --git ')) {
+			file = line.replace(/^diff --git a\/(.+) b\/.+$/, '$1');
+		} else if (line.startsWith('+') && !line.startsWith('+++') && WEAKENING.test(line)) {
+			violations.push(
+				`テストのコミットまでにテストを無効化している: ${file}: ${line.slice(1).trim()}`
+			);
+		}
+	}
+	return violations;
+}
+
 /** Vitest の JSON レポート（`--reporter=json`）のうち、判定に使う部分 */
 export type VitestReport = {
 	testResults?: { name: string; status: string; message?: string }[];
