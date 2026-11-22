@@ -22,24 +22,27 @@ AI エージェント向けの作業指示。コードを読めば分かるこ�
 
 ### 情報の置き場所（上流から下流へ。下流は上流を参照し、内容を写さない）
 
-| 層                     | 置き場所          | 役割                                                                            |
-| ---------------------- | ----------------- | ------------------------------------------------------------------------------- |
-| 上流（何を・なぜ）     | Notion Docs DB    | 機能要望・仕様・サービス開発/運用での意思決定（PRD/ADR/設計/ガイド/Runbook）    |
-|                        | Notion Roadmap DB | 開発進捗・ロードマップ                                                          |
-| 下流（どう作って出す） | GitHub issue      | 開発タスク（個別の要望と完了条件）。仕様は写さず Notion へリンクする            |
-|                        | コード・スキーマ  | 実装そのもの。コードから分かることは文書に書かない                              |
-|                        | CLAUDE.md         | AIエージェント向けの作業指示（規約・全体像）。パス依存の指示は `.claude/rules/` |
-|                        | README.md         | 技術スタックと Docker 手順                                                      |
-|                        | `docs/`           | コードや環境設定と一緒に変わる詳細手順（セットアップなど）                      |
+| 層                     | 置き場所          | 役割                                                                                                        |
+| ---------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------- |
+| 上流（何を・なぜ）     | Notion の要望 DB  | 要望とその進捗（要望 ID を振る）                                                                            |
+|                        | Notion Docs DB    | サービス開発/運用での意思決定（ADR/ガイド/Runbook）。機能ごとの仕様は書かない                               |
+|                        | Notion Roadmap DB | ロードマップ                                                                                                |
+|                        | `specs/`          | spec（要件 `spec.md`・設計 `plan.md`・タスク `tasks.md`）。要望 1 件につき 1 フォルダ。書き方は `.specify/` |
+| 下流（どう作って出す） | GitHub issue      | 開発タスクの単位と進捗。中身は写さず、spec と Notion の要望へリンクする（本文の形は issue テンプレート）    |
+|                        | コード・スキーマ  | 実装そのもの。コードから分かることは文書に書かない                                                          |
+|                        | CLAUDE.md         | AIエージェント向けの作業指示（規約・全体像）。パス依存の指示は `.claude/rules/`                             |
+|                        | README.md         | 技術スタックと Docker 手順                                                                                  |
+|                        | `docs/`           | コードや環境設定と一緒に変わる詳細手順（セットアップなど）                                                  |
 
 - 新しいドキュメントは、上表で役割が合う既存の場所に追加する。別の場所に作らない
-- `docs/` と Notion の境目: コードや環境設定と一緒に変わる手順は `docs/`、サービス全体に関わる意思決定と仕様は Notion。手順に添える、その手順が成り立つ前提の短い理由（例: `docs/supabase-setup.md` の方式の理由）は `docs/` に置いてよい
-- Notion の入口は「🧭 Rootist」ハブページ（親は「個人開発」。配下に Docs DB / Roadmap DB）。https://app.notion.com/p/339e07f1f4f680daa01bc51666f2b6bb
+- `specs/` と Notion の境目: 要望（何が欲しいか・その進捗）は Notion の要望 DB、それを満たす要件・設計・タスクは `specs/`。サービス全体に関わる意思決定は Notion Docs DB
+- `docs/` と Notion の境目: コードや環境設定と一緒に変わる手順は `docs/`、サービス全体に関わる意思決定は Notion。手順に添える、その手順が成り立つ前提の短い理由（例: `docs/supabase-setup.md` の方式の理由）は `docs/` に置いてよい
+- Notion の入口は「🧭 Rootist」ハブページ（親は「個人開発」。配下に Docs DB / Roadmap DB。要望 DB もこの配下に置く）。https://app.notion.com/p/339e07f1f4f680daa01bc51666f2b6bb
 
 ## git戦略
 
 - Conventional Commits
-- ブランチ名は `<type>/issue-<issue番号>-<スラッグ>` とする（issueを切ってから開発する）
+- ブランチ名は `<type>/issue-<issue番号>-<スラッグ>` とする（issueを切ってから開発する。spec のフォルダは同じ `issue-<issue番号>-<スラッグ>` を使う）
   - `<type>` はConventional Commitsと同じ種別（`feat` / `fix` / `docs` / `style` / `refactor` / `perf` / `test` / `build` / `ci` / `chore`）。変更の主目的に合うものを選ぶ
   - `<スラッグ>` は英小文字・数字・ハイフンのみ（kebab-case）で、変更内容が分かる短い英語にする
   - 例: `feat/issue-12-share-plan` / `fix/issue-34-user-menu-logout`
@@ -54,7 +57,7 @@ AI エージェント向けの作業指示。コードを読めば分かるこ�
   Co-Authored-By: Claude <noreply@anthropic.com>
   ```
 
-- 開発作業は issue 作成（`issue-writer`）から始める。PR 作成時は `pr-writer` に issue 番号を渡し、本文に `Closes #<issue番号>` を入れる（`dev-loop` を使わない単体フローでも同様）
+- 開発作業は spec を書き始める時点の issue 作成（`issue-writer`）から始め、spec と実装（`dev-loop`）を同じ issue・同じブランチで進める（手順は `issue-writer`）。PR 作成時は `pr-writer` に issue 番号を渡し、本文に `Closes #<issue番号>` を入れる（`dev-loop` を使わない単体フローでも同様）
 - PR 作成前に `code-review`（effort は常に `high` 固定。Skill 呼び出し時は args に `high` を渡す）と `security-review` を必ず実行する。重大な指摘（正当性バグ・セキュリティ脆弱性）は修正して検証コマンドと両レビューをやり直し、軽微な指摘は PR 本文に「既知の指摘」として記載する（`dev-loop` を使う場合も同じ）
 
 ## 秘密情報（.env）の扱い
@@ -88,5 +91,6 @@ docker compose run --rm tools pnpm test:e2e                  # Playwright E2E（
 **スタック**: SvelteKit 3 (Svelte 5) + TypeScript + Tailwind CSS v4 + PostgreSQL（Supabase）+ postgres.js（SQL 直書き。ORM なし）
 
 - SvelteKit 3 の規約（`#lib`・設定の置き場所・環境変数・redirect など）は `.claude/rules/sveltekit.md`
+- API の入出力の正（REST API と remote functions のどちらで何を正にするか）は `.claude/rules/api.md`
 - DB・認証は Supabase（Postgres + Supabase Auth）。方式・スキーマ変更の手順・サーバーサイド構成は `.claude/rules/database.md`
 - 外部 API: Google Places API (New)（住所検索）、Google Gemini API（プラン生成、REST 直叩き）
