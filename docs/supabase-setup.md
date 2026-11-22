@@ -229,15 +229,20 @@ MySQL から Supabase の Postgres への切り替えに伴い、各開発者は
 
 影響: 既存のユーザーアカウントと共有 URL は引き継がれず失効します（開発段階のため許容）。ブラウザに残った旧セッション Cookie は無効になり、未ログイン扱いになります。
 
-## 9. 認証（Supabase Auth）の設定（#116。初回のみ・1 人が実施）
+## 9. 認証（Supabase Auth）の設定（#116 で作成、#189 でパスワードなしに変更。初回のみ・1 人が実施）
 
-email/password 認証は Supabase Auth で行います。次をダッシュボードで設定してください（アプリ側は設定を変更しません）。
+ログインは Supabase Auth で行います。メールの 6 桁コード（メール OTP）・パスキー・Google（「11. Google ログイン」）の 3 つで、**パスワードは使いません**（#189）。次をダッシュボードで設定してください（アプリ側は設定を変更しません）。
 
 1. **Authentication > Sign In / Providers > Email**: Email プロバイダが有効で、新規登録（Allow new users to sign up）が許可されていること。
-2. 同じ画面の **Confirm email を OFF** にする。rootist はメール確認を実装していないため、登録後にそのままログイン状態で `/plan` へ進む体験を保つのが理由です（ON のままだと登録してもセッションが返らず、登録画面に「登録に失敗しました」と出ます）。
-3. 同じ画面（または Authentication > Policies）の **Minimum password length を 8** にする（アプリ側も 8 文字未満を事前に弾きます。最大は Supabase の上限 72 バイト）。
+2. 同じ画面の **Confirm email を OFF** にする。コードの確認でメールの持ち主であることを確かめるので、別のメール確認は要りません。OFF にしておくと、既存のメール＋パスワード利用者が同じメールのコードでそのまま入れます。
+3. 同じ画面の **Email OTP Length を 6**、**Email OTP Expiration を 600（秒）** にする。コードの桁数と有効期限はアプリに持たず、ここを正とします（画面の文言は「10 分」を前提にしていません）。
+4. **Authentication > Email Templates** の **Magic Link** と **Confirm signup** を、`{{ .Token }}`（6 桁のコード）を表示する日本語の文面に変える（サービス名 rootist・コード・有効期限 10 分が分かること）。既定の文面はリンクだけでコードを含みません。新規作成時は Confirm signup、既存ユーザーには Magic Link の文面が使われます。
+5. **本番は Custom SMTP を設定する**（Authentication > Emails > SMTP Settings。Resend 等）。標準のメール送信は 1 時間あたりの上限が小さく、本番の利用に足りません。開発は標準の送信でも数通なら届きます。同じメールアドレスへの再送は 60 秒空ける必要があります（Supabase 既定。アプリは `over_email_send_rate_limit` を待つよう表示します）。
+6. **Authentication > Passkeys** を有効にし、**Relying Party ID**（本番のドメイン）と **Origins**（本番と開発の origin。例: `http://localhost:20000`）を入れる。パスキーは Beta で、設定が反映されない報告があります（[Discussion #46458](https://github.com/orgs/supabase/discussions/46458)）。使えなくてもメールのコードと Google で入れます。
 
-設定の確認（publishable key で Auth の公開設定を取得。`mailer_autoconfirm` が `true` なら Confirm email は OFF）:
+設定がそろったら、手で確かめる項目は `specs/issue-189-passwordless-auth/quickstart.md` の表のとおりです。
+
+設定の確認（publishable key で Auth の公開設定を取得。`mailer_autoconfirm` が `true` なら Confirm email は OFF。OTP の桁数・有効期限は公開設定に出ないので、実際にコードを送って確かめる）:
 
 ```bash
 set -a; . ./.env; set +a
@@ -247,9 +252,9 @@ curl -s "$SUPABASE_URL/auth/v1/settings" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" 
 
 仕組みと注意:
 
-- セッションは Supabase の Cookie（`sb-` で始まる名前、**HttpOnly**）で持ちます。ブラウザ用の Supabase クライアントは作らず、登録・ログイン・ログアウトはサーバー（Form Actions）だけが Supabase Auth と通信します。
+- セッションは Supabase の Cookie（`sb-` で始まる名前、**HttpOnly**）で持ちます。ブラウザ用の Supabase クライアントは作らず、コードの送信・確認・ログアウトはサーバー（Form Actions）が、パスキーの challenge の発行と検証はサーバー（remote functions）が Supabase Auth と通信します。ブラウザは WebAuthn の操作（`navigator.credentials`）だけを行います。
 - `SUPABASE_SECRET_KEY` はアプリのコードから使いません（手元の管理作業用）。
-- Supabase Auth の回数制限は IP 単位です。Form Actions 経由だと全利用者がサーバーの IP にまとまるため、短時間に登録・ログインを繰り返すと「試行回数が多すぎます」と表示されます。
+- Supabase Auth の回数制限は IP 単位です。Form Actions 経由だと全利用者がサーバーの IP にまとまるため、短時間にコードの送信・確認を繰り返すと「試行回数が多すぎます」と表示されます。
 - 開発中に作ったテストユーザーは、ダッシュボードの **Authentication > Users** から削除するか、管理 API（`DELETE $SUPABASE_URL/auth/v1/admin/users/<id>`、Secret key を使う手元の管理作業のみ）で削除します。
 
 ## 10. 開発者向け移行手順（#116 のマージ後）
@@ -270,7 +275,7 @@ Google 認証は Supabase Auth の OAuth（PKCE）で行います。アプリは
    - **承認済みのリダイレクト URI**: Supabase ダッシュボードの Authentication > Sign In / Providers > Google に表示される Callback URL（`https://<project-ref>.supabase.co/auth/v1/callback`）を登録する。アプリのポートは登録不要（worktree のポート 20000+N でも動く）。旧認証用に登録していたリダイレクト URI は削除してよい。
 2. **Supabase ダッシュボード** > Authentication > Sign In / Providers > Google を有効にし、Client ID / Client Secret を貼る。Client Secret はここにだけ置き、リポジトリや `.env` に書かない。
 3. Redirect URLs に `http://localhost:*/**`（2-3 で設定済み）が入っていることを確認する。
-4. `.env` に `GOOGLE_AUTH_ENABLED=true` を設定する。**未設定・`true` 以外なら Google ボタンは出ず**、email/password のログインや開発は影響を受けない（Google の認証情報が無い環境向け）。`POST /auth/google` を直接叩かれても 404 にする。
+4. `.env` に `GOOGLE_AUTH_ENABLED=true` を設定する。**未設定・`true` 以外なら Google ボタンは出ず**、メールのコードでのログインや開発は影響を受けない（Google の認証情報が無い環境向け）。`POST /auth/google` を直接叩かれても 404 にする。
 
 ### 同じメールアドレスの扱い（決定事項）
 
