@@ -19,14 +19,14 @@ description: 'パスワードなしでアカウント登録・ログインする
 
 ## Phase 1: Setup
 
-- [ ] T001 `docs/supabase-setup.md` に、メール OTP の設定（桁数・有効期限）・Email Templates（Magic Link と Confirm signup に `{{ .Token }}`）・Custom SMTP・Passkeys（Relying Party ID / Origins）の手順を足し、Confirm email の記述を見直す（research.md R2〜R4、quickstart.md「師匠に頼む準備」。ダッシュボードの操作は師匠）
+- [ ] T001 `docs/supabase-setup.md` に、メール OTP の設定（桁数・有効期限）・Email Templates（Magic Link と Confirm signup に `{{ .Token }}`）・Custom SMTP・Passkeys（Relying Party ID / Origins）の手順を足し、Confirm email の記述を見直す（コードの桁数・有効期限は data-model.md の ログイン用コード に従う。research.md R2〜R4、quickstart.md「師匠に頼む準備」。ダッシュボードの操作は師匠）
 
 ---
 
 ## Phase 2: Foundational（全ストーリーの前提）
 
 - [ ] T002 [P] ログイン直後の行き先の判定 `resolvePostLoginPath` のテストを `src/lib/server/post-login.test.ts` に書く（パスキー 0 件かつ見送り 3 未満 → `/passkey`、パスキーあり・見送り 3 以上・一覧の取得失敗 → `/plan`。回数は data-model.md の 案内の見送り回数.passkey_prompt_dismissals、パスキーの件数は data-model.md の パスキー に従う。FR-013, FR-027）
-- [ ] T003 `src/lib/server/post-login.ts` に `resolvePostLoginPath(supabase)` を実装し T002 を通す（`locals.supabase.auth.passkey.list()` と `getUser()` の `user_metadata` を読む。plan.md 設計 3）
+- [ ] T003 `src/lib/server/post-login.ts` に `resolvePostLoginPath(supabase)` を実装し T002 を通す（`locals.supabase.auth.passkey.list()` と `getUser()` の `user_metadata` を読む。data-model.md の 案内の見送り回数.passkey_prompt_dismissals と パスキー の件数に従う。plan.md 設計 3）
 - [ ] T004 [P] `src/lib/server/auth-errors.test.ts` に OTP のエラーコードの対応のテストを足す（`otp_expired`・`over_email_send_rate_limit`・`over_request_rate_limit`・`email_address_invalid`・その他。FR-008, FR-009, FR-011, FR-022, FR-023, FR-025）
 - [ ] T005 `src/lib/server/auth-errors.ts` に OTP 用の文言と対応関数を足して T004 を通す。パスワード用の関数・文言とそのテストはこの時点では残す（US1 で消す）
 
@@ -79,8 +79,8 @@ description: 'パスワードなしでアカウント登録・ログインする
 - [ ] T021 [P] [US2] `src/lib/schemas/passkey.ts` に入力スキーマ（challengeId と credential）を書く（contracts/auth.md）
 - [ ] T022 [P] [US2] `src/lib/passkey-client.ts` に対応判定と create / get の処理を書く（research.md R4 の JSON 変換）
 - [ ] T023 [US2] `src/lib/server/passkey.ts` に登録の start / verify を書き、`src/lib/remote/passkey.remote.ts` に `command` 2 つを置く（plan.md 設計 2）
-- [ ] T024 [US2] `src/routes/passkey/+page.server.ts` と `+page.svelte` を作る（plan.md 設計 3）
-- [ ] T025 [US2] `src/routes/login/+page.server.ts` の `verifyCode` が T003 の行き先を使っていることを確かめ、`/passkey` への遷移をテストで押さえる（FR-013）
+- [ ] T024 [US2] `src/routes/passkey/+page.server.ts` と `+page.svelte` を作る（`dismiss` は data-model.md の 案内の見送り回数.passkey_prompt_dismissals を 1 増やす。plan.md 設計 3）
+- [ ] T025 [US2] （欠番。`verifyCode` から `/passkey` への遷移は T006・T012 で扱う）
 
 **Checkpoint**: コードで入るとパスキーを登録でき、「あとで」は 3 回で出なくなる
 
