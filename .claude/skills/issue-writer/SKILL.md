@@ -29,7 +29,7 @@ spec を書き始める時点で、作業の単位と窓口になる issue を 1
 5. **ブランチと worktree を用意する**（spec と実装を同じ issue・同じブランチで進めるため）
    CLAUDE.md の git 戦略の手順で、ブランチ `<type>/issue-<N>-<スラッグ>` の worktree を作り、`pnpm -s worktree-env setup <N>` で `.env` を準備する。
 
-6. **/speckit-specify に渡す**
+6. **/speckit-specify に渡す**（`dev-loop` から呼ばれたときはこの手順を行わず、7 の報告で終える。spec づくりは `dev-loop` が Planner に任せる）
    worktree の中で `/speckit-specify` を、spec のフォルダを明示して呼ぶ:
 
    ```
@@ -38,7 +38,7 @@ spec を書き始める時点で、作業の単位と窓口になる issue を 1
 
    フォルダを明示しないと Spec Kit は `specs/001-<名前>` のような連番で作り、ブランチ名・issue と対応しなくなる。spec はこのブランチでコミットし、そのまま plan・tasks・実装も同じブランチで進める。
 
-7. 発行した issue の URL・ブランチ名・worktree のパス・spec のフォルダを報告する。`dev-loop` から呼ばれたときは、報告の後に `dev-loop` の段 3 へ戻る（/clarify 以降は `dev-loop` が進める）。
+7. 発行した issue の URL・ブランチ名・worktree のパス・spec のフォルダを報告する。`dev-loop` から呼ばれたときは、報告の後に `dev-loop` の段 3 へ戻る。
 
 ## 本文
 
