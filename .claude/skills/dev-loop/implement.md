@@ -38,7 +38,7 @@ dev-loop 進捗:
    - spec.md の要件表で、取り下げ以外の要件のステータスがすべて「確定」であること（「案」が残っていれば承認前とみなす）
    - `[NEEDS CLARIFICATION` が残っていないこと
      どれかを満たさなければ実装に入らず、当たる段（3〜5）へ戻る（spec の確定は段 5 で師匠の承認を経て行う）
-6. ワークスペースを作る: `<メインのワーキングツリー>/.dev-loop/<YYYYMMDD>-issue-<N>-<スラッグ>/`。issue の番号・タイトル・URL・spec のフォルダを `issue.md` に保存する。**worktree 内には置かない** — マージ後の cleanup で worktree ごと消えるため
+6. ワークスペースを用意する（SKILL.md の「ワークスペース」）
 7. TDD 確認のベースを決めて `issue.md` に書く: `git merge-base main HEAD`（積み上げのブランチなら、その親ブランチとの merge-base）
 8. spec のフォルダを整形する（SKILL.md の「spec の整形」）。Notion の要望のステータスを 実装中 にする
 

@@ -5,14 +5,14 @@
 			"id": 1,
 			"prompt": "/dev-loop 120",
 			"setup": "issue #120 の本文に spec: specs/issue-120-share-plan/ があり、ブランチ feat/issue-120-share-plan に spec.md（要件はすべて確定）・plan.md・tasks.md がコミット済み。worktree .claude/worktrees/issue-120 がある。メインのワーキングツリーは main でクリーン",
-			"expected_output": "既存の worktree に移り、spec の承認を確かめ、ワークスペースを作ってから Generator を起動する（Planner は使わない）",
+			"expected_output": "既存の worktree に移り、spec の承認を確かめ、ワークスペースを作ってから Generator を起動する（段 6 では Planner を使わない）",
 			"expectations": [
 				"進捗チェックリストを応答にコピーしている",
 				"issue 本文から specs/issue-120-share-plan/ を読み取っている",
 				"既存の .claude/worktrees/issue-120 を使い、EnterWorktree で移っている",
 				"spec.md の要件のステータスがすべて確定であること・plan.md と tasks.md があることを確かめている",
 				".dev-loop/ ワークスペースをメインのワーキングツリー側に作成している（worktree 内ではない）",
-				"Planner を起動せず、Sprint Contract の作成・審査を依頼していない",
+				"段 6 で Planner を起動して spec を作り直しておらず、Sprint Contract の作成・審査を依頼していない",
 				"Generator への prompt に spec のフォルダ・ワークスペース・worktree の絶対パスと、テストだけのコミットを先に作る指示を含めている"
 			]
 		},
@@ -132,6 +132,39 @@
 			"setup": "issue #200 の要件表に「案」が残る",
 			"expected_output": "段を飛ばさず、spec 確定の承認が足りないことを伝える",
 			"expectations": ["Generator を起動していない", "足りない承認（spec 確定）を伝えている"]
+		},
+		{
+			"id": 13,
+			"prompt": "/dev-loop RT-REQ-12",
+			"setup": "Notion の RT-REQ-12 は spec 作成中。issue #210 とブランチ feat/issue-210-x・worktree はあるが、spec.md はまだ無い",
+			"expected_output": "段 3 と判定し、ワークスペースを作って Planner を specify から起動する",
+			"expectations": [
+				"issue-writer を呼び直していない",
+				"オーケストレーター自身で /speckit-specify を呼ばず、planner エージェントを起動している",
+				"Planner への prompt に worktree・spec のフォルダ・ワークスペースの絶対パスと、specify から始めることを書いている"
+			]
+		},
+		{
+			"id": 14,
+			"prompt": "（Planner が planner_questions.md に 3 問書いて止まった）",
+			"setup": "段 3 の途中。師匠は同じセッションにいる",
+			"expected_output": "質問を推奨と選択肢ごと師匠に取り次ぎ、答えを SendMessage で同じ Planner に返す",
+			"expectations": [
+				"質問に自分で答えていない",
+				"答えを SendMessage で同じ Planner に返している",
+				"Planner に push や Notion の更新を頼んでいない"
+			]
+		},
+		{
+			"id": 15,
+			"prompt": "（Planner が段 4 まで終えて報告した）",
+			"setup": "planner_report.md があり、spec のフォルダのコミットがある。要件はすべて「案」",
+			"expected_output": "報告とコミットを確かめて push し、段 5 で spec の要点を示して確定を師匠に尋ねて止まる",
+			"expectations": [
+				"push している",
+				"要件のステータスを自分で「確定」にしていない",
+				"planner_report.md から要件 ID と要約を示している"
+			]
 		}
 	]
 }
