@@ -2,40 +2,15 @@ import { page } from 'vite-plus/test/browser';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
-// issue #62: 新規登録ページの表示テスト。
-// `use:enhance` は本来サーバーのForm Actionへfetchするため単体テストでは動かせない。
-// 検証したいのはページが渡すコールバック（送信中フラグとパスワード欄のクリア）なので、
-// submitイベントを捕まえて同じ順序で呼び出すだけの最小実装に差し替える。
-const { enhance, updateCalls } = vi.hoisted(() => {
-	const updateCalls = vi.fn();
-	const enhance = (
-		form: HTMLFormElement,
-		submitFn?: (input: unknown) => unknown | Promise<unknown>
-	) => {
-		const onSubmit = async (event: Event) => {
-			event.preventDefault();
-			const afterSubmit = await submitFn?.({
-				formElement: form,
-				formData: new FormData(form),
-				action: new URL('http://localhost/register'),
-				controller: new AbortController(),
-				submitter: null,
-				cancel: () => {}
-			});
-			if (typeof afterSubmit === 'function') {
-				await afterSubmit({
-					result: { type: 'failure', status: 400, data: {} },
-					update: async () => updateCalls()
-				});
-			}
-		};
-		form.addEventListener('submit', onSubmit);
-		return { destroy: () => form.removeEventListener('submit', onSubmit) };
-	};
-	return { enhance, updateCalls };
-});
+// issue #189: 新規登録ページの表示テスト。use:enhance は何もしない版に差し替える。
+// パスキーに対応したブラウザでも、登録画面にパスキーのボタンは出ない（FR-012）。
 
-vi.mock('$app/forms', () => ({ enhance }));
+vi.mock('$app/forms', () => ({ enhance: () => ({ destroy: () => {} }) }));
+vi.mock('#lib/passkey-client.js', () => ({
+	isPasskeySupported: () => true,
+	signInWithPasskey: vi.fn(),
+	registerPasskey: vi.fn()
+}));
 
 const RegisterPage = (await import('./+page.svelte')).default;
 
@@ -45,77 +20,29 @@ function data(overrides: Record<string, unknown> = {}) {
 }
 
 describe('/register +page.svelte', () => {
-	it('見出しと説明を表示する', async () => {
+	it('見出しを表示する', async () => {
 		await render(RegisterPage, { form: null, data: data() });
 
 		await expect
 			.element(page.getByRole('heading', { level: 1, name: '新規登録' }))
 			.toBeInTheDocument();
-		await expect
-			.element(page.getByText('メールアドレスとパスワードでアカウントを作成します。'))
-			.toBeInTheDocument();
 	});
 
-	it('メールとパスワードの入力欄をラベル付きで表示する', async () => {
+	it('FR-001: パスワードの入力欄・文言がどこにも無い', async () => {
+		const { container } = await render(RegisterPage, { form: null, data: data() });
+
+		expect(container.querySelector('input[type="password"]')).toBeNull();
+		expect(container.textContent).not.toContain('パスワード');
+	});
+
+	it('FR-012: メールのコードで始められる', async () => {
 		await render(RegisterPage, { form: null, data: data() });
 
 		await expect.element(page.getByLabelText('メールアドレス')).toBeInTheDocument();
-		await expect.element(page.getByLabelText('パスワード')).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'コードを送る' })).toBeInTheDocument();
 	});
 
-	it('パスワードの最低文字数を案内し入力欄にも制約を付ける', async () => {
-		const { container } = await render(RegisterPage, { form: null, data: data() });
-
-		await expect.element(page.getByText('8文字以上で入力してください。')).toBeInTheDocument();
-		expect(container.querySelector('#password')?.getAttribute('minlength')).toBe('8');
-	});
-
-	it('エラーが無ければアラートを表示しない', async () => {
-		const { container } = await render(RegisterPage, { form: null, data: data() });
-
-		expect(container.querySelector('[data-slot="alert"]')).toBeNull();
-	});
-
-	it('登録失敗のメッセージを表示する', async () => {
-		await render(RegisterPage, {
-			form: { message: 'このメールアドレスは既に登録されています', email: 'dup@example.com' },
-			data: data()
-		});
-
-		await expect
-			.element(page.getByText('このメールアドレスは既に登録されています'))
-			.toBeInTheDocument();
-	});
-
-	it('失敗時は入力されたメールを復元する', async () => {
-		await render(RegisterPage, {
-			form: { message: 'エラー', email: 'dup@example.com' },
-			data: data()
-		});
-
-		await expect.element(page.getByLabelText('メールアドレス')).toHaveValue('dup@example.com');
-	});
-
-	it('失敗時もパスワードは復元しない', async () => {
-		await render(RegisterPage, {
-			form: { message: 'エラー', email: 'dup@example.com' },
-			data: data()
-		});
-
-		await expect.element(page.getByLabelText('パスワード')).toHaveValue('');
-	});
-
-	it('Googleログインが無効ならボタンを表示しない', async () => {
-		const { container } = await render(RegisterPage, {
-			form: null,
-			data: data({ googleAuthEnabled: false })
-		});
-
-		expect(container.textContent).not.toContain('Googleで登録');
-		expect(container.querySelector('form[action="/auth/google"]')).toBeNull();
-	});
-
-	it('Googleログインが有効ならPOST /auth/google のボタンを表示する', async () => {
+	it('FR-012: Google でも始められ、パスキーのボタンは出さない', async () => {
 		const { container } = await render(RegisterPage, {
 			form: null,
 			data: data({ googleAuthEnabled: true })
@@ -124,45 +51,43 @@ describe('/register +page.svelte', () => {
 		await expect.element(page.getByRole('button', { name: /Googleで登録/ })).toBeInTheDocument();
 		const form = container.querySelector('form[action="/auth/google"]');
 		expect(form?.getAttribute('method')?.toUpperCase()).toBe('POST');
+		await expect.element(page.getByRole('button', { name: 'コードを送る' })).toBeInTheDocument();
+		expect(container.textContent).not.toContain('パスキー');
+	});
+
+	it('Googleログインが無効ならボタンを表示しない', async () => {
+		const { container } = await render(RegisterPage, {
+			form: null,
+			data: data({ googleAuthEnabled: false })
+		});
+
+		expect(container.querySelector('form[action="/auth/google"]')).toBeNull();
+	});
+
+	it('FR-011: 形式エラーのメッセージを表示する', async () => {
+		await render(RegisterPage, {
+			form: { step: 'email', message: 'メールアドレスの形式が正しくありません', email: 'bad' },
+			data: data()
+		});
+
+		await expect
+			.element(page.getByText('メールアドレスの形式が正しくありません'))
+			.toBeInTheDocument();
+	});
+
+	it('FR-004: コード入力の画面では送り先を表示する', async () => {
+		await render(RegisterPage, {
+			form: { step: 'code', email: 'a@example.com' },
+			data: data()
+		});
+
+		await expect.element(page.getByLabelText('6桁のコード')).toBeInTheDocument();
+		await expect.element(page.getByText(/a@example\.com/)).toBeInTheDocument();
 	});
 
 	it('ログインページへのリンクを表示する', async () => {
 		await render(RegisterPage, { form: null, data: data() });
 
 		await expect.element(page.getByRole('link', { name: 'ログイン' })).toBeInTheDocument();
-	});
-});
-
-describe('/register 送信中の挙動', () => {
-	/** メールとパスワードを埋めて送信ボタンを押す。 */
-	async function submit() {
-		await page.getByLabelText('メールアドレス').fill('new@example.com');
-		await page.getByLabelText('パスワード').fill('password123');
-		await page.getByRole('button', { name: '新規登録' }).click();
-	}
-
-	it('送信後にパスワード欄をクリアする', async () => {
-		await render(RegisterPage, { form: null, data: data() });
-
-		await submit();
-
-		await expect.element(page.getByLabelText('パスワード')).toHaveValue('');
-	});
-
-	it('送信時にフォームの再描画を要求する', async () => {
-		updateCalls.mockClear();
-		await render(RegisterPage, { form: null, data: data() });
-
-		await submit();
-
-		await vi.waitFor(() => expect(updateCalls).toHaveBeenCalledOnce());
-	});
-
-	it('送信が終わればボタンを押せる状態に戻す', async () => {
-		await render(RegisterPage, { form: null, data: data() });
-
-		await submit();
-
-		await expect.element(page.getByRole('button', { name: '新規登録' })).toBeEnabled();
 	});
 });

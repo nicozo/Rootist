@@ -1,72 +1,83 @@
 import { page } from 'vite-plus/test/browser';
-import { describe, expect, it, vi } from 'vite-plus/test';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { render } from 'vitest-browser-svelte';
 
-// issue #62: ログインページの表示テスト。
-// `use:enhance` は本来サーバーのForm Actionへfetchするため単体テストでは動かせない。
-// 検証したいのはページが渡すコールバック（送信中フラグとパスワード欄のクリア）なので、
-// submitイベントを捕まえて同じ順序で呼び出すだけの最小実装に差し替える。
-const { enhance, updateCalls } = vi.hoisted(() => {
-	const updateCalls = vi.fn();
-	const enhance = (
-		form: HTMLFormElement,
-		submitFn?: (input: unknown) => unknown | Promise<unknown>
-	) => {
-		const onSubmit = async (event: Event) => {
-			event.preventDefault();
-			const afterSubmit = await submitFn?.({
-				formElement: form,
-				formData: new FormData(form),
-				action: new URL('http://localhost/login'),
-				controller: new AbortController(),
-				submitter: null,
-				cancel: () => {}
-			});
-			if (typeof afterSubmit === 'function') {
-				await afterSubmit({
-					result: { type: 'failure', status: 400, data: {} },
-					update: async () => updateCalls()
-				});
-			}
-		};
-		form.addEventListener('submit', onSubmit);
-		return { destroy: () => form.removeEventListener('submit', onSubmit) };
-	};
-	return { enhance, updateCalls };
-});
+// issue #189: ログインページの表示テスト。
+// use:enhance・パスキーのブラウザ操作・画面遷移は単体テストでは動かせないため差し替える。
 
-vi.mock('$app/forms', () => ({ enhance }));
+const { isPasskeySupported, signInWithPasskey, goto } = vi.hoisted(() => ({
+	isPasskeySupported: vi.fn(),
+	signInWithPasskey: vi.fn(),
+	goto: vi.fn()
+}));
+
+vi.mock('$app/forms', () => ({ enhance: () => ({ destroy: () => {} }) }));
+vi.mock('$app/navigation', () => ({ goto }));
+vi.mock('#lib/passkey-client.js', () => ({
+	isPasskeySupported,
+	signInWithPasskey,
+	registerPasskey: vi.fn()
+}));
 
 const LoginPage = (await import('./+page.svelte')).default;
+
+const PASSKEY_LOGIN_FAILURE =
+	'パスキーでログインできませんでした。メールのコードかGoogleでもログインできます。';
 
 /** loadが返すdataの既定値。 */
 function data(overrides: Record<string, unknown> = {}) {
 	return { user: null, googleAuthEnabled: false, googleError: null, ...overrides };
 }
 
+beforeEach(() => {
+	isPasskeySupported.mockReturnValue(true);
+	signInWithPasskey.mockResolvedValue(true);
+	goto.mockClear();
+	signInWithPasskey.mockClear();
+});
+
 describe('/login +page.svelte', () => {
-	it('見出しと説明を表示する', async () => {
+	it('見出しを表示する', async () => {
 		await render(LoginPage, { form: null, data: data() });
 
 		await expect
 			.element(page.getByRole('heading', { level: 1, name: 'ログイン' }))
 			.toBeInTheDocument();
+	});
+
+	it('FR-001: パスワードの入力欄・文言がどこにも無い', async () => {
+		const { container } = await render(LoginPage, { form: null, data: data() });
+
+		expect(container.querySelector('input[type="password"]')).toBeNull();
+		expect(container.textContent).not.toContain('パスワード');
+	});
+
+	it('FR-002: メールのコード・パスキー・Google の 3 つの手段を表示する', async () => {
+		await render(LoginPage, { form: null, data: data({ googleAuthEnabled: true }) });
+
+		await expect.element(page.getByLabelText('メールアドレス')).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'コードを送る' })).toBeInTheDocument();
 		await expect
-			.element(page.getByText('メールアドレスとパスワードでログインします。'))
+			.element(page.getByRole('button', { name: 'パスキーでログイン' }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: /Googleでログイン/ }))
 			.toBeInTheDocument();
 	});
 
-	it('メールとパスワードの入力欄をラベル付きで表示する', async () => {
-		await render(LoginPage, { form: null, data: data() });
+	it('FR-019: パスキーに対応していないブラウザでは「パスキーでログイン」を表示しない', async () => {
+		isPasskeySupported.mockReturnValue(false);
 
-		await expect.element(page.getByLabelText('メールアドレス')).toBeInTheDocument();
-		await expect.element(page.getByLabelText('パスワード')).toBeInTheDocument();
-	});
+		const { container } = await render(LoginPage, {
+			form: null,
+			data: data({ googleAuthEnabled: true })
+		});
 
-	it('パスワード欄をマスク表示にする', async () => {
-		const { container } = await render(LoginPage, { form: null, data: data() });
-
-		expect(container.querySelector('#password')?.getAttribute('type')).toBe('password');
+		await expect.element(page.getByRole('button', { name: 'コードを送る' })).toBeInTheDocument();
+		expect(container.textContent).not.toContain('パスキーでログイン');
+		await expect
+			.element(page.getByRole('button', { name: /Googleでログイン/ }))
+			.toBeInTheDocument();
 	});
 
 	it('エラーが無ければアラートを表示しない', async () => {
@@ -75,18 +86,32 @@ describe('/login +page.svelte', () => {
 		expect(container.querySelector('[data-slot="alert"]')).toBeNull();
 	});
 
-	it('ログイン失敗のメッセージを表示する', async () => {
+	it('コード入力の画面（form.step === code）では送り先を表示する', async () => {
 		await render(LoginPage, {
-			form: { message: 'メールアドレスまたはパスワードが違います', email: 'a@example.com' },
+			form: { step: 'code', email: 'a@example.com' },
+			data: data()
+		});
+
+		await expect.element(page.getByLabelText('6桁のコード')).toBeInTheDocument();
+		await expect.element(page.getByText(/a@example\.com/)).toBeInTheDocument();
+	});
+
+	it('FR-008: コードの失敗メッセージを表示する', async () => {
+		await render(LoginPage, {
+			form: {
+				step: 'code',
+				message: 'コードが正しくないか、期限が切れています。',
+				email: 'a@example.com'
+			},
 			data: data()
 		});
 
 		await expect
-			.element(page.getByText('メールアドレスまたはパスワードが違います'))
+			.element(page.getByText('コードが正しくないか、期限が切れています。'))
 			.toBeInTheDocument();
 	});
 
-	it('Googleログイン失敗のメッセージを表示する', async () => {
+	it('FR-021: Googleログイン失敗のメッセージを表示する', async () => {
 		await render(LoginPage, {
 			form: null,
 			data: data({ googleError: 'Googleログインを完了できませんでした。もう一度お試しください。' })
@@ -95,34 +120,6 @@ describe('/login +page.svelte', () => {
 		await expect
 			.element(page.getByText('Googleログインを完了できませんでした。もう一度お試しください。'))
 			.toBeInTheDocument();
-	});
-
-	it('両方のエラーがあればフォームのメッセージを優先する', async () => {
-		const { container } = await render(LoginPage, {
-			form: { message: 'フォーム側のエラー', email: '' },
-			data: data({ googleError: 'Google側のエラー' })
-		});
-
-		expect(container.textContent).toContain('フォーム側のエラー');
-		expect(container.textContent).not.toContain('Google側のエラー');
-	});
-
-	it('失敗時は入力されたメールを復元する', async () => {
-		await render(LoginPage, {
-			form: { message: 'エラー', email: 'a@example.com' },
-			data: data()
-		});
-
-		await expect.element(page.getByLabelText('メールアドレス')).toHaveValue('a@example.com');
-	});
-
-	it('失敗時もパスワードは復元しない', async () => {
-		await render(LoginPage, {
-			form: { message: 'エラー', email: 'a@example.com' },
-			data: data()
-		});
-
-		await expect.element(page.getByLabelText('パスワード')).toHaveValue('');
 	});
 
 	it('Googleログインが無効ならボタンを表示しない', async () => {
@@ -141,9 +138,6 @@ describe('/login +page.svelte', () => {
 			data: data({ googleAuthEnabled: true })
 		});
 
-		await expect
-			.element(page.getByRole('button', { name: /Googleでログイン/ }))
-			.toBeInTheDocument();
 		const form = container.querySelector('form[action="/auth/google"]');
 		expect(form?.getAttribute('method')?.toUpperCase()).toBe('POST');
 	});
@@ -155,36 +149,37 @@ describe('/login +page.svelte', () => {
 	});
 });
 
-describe('/login 送信中の挙動', () => {
-	/** メールとパスワードを埋めて送信ボタンを押す。 */
-	async function submit() {
-		await page.getByLabelText('メールアドレス').fill('a@example.com');
-		await page.getByLabelText('パスワード').fill('password123');
-		await page.getByRole('button', { name: 'ログイン' }).click();
-	}
-
-	it('送信後にパスワード欄をクリアする', async () => {
+describe('/login パスキーでログイン', () => {
+	it('FR-017: 端末の確認が終われば /plan へ移る', async () => {
+		signInWithPasskey.mockResolvedValue(true);
 		await render(LoginPage, { form: null, data: data() });
 
-		await submit();
+		await page.getByRole('button', { name: 'パスキーでログイン' }).click();
 
-		await expect.element(page.getByLabelText('パスワード')).toHaveValue('');
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledOnce());
+		expect(goto.mock.calls[0][0]).toMatch(/\/plan$/);
 	});
 
-	it('送信時にフォームの再描画を要求する', async () => {
-		updateCalls.mockClear();
+	it('FR-018: 取り消し・失敗ではログイン画面のまま、メールのコードかGoogleでも入れる旨を表示する', async () => {
+		signInWithPasskey.mockResolvedValue(false);
 		await render(LoginPage, { form: null, data: data() });
 
-		await submit();
+		await page.getByRole('button', { name: 'パスキーでログイン' }).click();
 
-		await vi.waitFor(() => expect(updateCalls).toHaveBeenCalledOnce());
+		await expect.element(page.getByText(PASSKEY_LOGIN_FAILURE)).toBeInTheDocument();
+		expect(goto).not.toHaveBeenCalled();
+		await expect.element(page.getByRole('button', { name: 'コードを送る' })).toBeInTheDocument();
 	});
 
-	it('送信が終わればボタンを押せる状態に戻す', async () => {
+	it('FR-018: もう一度押せば再び試せる', async () => {
+		signInWithPasskey.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
 		await render(LoginPage, { form: null, data: data() });
 
-		await submit();
+		await page.getByRole('button', { name: 'パスキーでログイン' }).click();
+		await expect.element(page.getByText(PASSKEY_LOGIN_FAILURE)).toBeInTheDocument();
+		await page.getByRole('button', { name: 'パスキーでログイン' }).click();
 
-		await expect.element(page.getByRole('button', { name: 'ログイン' })).toBeEnabled();
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledOnce());
+		expect(signInWithPasskey).toHaveBeenCalledTimes(2);
 	});
 });
