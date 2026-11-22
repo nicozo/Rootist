@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,5 +31,5 @@
 
 ## Notes
 
-- [NEEDS CLARIFICATION] が 2 件残っている（パスキー登録の案内を再表示するか / パスキーの一覧・追加・削除の範囲）。師匠の回答で解消してから `/speckit-plan` に進む
+- 2026-11-22 師匠の回答で [NEEDS CLARIFICATION] 2 件を解消（案内は「あとで」3 回まで = FR-027 / パスキーの一覧・追加・削除は RT-REQ-1 へ）
 - FR-022〜FR-026 はエッジケースでだけ確かめる要件（受け入れシナリオではなくエッジケースの行に ID を添えた）
