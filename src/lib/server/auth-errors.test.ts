@@ -120,3 +120,25 @@ describe('isUnexpectedAuthError / describeAuthError', () => {
 		).toEqual({ name: 'X', code: 'c', status: 1 });
 	});
 });
+
+// issue #189 イテレーション 2（review R1）
+describe('mapSendCodeErrorCode: message による再送間隔と送信上限の区別（R1）', () => {
+	it('再送間隔の文言（after N seconds）は待つ旨', () => {
+		expect(
+			mapSendCodeErrorCode(
+				'over_email_send_rate_limit',
+				'For security purposes, you can only request this after 60 seconds.'
+			)
+		).toBe(RESEND_WAIT_MESSAGE);
+	});
+
+	it('それ以外の文言（プロジェクトの送信上限）は回数制限', () => {
+		expect(mapSendCodeErrorCode('over_email_send_rate_limit', 'email rate limit exceeded')).toBe(
+			RATE_LIMIT_MESSAGE
+		);
+	});
+
+	it('message が無ければ従来どおり待つ旨', () => {
+		expect(mapSendCodeErrorCode('over_email_send_rate_limit')).toBe(RESEND_WAIT_MESSAGE);
+	});
+});

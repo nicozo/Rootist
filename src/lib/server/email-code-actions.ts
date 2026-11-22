@@ -6,6 +6,7 @@ import {
 	CODE_INVALID_MESSAGE,
 	EMAIL_FORMAT_MESSAGE,
 	SEND_FAILURE_MESSAGE,
+	VERIFY_FAILURE_MESSAGE,
 	deriveNameFromEmail,
 	describeAuthError,
 	isUnexpectedAuthError,
@@ -43,7 +44,7 @@ export async function sendCode({ request, locals }: ActionEvent) {
 			options: { shouldCreateUser: true, data: { name: deriveNameFromEmail(email) } }
 		});
 		if (error) {
-			const message = mapSendCodeErrorCode(error.code);
+			const message = mapSendCodeErrorCode(error.code, error.message);
 			if (message === SEND_FAILURE_MESSAGE || isUnexpectedAuthError(error)) {
 				console.error('sendCode action: signInWithOtp failed', describeAuthError(error));
 			}
@@ -63,25 +64,24 @@ export async function verifyCode({ request, locals }: ActionEvent) {
 	const email = normalizeEmail(String(formData.get('email') ?? ''));
 	const code = String(formData.get('code') ?? '').trim();
 
-	const invalid = () => fail(400, { step: 'code' as const, message: CODE_INVALID_MESSAGE, email });
+	const failure = (message: string) => fail(400, { step: 'code' as const, message, email });
 	// 6 桁の数字でないコードは Supabase に送らない（回数制限を無駄に使わない）
-	if (!CODE_PATTERN.test(code)) return invalid();
+	if (!CODE_PATTERN.test(code)) return failure(CODE_INVALID_MESSAGE);
 
 	try {
 		const { error } = await locals.supabase.auth.verifyOtp({ email, token: code, type: 'email' });
 		if (error) {
+			const message = mapVerifyCodeErrorCode(error.code);
 			if (isUnexpectedAuthError(error)) {
 				console.error('verifyCode action: verifyOtp failed', describeAuthError(error));
+				// 障害（ネットワーク・5xx）を「コードが誤り」と見せない。誤りと思って再送すると有効なコードを無効にする
+				if (message === CODE_INVALID_MESSAGE) return failure(VERIFY_FAILURE_MESSAGE);
 			}
-			return fail(400, {
-				step: 'code' as const,
-				message: mapVerifyCodeErrorCode(error.code),
-				email
-			});
+			return failure(message);
 		}
 	} catch (err) {
 		console.error('verifyCode action: unexpected exception', err);
-		return invalid();
+		return failure(VERIFY_FAILURE_MESSAGE);
 	}
 
 	// redirect は try/catch の外（リダイレクトの例外を誤って捕捉しないため）

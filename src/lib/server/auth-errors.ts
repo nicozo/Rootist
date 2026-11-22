@@ -6,6 +6,8 @@ export const EMAIL_FORMAT_MESSAGE = 'メールアドレスの形式が正しく�
 export const CODE_INVALID_MESSAGE =
 	'コードが正しくないか、期限が切れています。入力し直すか、コードを再送してください。';
 export const RESEND_WAIT_MESSAGE = 'コードを送ったばかりです。60秒ほど待ってから再送してください。';
+export const VERIFY_FAILURE_MESSAGE =
+	'コードを確認できませんでした。しばらくしてからもう一度お試しください。';
 export const SEND_FAILURE_MESSAGE = 'コードを送れませんでした。もう一度お試しください。';
 // issue #116: Supabase Authの回数制限（IP単位）に当たったとき用
 export const RATE_LIMIT_MESSAGE =
@@ -44,17 +46,25 @@ export function deriveNameFromEmail(email: string): string {
 	return localPart && localPart.length > 0 ? localPart : email;
 }
 
+// GoTrue は同じ over_email_send_rate_limit を、同じアドレスへの再送間隔（"you can only request this after N
+// seconds"）とプロジェクト全体の 1 時間あたりの送信上限（"email rate limit exceeded"）の両方に使う。
+// 文言はサーバー由来（auth-js は通すだけ）なので、再送間隔と読める場合だけ「60 秒待つ」にする。
+const SEND_INTERVAL_MESSAGE_PATTERN = /after\s+\d+\s+seconds?/i;
+
 /**
  * コード送信（signInWithOtp）失敗時のSupabase Authエラーコードを日本語メッセージへ変換する。
  * 再送の間隔（FR-009）・回数制限（FR-023）・形式（FR-011）以外は送信失敗（FR-025）にする。
+ * message を渡したとき、再送間隔の文言でない over_email_send_rate_limit は回数制限として扱う。
  */
-export function mapSendCodeErrorCode(code: string | undefined): string {
+export function mapSendCodeErrorCode(code: string | undefined, message?: string): string {
 	switch (code) {
 		case 'email_address_invalid':
 		case 'validation_failed':
 			return EMAIL_FORMAT_MESSAGE;
 		case 'over_email_send_rate_limit':
-			return RESEND_WAIT_MESSAGE;
+			return message !== undefined && !SEND_INTERVAL_MESSAGE_PATTERN.test(message)
+				? RATE_LIMIT_MESSAGE
+				: RESEND_WAIT_MESSAGE;
 		case 'over_request_rate_limit':
 			return RATE_LIMIT_MESSAGE;
 		default:

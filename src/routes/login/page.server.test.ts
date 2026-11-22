@@ -309,3 +309,90 @@ describe('/login verifyCode', () => {
 		expect(JSON.stringify(result.data)).not.toContain('654321');
 	});
 });
+
+// issue #189 イテレーション 2（review R1・R2）
+describe('/login sendCode: 送信上限と再送間隔の区別（R1）', () => {
+	it('R1: プロジェクト全体の送信上限（再送間隔の文言でない over_email_send_rate_limit）は回数制限のメッセージ', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		signInWithOtp.mockResolvedValue({
+			data: {},
+			error: {
+				code: 'over_email_send_rate_limit',
+				status: 429,
+				message: 'email rate limit exceeded'
+			}
+		});
+
+		const result = (await actions.sendCode(
+			actionEvent({ email: 'a@example.com' })
+		)) as unknown as Failure;
+
+		expect(result.data.message).toBe(RATE_LIMIT_MESSAGE);
+	});
+
+	it('R1: 再送間隔の文言（after N seconds）なら待つ旨のメッセージ', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		signInWithOtp.mockResolvedValue({
+			data: {},
+			error: {
+				code: 'over_email_send_rate_limit',
+				status: 429,
+				message: 'For security purposes, you can only request this after 42 seconds.'
+			}
+		});
+
+		const result = (await actions.sendCode(
+			actionEvent({ email: 'a@example.com' })
+		)) as unknown as Failure;
+
+		expect(result.data.message).toBe(RESEND_WAIT_MESSAGE);
+	});
+});
+
+describe('/login verifyCode: Supabase の障害（R2）', () => {
+	const VERIFY_FAILURE = 'コードを確認できませんでした。しばらくしてからもう一度お試しください。';
+
+	it.each([
+		['ネットワーク障害', { name: 'AuthRetryableFetchError', status: 0 }],
+		['5xx', { name: 'AuthApiError', status: 503 }]
+	])(
+		'R2: %s は「コードが正しくない」ではなく確認できなかった旨を返す（コード入力の画面のまま）',
+		async (_label, error) => {
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			verifyOtp.mockResolvedValue({ data: {}, error });
+
+			const result = (await actions.verifyCode(
+				actionEvent({ email: 'a@example.com', code: '123456' })
+			)) as unknown as Failure;
+
+			expect(result.status).toBe(400);
+			expect(result.data).toEqual({
+				step: 'code',
+				message: VERIFY_FAILURE,
+				email: 'a@example.com'
+			});
+		}
+	);
+
+	it('R2: 例外も確認できなかった旨を返す', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		verifyOtp.mockRejectedValue(new TypeError('boom'));
+
+		const result = (await actions.verifyCode(
+			actionEvent({ email: 'a@example.com', code: '123456' })
+		)) as unknown as Failure;
+
+		expect(result.data.message).toBe(VERIFY_FAILURE);
+	});
+
+	it('R2: 誤り・期限切れ（403 otp_expired）は従来どおり「コードが正しくない」', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		verifyOtp.mockResolvedValue({ data: {}, error: { code: 'otp_expired', status: 403 } });
+
+		const result = (await actions.verifyCode(
+			actionEvent({ email: 'a@example.com', code: '123456' })
+		)) as unknown as Failure;
+
+		expect(result.data.message).toBe(CODE_INVALID_MESSAGE);
+	});
+});
