@@ -2,7 +2,7 @@
 
 **Branch**: `feat/issue-189-passwordless-auth` | **Date**: 2026-11-22 | **Spec**: [spec.md](./spec.md)
 
-**Input**: Feature specification from `specs/issue-189-passwordless-auth/spec.md`
+**Input**: `specs/issue-189-passwordless-auth/spec.md` の要件
 
 ## Summary
 
