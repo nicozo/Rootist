@@ -16,7 +16,8 @@ import {
 	formatResult,
 	isE2eTest,
 	isUnitTest,
-	parseNameStatus
+	parseNameStatus,
+	testRangeChanges
 } from '../src/lib/dev-tools/tdd-check.ts';
 
 const CONTAINER_ROOT = '/app';
@@ -37,7 +38,10 @@ function fail(message) {
 }
 
 function usage() {
-	return 'usage: pnpm -s tdd-check <テストのコミット> --base <ベースのブランチ・コミット>\n';
+	return (
+		'usage: pnpm -s tdd-check <テストのコミット> --base <ベースのブランチ・コミット>\n' +
+		'  テストだけのコミットが複数あるとき（実装前のテストの直し）は、最後のテストだけのコミットを渡す\n'
+	);
 }
 
 const args = process.argv.slice(2);
@@ -76,7 +80,10 @@ if (!git(['merge-base', '--is-ancestor', testSha, headSha]).ok)
 const violations = [];
 const before = git(['diff', '--name-only', baseSha, `${testSha}^`]);
 violations.push(...checkOrder(before.out.split('\n').filter(Boolean)));
-const changes = parseNameStatus(git(['diff', '--name-status', `${testSha}^`, testSha]).out);
+// テストだけのコミットが複数（実装前の直し）でも、ベース〜最後のテストだけのコミットをまとめて見る
+const changes = testRangeChanges(
+	parseNameStatus(git(['diff', '--name-status', baseSha, testSha]).out)
+);
 violations.push(...checkTestCommit(changes));
 const testFiles = changes.filter((c) => c.status !== 'D').map((c) => c.path);
 if (testFiles.length > 0) {

@@ -3,7 +3,9 @@
 //
 // 確かめること:
 // 1. テストだけのコミットが実装より先にある（ベース〜テストのコミットの手前で、テストと spec 以外が変わっていない）
-// 2. テストのコミットがテストのファイルだけを追加・変更している
+// 2. テストのコミットがテストのファイルだけを追加・変更している。実装より前なら、テストだけのコミットが複数あってよい
+//    （テストの直しは履歴を書き換えずに追加のコミットで行う。issue #190）。そのときは最後のテストだけのコミットを渡し、
+//    ベース〜そのコミットの差分（spec を除く）をまとめて「テストのコミット」の中身として扱う
 // 3. テストのコミットより後で、そのテストが緩められていない（行の削除・ファイルの削除・skip 等の追加が無い）
 // 4. テストのコミットの時点では追加・変更したテストが失敗し（RED）、最新の時点では通る（GREEN）
 
@@ -50,6 +52,11 @@ export function checkOrder(changedBeforeTests: string[]): string[] {
 	return changedBeforeTests
 		.filter((path) => !isAllowedBeforeTests(path))
 		.map((path) => `テストのコミットより前に実装が変わっている: ${path}`);
+}
+
+/** ベース〜テストのコミットの差分から spec を除き、「テストのコミット」の中身として扱う変更を返す */
+export function testRangeChanges(changes: FileChange[]): FileChange[] {
+	return changes.filter((change) => !change.path.startsWith('specs/'));
 }
 
 /** テストのコミットの中身。テストのファイルの追加・変更だけで、1 件以上あること */
