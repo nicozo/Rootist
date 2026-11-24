@@ -49,6 +49,7 @@ Phase 1 の設計後に見直しても違反は無い（Complexity Tracking は�
 - `src/routes/auth/callback/+server.ts`: 交換に成功したら `/plan` へ（`resolvePostLoginPath` を呼ばない。FR-003, FR-004, FR-014）。失敗・取り消しは今のまま `/login?error=google`（FR-007）
 - 表示名は `src/lib/server/auth-user.ts` のまま（FR-005）。Google ログインのたびに `user_metadata.name` 等が Google の値でマージされる（R-1。RT-REQ-1 への申し送りもそこに書いた）
 - 同じメールアドレスの統合は Supabase の自動リンク（R-2、FR-004）。アプリ側の処理は無い
+- アカウントは任意（FR-017）。ログイン必須の箇所は今も無く（`hooks.server.ts` は `locals.user` を入れるだけ。/plan・プランの生成・共有ページは `locals.user` を見ない）、この変更でも足さない。プランはアカウントにひも付かない
 
 ### 2. 自前の入口の撤去（ストーリー 2）
 
@@ -70,9 +71,9 @@ Phase 1 の設計後に見直しても違反は無い（Complexity Tracking は�
 
 | 層                  | 確かめる要件                                                                                                                                                                                                                                                                                                                                 |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Vitest サーバー     | /login の load（ログイン済みは /plan・`googleError`。FR-007, 008）と `actions` が無いこと（FR-011）、コールバックの行き先（成功は /plan・失敗は /login?error=google。FR-003, 004, 007, 014）、/register の `GET` が 308 で /login（FR-009）、`auth-errors.ts` に残す 2 関数                                                                  |
+| Vitest サーバー     | /login の load（ログイン済みは /plan・`googleError`。FR-007, 008）と `actions` が無いこと（FR-011）、コールバックの行き先（成功は /plan・失敗は /login?error=google。FR-003, 004, 007, 014）、/register の `GET` が 308 で /login（FR-009）、共有ページの load が未ログインでもプランを返す（FR-017）、`auth-errors.ts` に残す 2 関数        |
 | Vitest クライアント | ヘッダーに「新規登録」が無い（`src/routes/layout.svelte.test.ts`。FR-010）、/login の表示: Google が有効なら「Googleでログイン」だけで、メールアドレス・コード・パスワードの欄と「パスキーでログイン」と「新規登録」が無い（FR-001, 002, 013）、無効なら「現在ログインできません。」でボタンが無い（FR-012）、`googleError` の表示（FR-007） |
-| E2E                 | `/login` に入力欄が無い（FR-002）、`/register` → `/login`（FR-009）、ヘッダーに「新規登録」が無い（FR-010）、`POST /login?/sendCode`・`POST /register?/sendCode` が 405（FR-011）、`/passkey` が 404（FR-016）。Supabase には往復しない                                                                                                      |
+| E2E                 | 未ログインのままプランを作って結果画面に着く（`e2e/plan.test.ts` の P-2。FR-017）、`/login` に入力欄が無い（FR-002）、`/register` → `/login`（FR-009）、ヘッダーに「新規登録」が無い（FR-010）、`POST /login?/sendCode`・`POST /register?/sendCode` が 405（FR-011）、`/passkey` が 404（FR-016）。Supabase には往復しない                   |
 | 手動（師匠）        | [quickstart.md](./quickstart.md) の表（実の Google ログイン・同じアカウントへの再ログイン・表示名・Supabase 側の OTP の停止。FR-003, 004, 005, 011）                                                                                                                                                                                         |
 
 - FR-006・FR-015 は取り下げ（テストしない）
