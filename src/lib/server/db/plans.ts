@@ -1,4 +1,4 @@
-import type { JSONValue } from 'postgres';
+import type postgres from 'postgres';
 import type { RouteResult } from '#lib/stores/route.js';
 import { sql } from './index';
 
@@ -7,7 +7,7 @@ import { sql } from './index';
 
 /** プランを保存する。data は JSON 文字列ではなくオブジェクトとして渡し、jsonb の object として保存する。 */
 export async function insertPlan(shareId: string, data: RouteResult): Promise<void> {
-	await sql`insert into plans (share_id, data) values (${shareId}, ${sql.json(data as unknown as JSONValue)})`;
+	await sql`insert into plans (share_id, data) values (${shareId}, ${sql.json(data as unknown as postgres.JSONValue)})`;
 }
 
 /**
