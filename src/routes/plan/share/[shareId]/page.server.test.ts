@@ -27,6 +27,15 @@ afterEach(() => {
 });
 
 describe('/plan/share/[shareId] load', () => {
+	it('FR-017: 未ログイン（locals.user が null）でも該当するプランを返す', async () => {
+		const data = { destinations: [], summary: '浅草日帰り' };
+		findPlanByShareId.mockResolvedValue(data);
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const event = { params: { shareId: VALID_ID }, locals: { user: null } } as any;
+		await expect(load(event)).resolves.toEqual({ result: data });
+	});
+
 	it('該当するプランがあればその内容を返す', async () => {
 		const data = { destinations: [], summary: '浅草日帰り' };
 		findPlanByShareId.mockResolvedValue(data);

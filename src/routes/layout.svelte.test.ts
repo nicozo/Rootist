@@ -19,11 +19,12 @@ function renderLayout(user: typeof USER | null) {
 }
 
 describe('/+layout.svelte', () => {
-	it('未ログインならログイン・新規登録リンクを表示する', async () => {
-		await renderLayout(null);
+	it('FR-010: 未ログインなら「ログイン」リンクだけを表示し「新規登録」を表示しない', async () => {
+		const { container } = await renderLayout(null);
 
 		await expect.element(page.getByRole('link', { name: 'ログイン' })).toBeInTheDocument();
-		await expect.element(page.getByRole('link', { name: '新規登録' })).toBeInTheDocument();
+		expect(container.textContent).not.toContain('新規登録');
+		expect(container.querySelector('a[href*="register"]')).toBeNull();
 	});
 
 	it('未ログインならアバターメニューを表示しない', async () => {
