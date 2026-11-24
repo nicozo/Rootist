@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,5 +31,5 @@
 
 ## Notes
 
-- [NEEDS CLARIFICATION] が 2 つ残る（FR-004: 既存アカウントの引き継ぎ、FR-013: パスキーを消すか）。師匠の答えを `/speckit-clarify` で反映してから `/speckit-plan` に進む
+- FR-004（既存アカウントの引き継ぎ）と FR-013（パスキーを消すか）の [NEEDS CLARIFICATION] は、2026-11-24 の師匠の答えを `/speckit-clarify` で反映して解消した
 - URL（/plan・/register・/passkey）は利用者から見える画面の名前として書いた（前の spec と同じ書き方）
