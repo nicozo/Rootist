@@ -117,10 +117,10 @@ export async function mockApis(page: Page): Promise<ApiCalls> {
 	return calls;
 }
 
-/** 未ログインの目印（ナビに「ログイン」「新規登録」があり、アカウントメニューが無い）。 */
+/** 未ログインの目印（ナビに「ログイン」だけがあり、「新規登録」・アカウントメニューが無い。FR-010）。 */
 export async function expectLoggedOut(page: Page) {
 	await expect(page.getByRole('link', { name: 'ログイン', exact: true })).toBeVisible();
-	await expect(page.getByRole('link', { name: '新規登録', exact: true })).toBeVisible();
+	await expect(page.getByRole('link', { name: '新規登録', exact: true })).toHaveCount(0);
 	await expect(page.getByLabel('アカウントメニュー')).toHaveCount(0);
 }
 

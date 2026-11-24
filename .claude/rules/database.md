@@ -33,7 +33,7 @@ DB は Supabase の Postgres、認証は Supabase Auth。ローカル開発は�
 
 - `src/lib/server/supabase.ts` — リクエストごとの Supabase サーバー用クライアント（`@supabase/ssr`。セッションは HttpOnly の Cookie）
 - `src/lib/server/db/` — postgres.js の接続（Session pooler）。`db/plans.ts` がパラメータ化した SQL で plans を保存・取得し、ルートはここを呼ぶ
-- `src/lib/server/auth-errors.ts` / `auth-user.ts` — Supabase Auth のエラーの日本語化・`locals.user` を決める純粋関数
+- `src/lib/server/auth-errors.ts` / `auth-user.ts` — Supabase Auth のエラーのログ用の要約と想定外の判定・`locals.user` を決める純粋関数
 - `src/lib/dev-tools/` — Supabase CLI wrapper（`scripts/supabase-db.mjs` の判定ロジック）とマイグレーションの静的検査（RLS 漏れ、PR での追加のみ・ファイル名形式・タイムスタンプ順。CI の `migrations` ジョブ）
 - `src/hooks.server.ts` が全リクエストで Supabase Auth にユーザーを確認し（Cookie が無ければ通信しない）、`event.locals.user` / `event.locals.supabase` に載せる。ルートガードは無い
 - `DATABASE_URL` / `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` が必須。`SUPABASE_SECRET_KEY` はアプリのコードから使わない

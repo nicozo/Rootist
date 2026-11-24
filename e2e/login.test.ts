@@ -1,8 +1,11 @@
-// コードの送信・確認とパスキーの操作は Supabase に届くため対象外（.claude/rules/testing.md）。
-// Google ボタン・パスキーのボタンの有無は環境で変わるため確認しない。
+// Google の認証そのもの（実の Google ログイン）は対象外（.claude/rules/testing.md）。
+// Google ボタンの有無は環境で変わるため確認しない。
 import { expect, test } from './helpers';
 
-test('L-1: ナビの「ログイン」から /login に入る', async ({ page }) => {
+// SvelteKit の CSRF 検査（Origin）で 403 にならないよう、同一オリジンの form 本文で送る。
+const ORIGIN = 'http://localhost:4173';
+
+test('L-1: ナビの「ログイン」から /login に入り、自前の入力欄が無い', async ({ page }) => {
 	await page.goto('/');
 	await page
 		.getByRole('navigation', { name: 'アカウント' })
@@ -11,17 +14,10 @@ test('L-1: ナビの「ログイン」から /login に入る', async ({ page })
 	await expect(page).toHaveURL(/\/login$/);
 	await expect(page).toHaveTitle('rootist — ログイン');
 	await expect(page.getByRole('heading', { level: 1, name: 'ログイン' })).toBeVisible();
-	await expect(page.getByLabel('メールアドレス')).toBeVisible();
-	await expect(page.getByRole('button', { name: 'コードを送る' })).toBeVisible();
-	// issue #189 FR-001: パスワードの入力欄は無い
+	// FR-002: メールアドレス・コード・パスワードの入力欄は無い
+	await expect(page.getByLabel('メールアドレス')).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'コードを送る' })).toHaveCount(0);
 	await expect(page.getByLabel('パスワード')).toHaveCount(0);
-});
-
-test('L-2: 画面下の「新規登録」から /register に移る', async ({ page }) => {
-	await page.goto('/login');
-	await page.locator('[data-slot="card-footer"]').getByRole('link', { name: '新規登録' }).click();
-	await expect(page).toHaveURL(/\/register$/);
-	await expect(page.getByRole('heading', { level: 1, name: '新規登録' })).toBeVisible();
 });
 
 test('L-3: /login?error=google で Google ログイン失敗の文言が出る', async ({ page }) => {
@@ -30,3 +26,13 @@ test('L-3: /login?error=google で Google ログイン失敗の文言が出る',
 		page.getByText('Googleログインを完了できませんでした。もう一度お試しください。')
 	).toBeVisible();
 });
+
+for (const action of ['sendCode', 'verifyCode']) {
+	test(`L-4: POST /login?/${action} は 405（form action が無い。FR-011）`, async ({ page }) => {
+		const response = await page.request.post(`/login?/${action}`, {
+			headers: { Origin: ORIGIN },
+			form: { email: 'a@example.com', code: '123456' }
+		});
+		expect(response.status()).toBe(405);
+	});
+}

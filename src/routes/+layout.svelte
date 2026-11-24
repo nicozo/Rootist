@@ -18,8 +18,6 @@
 		<UserMenu user={data.user} />
 	{:else}
 		<a href={resolve('login')} class="text-accent underline underline-offset-2">ログイン</a>
-
-		<a href={resolve('register')} class="text-accent underline underline-offset-2">新規登録</a>
 	{/if}
 </nav>
 

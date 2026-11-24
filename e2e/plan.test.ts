@@ -2,6 +2,7 @@
 import {
 	createPlanToResult,
 	expect,
+	expectLoggedOut,
 	mockApis,
 	MOCK_ROUTE_SUMMARY,
 	MOCK_SUGGESTIONS,
@@ -18,6 +19,9 @@ test('P-1: /plan を直接開くとタイトル・h1・空の状態が見える'
 
 test('P-2: 場所を 2 件選んでプランを作成すると結果画面に着く', async ({ page }) => {
 	const calls = await mockApis(page);
+	// FR-017: 未ログインのままプランの作成と結果の表示ができる
+	await page.goto('/plan');
+	await expectLoggedOut(page);
 	await createPlanToResult(page);
 	await expect(page.getByText(MOCK_ROUTE_SUMMARY)).toBeVisible();
 	for (const s of MOCK_SUGGESTIONS) {

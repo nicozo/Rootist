@@ -1,6 +1,5 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { resolvePostLoginPath } from '#lib/server/post-login.js';
 
 // SupabaseのGoogle認証から戻ってくる口。認可コードをセッションに交換する（PKCE）。
 // キャンセル・失敗はいずれも /login?error=google に戻し、生のエラー内容は画面に出さない。
@@ -14,8 +13,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			if (error) {
 				console.error('google callback: exchangeCodeForSession failed', { code: error.code });
 			} else {
-				// パスキーの案内を出すかをコードでのログインと同じ規則で決める（FR-020）
-				destination = await resolvePostLoginPath(locals.supabase);
+				destination = '/plan';
 			}
 		} catch (err) {
 			console.error('google callback: unexpected exception', err);

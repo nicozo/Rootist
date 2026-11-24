@@ -125,7 +125,7 @@ pnpm run db:status
 
 ## ☁️ Supabase 環境
 
-DB と email/password 認証は Supabase（Postgres / Supabase Auth）へ移行済みです（Google ログインは #117 まで停止中）。ローカル開発は開発用クラウドプロジェクトへの直結方式で、接続情報は `.env.example` を元に設定します。方式の理由と手順は [`docs/supabase-setup.md`](docs/supabase-setup.md) を参照してください。
+DB と認証は Supabase（Postgres / Supabase Auth）です。ログイン手段は Google だけです。ローカル開発は開発用クラウドプロジェクトへの直結方式で、接続情報は `.env.example` を元に設定します。方式の理由と手順は [`docs/supabase-setup.md`](docs/supabase-setup.md) を参照してください。
 
 ## 🤖 Docker MCP Toolkit（Claude Code 連携）
 

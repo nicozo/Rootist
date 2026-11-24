@@ -1,15 +1,13 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from 'vite-plus/test';
 
 // issue #117: GET /auth/callback（Google認証からの戻り）の単体テスト。
-// issue #189: 成功時の行き先は resolvePostLoginPath で決める（モックする）。
-
-const { resolvePostLoginPath } = vi.hoisted(() => ({ resolvePostLoginPath: vi.fn() }));
-vi.mock('#lib/server/post-login.js', () => ({ resolvePostLoginPath }));
+// issue #199: 成功時は案内を挟まず常に /plan へ（FR-003, FR-004, FR-014）。
 
 const { GET } = await import('./+server');
 
 const exchangeCodeForSession = vi.fn();
-const supabase = { auth: { exchangeCodeForSession } };
+const passkeyList = vi.fn();
+const supabase = { auth: { exchangeCodeForSession, passkey: { list: passkeyList } } };
 
 function event(search: string) {
 	return {
@@ -21,7 +19,7 @@ function event(search: string) {
 
 beforeEach(() => {
 	exchangeCodeForSession.mockResolvedValue({ error: null });
-	resolvePostLoginPath.mockResolvedValue('/plan');
+	passkeyList.mockResolvedValue({ data: [], error: null });
 	vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
@@ -31,7 +29,7 @@ afterEach(() => {
 });
 
 describe('/auth/callback', () => {
-	it('認可コードを交換できたら/planへ', async () => {
+	it('FR-003, FR-004: 認可コードを交換できたら/planへ', async () => {
 		await expect(GET(event('?code=abc'))).rejects.toMatchObject({
 			status: 303,
 			location: '/plan'
@@ -39,7 +37,15 @@ describe('/auth/callback', () => {
 		expect(exchangeCodeForSession).toHaveBeenCalledWith('abc');
 	});
 
-	it('codeが無ければ/login?error=googleへ（交換しない）', async () => {
+	it('FR-014: 交換できてもパスキーの有無を調べず案内を挟まない', async () => {
+		await expect(GET(event('?code=abc'))).rejects.toMatchObject({
+			status: 303,
+			location: '/plan'
+		});
+		expect(passkeyList).not.toHaveBeenCalled();
+	});
+
+	it('FR-007: codeが無ければ/login?error=googleへ（交換しない）', async () => {
 		await expect(GET(event(''))).rejects.toMatchObject({
 			status: 303,
 			location: '/login?error=google'
@@ -47,43 +53,24 @@ describe('/auth/callback', () => {
 		expect(exchangeCodeForSession).not.toHaveBeenCalled();
 	});
 
-	it('キャンセル（errorパラメータ）なら/login?error=googleへ', async () => {
+	it('FR-007: キャンセル（errorパラメータ）なら/login?error=googleへ', async () => {
 		await expect(GET(event('?error=access_denied&error_code=x'))).rejects.toMatchObject({
 			location: '/login?error=google'
 		});
 		expect(exchangeCodeForSession).not.toHaveBeenCalled();
 	});
 
-	it('交換に失敗したら/login?error=googleへ', async () => {
+	it('FR-007: 交換に失敗したら/login?error=googleへ', async () => {
 		exchangeCodeForSession.mockResolvedValue({ error: { code: 'bad_code' } });
 		await expect(GET(event('?code=abc'))).rejects.toMatchObject({
 			location: '/login?error=google'
 		});
 	});
 
-	it('例外が出ても500にせず/login?error=googleへ', async () => {
+	it('FR-007: 例外が出ても500にせず/login?error=googleへ', async () => {
 		exchangeCodeForSession.mockRejectedValue(new Error('network'));
 		await expect(GET(event('?code=abc'))).rejects.toMatchObject({
 			location: '/login?error=google'
 		});
-	});
-
-	it('FR-020, FR-013: 交換できたら行き先の判定の結果（/passkey）へ', async () => {
-		resolvePostLoginPath.mockResolvedValue('/passkey');
-
-		await expect(GET(event('?code=abc'))).rejects.toMatchObject({
-			status: 303,
-			location: '/passkey'
-		});
-		expect(resolvePostLoginPath).toHaveBeenCalledWith(supabase);
-	});
-
-	it('FR-021: 交換に失敗したら行き先の判定を呼ばない', async () => {
-		exchangeCodeForSession.mockResolvedValue({ error: { code: 'bad_code' } });
-
-		await expect(GET(event('?code=abc'))).rejects.toMatchObject({
-			location: '/login?error=google'
-		});
-		expect(resolvePostLoginPath).not.toHaveBeenCalled();
 	});
 });

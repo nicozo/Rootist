@@ -9,9 +9,9 @@ const supabasePublishableKey = SUPABASE_PUBLISHABLE_KEY;
 /** Supabase の origin。/auth/google が外部リダイレクトを許可する唯一の宛先（issue #146 D2） */
 export const supabaseOrigin = new URL(supabaseUrl).origin;
 
-// /login・/registerのGoogleボタン表示フラグ（issue #117）。Googleの認証情報はSupabaseダッシュボード側に
+// /loginのGoogleボタン表示フラグ（issue #117）。Googleの認証情報はSupabaseダッシュボード側に
 // 登録するためアプリからは設定の有無を判定できない。ダッシュボードで設定済みの環境だけ
-// GOOGLE_AUTH_ENABLED=true にする（未設定ならボタンを出さず、email/passwordは影響を受けない）。
+// GOOGLE_AUTH_ENABLED=true にする（未設定ならボタンを出さず、「現在ログインできません。」を表示する）。
 export const isGoogleAuthEnabled = GOOGLE_AUTH_ENABLED === 'true';
 
 /** リクエストごとに作るSupabaseサーバー用クライアント（モジュール全体で共有しない） */

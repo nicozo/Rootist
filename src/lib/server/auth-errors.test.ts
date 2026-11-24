@@ -1,99 +1,8 @@
 import { describe, expect, it } from 'vite-plus/test';
-import {
-	normalizeEmail,
-	isValidEmailFormat,
-	deriveNameFromEmail,
-	mapSendCodeErrorCode,
-	mapVerifyCodeErrorCode,
-	describeAuthError,
-	isUnexpectedAuthError,
-	EMAIL_FORMAT_MESSAGE,
-	CODE_INVALID_MESSAGE,
-	RESEND_WAIT_MESSAGE,
-	SEND_FAILURE_MESSAGE,
-	RATE_LIMIT_MESSAGE
-} from './auth-errors';
+import { describeAuthError, isUnexpectedAuthError } from './auth-errors';
 
-// issue #116: Supabase Auth向けのaction層エラーマッピング・メール正規化・OTP（メールのコード）のエラー対応の単体テスト（issue #189 でパスワード用を削除）。
-// DBアクセス・Supabase初期化を行わない純粋関数のみを対象とする（CIのダミーDATABASE_URLでも実行可能）。
-
-describe('normalizeEmail', () => {
-	it('trimしてから小文字化する', () => {
-		expect(normalizeEmail('  Test@Example.com  ')).toBe('test@example.com');
-	});
-});
-
-describe('isValidEmailFormat', () => {
-	it('正しい形式のメールアドレスを受理する', () => {
-		expect(isValidEmailFormat('test@example.com')).toBe(true);
-	});
-
-	it('@を含まない文字列を拒否する', () => {
-		expect(isValidEmailFormat('not-an-email')).toBe(false);
-	});
-
-	it('空文字を拒否する', () => {
-		expect(isValidEmailFormat('')).toBe(false);
-	});
-
-	it('255文字を超えるメールアドレスを拒否する', () => {
-		const local = 'a'.repeat(250);
-		expect(isValidEmailFormat(`${local}@example.com`)).toBe(false);
-	});
-});
-
-describe('deriveNameFromEmail', () => {
-	it('メールのローカル部を名前として返す', () => {
-		expect(deriveNameFromEmail('taro@example.com')).toBe('taro');
-	});
-
-	it('ローカル部が空の場合はメール全体を返す', () => {
-		expect(deriveNameFromEmail('@example.com')).toBe('@example.com');
-	});
-});
-
-describe('メッセージ定数', () => {
-	it('文言', () => {
-		expect(EMAIL_FORMAT_MESSAGE).toBe('メールアドレスの形式が正しくありません');
-		expect(RATE_LIMIT_MESSAGE).toBe(
-			'試行回数が多すぎます。しばらく時間をおいてからもう一度お試しください。'
-		);
-		expect(CODE_INVALID_MESSAGE).toBe(
-			'コードが正しくないか、期限が切れています。入力し直すか、コードを再送してください。'
-		);
-		expect(RESEND_WAIT_MESSAGE).toBe(
-			'コードを送ったばかりです。60秒ほど待ってから再送してください。'
-		);
-		expect(SEND_FAILURE_MESSAGE).toBe('コードを送れませんでした。もう一度お試しください。');
-	});
-});
-
-describe('mapSendCodeErrorCode（FR-009, FR-011, FR-023, FR-025）', () => {
-	it.each([
-		['email_address_invalid', EMAIL_FORMAT_MESSAGE],
-		['validation_failed', EMAIL_FORMAT_MESSAGE],
-		['over_email_send_rate_limit', RESEND_WAIT_MESSAGE],
-		['over_request_rate_limit', RATE_LIMIT_MESSAGE],
-		['unexpected_failure', SEND_FAILURE_MESSAGE],
-		['SOME_UNKNOWN_CODE', SEND_FAILURE_MESSAGE],
-		[undefined, SEND_FAILURE_MESSAGE]
-	])('%s を日本語メッセージに変換する', (code, message) => {
-		expect(mapSendCodeErrorCode(code)).toBe(message);
-	});
-});
-
-describe('mapVerifyCodeErrorCode（FR-008, FR-022, FR-023）', () => {
-	it.each([
-		['otp_expired', CODE_INVALID_MESSAGE],
-		['validation_failed', CODE_INVALID_MESSAGE],
-		['over_request_rate_limit', RATE_LIMIT_MESSAGE],
-		['over_email_send_rate_limit', RATE_LIMIT_MESSAGE],
-		['SOME_UNKNOWN_CODE', CODE_INVALID_MESSAGE],
-		[undefined, CODE_INVALID_MESSAGE]
-	])('%s を日本語メッセージに変換する', (code, message) => {
-		expect(mapVerifyCodeErrorCode(code)).toBe(message);
-	});
-});
+// issue #116: Supabase Auth のエラーのログ用の要約と想定外の判定の単体テスト（issue #199 でメールのコード用を削除）。
+// DBアクセス・Supabase初期化を行わない純粋関数のみを対象とする。
 
 describe('isUnexpectedAuthError / describeAuthError', () => {
 	it.each([
@@ -118,27 +27,5 @@ describe('isUnexpectedAuthError / describeAuthError', () => {
 		expect(
 			describeAuthError({ name: 'X', code: 'c', status: 1, message: 'secret' } as never)
 		).toEqual({ name: 'X', code: 'c', status: 1 });
-	});
-});
-
-// issue #189 イテレーション 2（review R1）
-describe('mapSendCodeErrorCode: message による再送間隔と送信上限の区別（R1）', () => {
-	it('再送間隔の文言（after N seconds）は待つ旨', () => {
-		expect(
-			mapSendCodeErrorCode(
-				'over_email_send_rate_limit',
-				'For security purposes, you can only request this after 60 seconds.'
-			)
-		).toBe(RESEND_WAIT_MESSAGE);
-	});
-
-	it('それ以外の文言（プロジェクトの送信上限）は回数制限', () => {
-		expect(mapSendCodeErrorCode('over_email_send_rate_limit', 'email rate limit exceeded')).toBe(
-			RATE_LIMIT_MESSAGE
-		);
-	});
-
-	it('message が無ければ従来どおり待つ旨', () => {
-		expect(mapSendCodeErrorCode('over_email_send_rate_limit')).toBe(RESEND_WAIT_MESSAGE);
 	});
 });
