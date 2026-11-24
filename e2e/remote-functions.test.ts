@@ -106,11 +106,11 @@ test.describe('場所検索の remote function', () => {
 			headers: { Origin: 'https://evil.example' }
 		});
 
-		// GET は origin 検査を通るが、command は本文（POST）を要求するため本体は実行されない
+		// GET は origin 検査を通るが、command は POST だけを受け付けるため 405 で弾かれ本体は実行されない
 		const json = await res.json();
 		expect(json.type).toBe('error');
-		expect(json.error.status).toBe(500);
-		expect(json.error.message).toBe('Internal Error');
+		expect(json.error.status).toBe(405);
+		expect(json.error.message).toBe('Method Not Allowed');
 	});
 });
 
